@@ -25,7 +25,7 @@ export default defineConfig({
         '**/types/**',
         'src/main.tsx',
         'src/App.tsx',
-        'server.ts',
+        'server/index.ts',
       ],
       thresholds: {
         'server/domain/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
@@ -41,6 +41,11 @@ export default defineConfig({
         test: {
           name: 'frontend',
           environment: 'jsdom',
+          environmentOptions: {
+            jsdom: {
+              url: 'http://localhost/',
+            },
+          },
           include: ['src/**/*.{test,spec}.{ts,tsx}'],
           setupFiles: ['src/test/setup.ts'],
         },
