@@ -23,7 +23,8 @@ import {
   Upload,
   FolderOpen,
   Sliders,
-  Search
+  Search,
+  Bot
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ReactMarkdown from "react-markdown";
@@ -154,7 +155,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `aether_context_${Date.now()}.json`;
+    a.download = `aether_env_${Date.now()}.json`;
     a.click();
   };
 
@@ -177,6 +178,7 @@ export default function App() {
       }
     };
     reader.readAsText(file);
+    e.target.value = "";
   };
 
   const fetchContext = async () => {
@@ -313,18 +315,21 @@ export default function App() {
     }
   };
 
-  const handleSend = async () => {
-    if (!inputValue.trim() || isLoading) return;
+  const handleSend = async (messageTextOverride?: string) => {
+    const textToSend = typeof messageTextOverride === "string" ? messageTextOverride : inputValue;
+    if (!textToSend.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      text: inputValue,
+      text: textToSend,
       timestamp: Date.now(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    setInputValue("");
+    if (typeof messageTextOverride !== "string") {
+      setInputValue("");
+    }
     setIsLoading(true);
 
     const aiMessageId = Date.now().toString() + "-ai";
@@ -342,7 +347,7 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: inputValue,
+          message: textToSend,
           model: selectedModel,
           config: modelConfig
         }),
@@ -409,12 +414,22 @@ export default function App() {
     fetchContext();
   };
 
+  const handleDispatchSubAgent = () => {
+    const subAgent = prompt("Enter sub-agent name (e.g., Coder_X1):");
+    if (!subAgent || !subAgent.trim()) return;
+    const query = prompt(`Enter query for ${subAgent}:`);
+    if (!query || !query.trim()) return;
+    handleSend(`@${subAgent.trim()} ${query.trim()}`);
+  };
+
   const commands = [
     { title: "Switch to Chat View", action: () => setActiveTab("chat"), icon: <Terminal className="w-4 h-4" /> },
     { title: "Switch to Reasoning Trace", action: () => setActiveTab("reasoning"), icon: <Cpu className="w-4 h-4" /> },
     { title: "Switch to MCP Logs", action: () => setActiveTab("mcp"), icon: <Shield className="w-4 h-4" /> },
     { title: "Clear History", action: resetHistory, icon: <Trash2 className="w-4 h-4 text-red-400" /> },
+    { title: "Dispatch Sub-Agent", action: handleDispatchSubAgent, icon: <Bot className="w-4 h-4" /> },
     { title: "Export Environment", action: exportContext, icon: <Download className="w-4 h-4" /> },
+    { title: "Import Environment", action: () => { fileInputRef.current?.click() }, icon: <Upload className="w-4 h-4" /> },
     { title: "Add Custom Tool", action: handleAddTool, icon: <Wrench className="w-4 h-4" /> },
     { title: "Add MCP Server", action: handleAddMcpServer, icon: <Layers className="w-4 h-4" /> },
     { title: "Toggle Model Settings", action: () => setShowModelConfig(!showModelConfig), icon: <Sliders className="w-4 h-4" /> },
@@ -495,10 +510,10 @@ export default function App() {
                     <span className="mono-label">Environments</span>
                   </div>
                   <div className="flex gap-1">
-                    <button onClick={() => fileInputRef.current?.click()} title="Import Context JSON">
+                    <button onClick={() => fileInputRef.current?.click()} title="Import Environment JSON">
                       <Upload className="w-3 h-3 text-zinc-500 hover:text-white transition-colors" />
                     </button>
-                    <button onClick={exportContext} title="Export Context JSON">
+                    <button onClick={exportContext} title="Export Environment JSON">
                       <Download className="w-3 h-3 text-zinc-500 hover:text-white transition-colors" />
                     </button>
                   </div>
