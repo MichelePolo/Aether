@@ -22,7 +22,8 @@ import {
   Download,
   Upload,
   FolderOpen,
-  Sliders
+  Sliders,
+  Search
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import ReactMarkdown from "react-markdown";
@@ -78,10 +79,33 @@ export default function App() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [modelConfig, setModelConfig] = useState({ temperature: 1, maxOutputTokens: 8192 });
   const [showModelConfig, setShowModelConfig] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [commandQuery, setCommandQuery] = useState("");
+  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const commandInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (showCommandPalette) {
+      setCommandQuery("");
+      setSelectedCommandIndex(0);
+      setTimeout(() => commandInputRef.current?.focus(), 10);
+    }
+  }, [showCommandPalette]);
 
   useEffect(() => {
     fetchContext();
@@ -385,6 +409,41 @@ export default function App() {
     fetchContext();
   };
 
+  const commands = [
+    { title: "Switch to Chat View", action: () => setActiveTab("chat"), icon: <Terminal className="w-4 h-4" /> },
+    { title: "Switch to Reasoning Trace", action: () => setActiveTab("reasoning"), icon: <Cpu className="w-4 h-4" /> },
+    { title: "Switch to MCP Logs", action: () => setActiveTab("mcp"), icon: <Shield className="w-4 h-4" /> },
+    { title: "Clear History", action: resetHistory, icon: <Trash2 className="w-4 h-4 text-red-400" /> },
+    { title: "Export Environment", action: exportContext, icon: <Download className="w-4 h-4" /> },
+    { title: "Add Custom Tool", action: handleAddTool, icon: <Wrench className="w-4 h-4" /> },
+    { title: "Add MCP Server", action: handleAddMcpServer, icon: <Layers className="w-4 h-4" /> },
+    { title: "Toggle Model Settings", action: () => setShowModelConfig(!showModelConfig), icon: <Sliders className="w-4 h-4" /> },
+  ];
+
+  const filteredCommands = commands.filter(cmd => cmd.title.toLowerCase().includes(commandQuery.toLowerCase()));
+
+  useEffect(() => {
+    setSelectedCommandIndex(0);
+  }, [commandQuery]);
+
+  const handleCommandKeydown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedCommandIndex(prev => Math.min(prev + 1, filteredCommands.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedCommandIndex(prev => Math.max(prev - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredCommands[selectedCommandIndex]) {
+        filteredCommands[selectedCommandIndex].action();
+        setShowCommandPalette(false);
+      }
+    } else if (e.key === 'Escape') {
+      setShowCommandPalette(false);
+    }
+  };
+
   return (
     <div className="flex h-screen w-full bg-[#0a0a0a] text-zinc-300 font-sans">
       {/* Sidebar - Context Disclosure */}
@@ -401,7 +460,17 @@ export default function App() {
                 <Command className="w-4 h-4 text-[var(--color-accent)]" />
                 <span className="font-mono text-sm tracking-tight text-white font-bold">AETHER_CORE</span>
               </div>
-              <Settings className="w-4 h-4 text-zinc-500 cursor-pointer hover:text-white transition-colors" />
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setShowCommandPalette(true)}
+                  className="flex items-center gap-1.5 px-2 py-1 bg-zinc-900 border border-zinc-800 rounded text-zinc-500 hover:text-white hover:border-zinc-700 transition-colors"
+                  title="Command Palette (Cmd+K)"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  <span className="text-[9px] font-mono">⌘K</span>
+                </button>
+                <Settings className="w-4 h-4 text-zinc-500 cursor-pointer hover:text-white transition-colors" />
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
@@ -945,6 +1014,96 @@ export default function App() {
           </footer>
         </div>
       </main>
+
+      <AnimatePresence>
+        {showCommandPalette && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowCommandPalette(false)}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: -20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -20 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="w-full max-w-xl bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden flex flex-col"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center px-4 py-3 border-b border-zinc-800">
+                <Search className="w-5 h-5 text-zinc-500 mr-3" />
+                <input 
+                  ref={commandInputRef}
+                  type="text"
+                  placeholder="Type a command or search..."
+                  value={commandQuery}
+                  onChange={e => setCommandQuery(e.target.value)}
+                  onKeyDown={handleCommandKeydown}
+                  className="flex-1 bg-transparent text-white border-none outline-none font-mono text-sm placeholder:text-zinc-600"
+                />
+                <div className="flex items-center gap-1.5 bg-zinc-800/50 px-1.5 py-0.5 rounded text-[10px] font-mono text-zinc-500 border border-zinc-700">
+                  <span className="text-[9px]">ESC</span>
+                </div>
+              </div>
+              
+              <div className="max-h-[300px] overflow-y-auto p-2 scrollbar-hide">
+                {filteredCommands.length > 0 ? (
+                  <div className="space-y-1">
+                    {filteredCommands.map((cmd, idx) => (
+                      <div 
+                        key={cmd.title}
+                        onMouseEnter={() => setSelectedCommandIndex(idx)}
+                        onClick={() => {
+                          cmd.action();
+                          setShowCommandPalette(false);
+                        }}
+                        className={cn(
+                          "flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-colors",
+                          idx === selectedCommandIndex ? "bg-[var(--color-accent)] text-black" : "text-zinc-400 hover:bg-zinc-900",
+                          (idx === selectedCommandIndex && cmd.title.includes('Clear History')) ? "bg-red-500 text-white" : ""
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "flex items-center justify-center",
+                            idx === selectedCommandIndex && !cmd.title.includes('Clear History') ? "text-black" : 
+                            (idx === selectedCommandIndex && cmd.title.includes('Clear History')) ? "text-white" : "text-zinc-500"
+                          )}>
+                            {cmd.icon}
+                          </div>
+                          <span className={cn(
+                            "font-mono tracking-tight text-sm",
+                            idx === selectedCommandIndex ? "font-semibold" : ""
+                          )}>{cmd.title}</span>
+                        </div>
+                        {idx === selectedCommandIndex && (
+                          <div className={cn(
+                            "text-[10px] font-mono flex items-center gap-1 opacity-70",
+                            idx === selectedCommandIndex && !cmd.title.includes('Clear History') ? "text-black" : "text-zinc-500"
+                          )}>
+                            <span className="bg-black/10 px-1 py-0.5 rounded">ENTER</span>
+                            <span>to select</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-4 py-8 text-center text-sm font-mono text-zinc-600 italic">
+                    No commands found.
+                  </div>
+                )}
+              </div>
+              <div className="bg-zinc-900 px-4 py-2 text-[10px] font-mono text-zinc-500 border-t border-zinc-800 flex justify-between">
+                <span>Use <kbd className="bg-zinc-800 px-1 rounded text-zinc-400">↑</kbd> <kbd className="bg-zinc-800 px-1 rounded text-zinc-400">↓</kbd> to navigate</span>
+                <span>Command Palette</span>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
