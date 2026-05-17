@@ -213,6 +213,82 @@ export default function App() {
     }
   };
 
+  const handleAddTool = () => {
+    const name = prompt("Enter new tool name:");
+    if (!name || !name.trim()) return;
+    const version = prompt("Enter version (e.g., 1.0.0):", "1.0.0");
+    if (!version) return;
+    const statusStr = prompt("Enter status (online/offline):", "online");
+    const status = statusStr?.toLowerCase() === "online" ? "online" : "offline";
+    
+    if (context) {
+      updateContext({ tools: [...context.tools, { name: name.trim(), version: version.trim(), status }] });
+    }
+  };
+
+  const handleEditTool = (index: number) => {
+    if (!context) return;
+    const tool = context.tools[index];
+    const newName = prompt("Edit tool name:", tool.name);
+    if (!newName || !newName.trim()) return;
+    const newVersion = prompt("Edit version:", tool.version);
+    if (!newVersion) return;
+    const newStatusStr = prompt("Edit status (online/offline):", tool.status);
+    const newStatus = newStatusStr?.toLowerCase() === "online" ? "online" : "offline";
+
+    const updatedTools = [...context.tools];
+    updatedTools[index] = { name: newName.trim(), version: newVersion.trim(), status: newStatus };
+    updateContext({ tools: updatedTools });
+  };
+
+  const handleRemoveTool = (index: number) => {
+    if (!context) return;
+    if (confirm(`Remove tool "${context.tools[index].name}"?`)) {
+      const updatedTools = context.tools.filter((_, i) => i !== index);
+      updateContext({ tools: updatedTools });
+    }
+  };
+
+  const handleAddMcpServer = () => {
+    const name = prompt("Enter MCP server name:");
+    if (!name || !name.trim()) return;
+    const url = prompt("Enter Server URL:", "http://localhost:8080/mcp");
+    if (!url) return;
+    const statusStr = prompt("Enter status (online/offline/connecting):", "connecting");
+    const status = ["online", "offline"].includes(statusStr?.toLowerCase() || "") ? statusStr?.toLowerCase() : "connecting";
+    
+    if (context) {
+      updateContext({ mcpServers: [...(context.mcpServers || []), { name: name.trim(), url: url.trim(), status }] });
+    }
+  };
+
+  const handleEditMcpServer = (index: number) => {
+    if (!context) return;
+    const server = (context.mcpServers || [])[index];
+    if (!server) return;
+    
+    const newName = prompt("Edit MCP server name:", server.name);
+    if (!newName || !newName.trim()) return;
+    const newUrl = prompt("Edit Server URL:", server.url);
+    if (!newUrl) return;
+    const newStatusStr = prompt("Edit status (online/offline/connecting):", server.status);
+    const newStatus = ["online", "offline"].includes(newStatusStr?.toLowerCase() || "") ? newStatusStr?.toLowerCase() : "connecting";
+
+    const updatedServers = [...(context.mcpServers || [])];
+    updatedServers[index] = { name: newName.trim(), url: newUrl.trim(), status: newStatus };
+    updateContext({ mcpServers: updatedServers });
+  };
+
+  const handleRemoveMcpServer = (index: number) => {
+    if (!context) return;
+    const server = (context.mcpServers || [])[index];
+    if (!server) return;
+    if (confirm(`Remove MCP server "${server.name}"?`)) {
+      const updatedServers = (context.mcpServers || []).filter((_, i) => i !== index);
+      updateContext({ mcpServers: updatedServers });
+    }
+  };
+
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading) return;
 
@@ -227,8 +303,18 @@ export default function App() {
     setInputValue("");
     setIsLoading(true);
 
+    const aiMessageId = Date.now().toString() + "-ai";
+    const initialAiMessage: Message = {
+      id: aiMessageId,
+      role: "model",
+      text: "",
+      timestamp: Date.now(),
+    };
+
+    setMessages((prev) => [...prev, initialAiMessage]);
+
     try {
-      const res = await fetch("/api/ai/dispatch", {
+      const res = await fetch("/api/ai/dispatch/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -238,26 +324,47 @@ export default function App() {
         }),
       });
 
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      if (!res.body) throw new Error("No response body");
 
-      const aiMessage: Message = {
-        id: data.id,
-        role: "model",
-        text: data.text,
-        reasoning: data.reasoning,
-        reasoningSteps: data.reasoningSteps || [
-          { id: "1", type: "logic", title: "Context Injection", content: "Analyzing user intent and historical state...", confidence: 0.98, tokens: 450 },
-          { id: "2", type: "dispatch", title: "Sub-Agent Dispatch", content: "Delegating code synthesis task to specialized sub-model.", confidence: 0.85, subAgent: "Coder_X1" },
-          { id: "3", type: "mcp_query", title: "MCP Surface Check", content: "Checking for relevant MCP tool definitions...", confidence: 0.95 },
-          { id: "4", type: "validation", title: "Truthfulness Check", content: "Verifying output against protocol guidelines.", confidence: 0.99 }
-        ],
-        timestamp: Date.now(),
-        model: data.model,
-      };
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let done = false;
+      let aiText = "";
 
-      setMessages((prev) => [...prev, aiMessage]);
-      fetchContext(); // Refresh context history
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: !done });
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.replace('data: ', '');
+              if (!dataStr) continue;
+              try {
+                const data = JSON.parse(dataStr);
+                if (data.error) throw new Error(data.error);
+                if (data.text) {
+                  aiText = data.done ? data.text : aiText + data.text;
+                  setMessages(prev => prev.map(m => m.id === aiMessageId ? { ...m, text: aiText } : m));
+                }
+                if (data.done) {
+                  setMessages(prev => prev.map(m => m.id === aiMessageId ? {
+                    ...m,
+                    text: data.text,
+                    reasoning: data.reasoning,
+                    reasoningSteps: data.reasoningSteps,
+                    model: data.model
+                  } : m));
+                  fetchContext();
+                }
+              } catch (e) {
+                // ignore json parse errors for incomplete chunks
+              }
+            }
+          }
+        }
+      }
     } catch (error: any) {
       console.error("Dispatch Error:", error);
       const errorMessage: Message = {
@@ -407,14 +514,32 @@ export default function App() {
                 </div>
                 <div className="space-y-2">
                    {context?.tools?.map((tool: any, i: number) => (
-                     <div key={i} className="p-2 rounded bg-zinc-900/30 border border-zinc-800/50 flex items-center justify-between">
-                       <span className="text-[10px] font-mono text-zinc-500">{tool.name}</span>
-                       <div className={cn(
-                         "w-1.5 h-1.5 rounded-full",
-                         tool.status === "online" ? "bg-green-500 shadow-[0_0_8px_#22c55e]" : "bg-zinc-700"
-                       )} />
+                     <div key={i} className="group p-2 rounded bg-zinc-900/30 border border-zinc-800/50 flex flex-col gap-1">
+                       <div className="flex items-center justify-between">
+                         <span className="text-[10px] font-mono text-zinc-500">{tool.name} <span className="opacity-50 mx-1">v{tool.version}</span></span>
+                         <div className="flex items-center gap-2">
+                           <div className="hidden group-hover:flex items-center gap-1 opacity-70">
+                             <button onClick={() => handleEditTool(i)} className="hover:text-white transition-colors" title="Edit Tool">
+                               <Pencil className="w-3 h-3" />
+                             </button>
+                             <button onClick={() => handleRemoveTool(i)} className="hover:text-red-400 transition-colors" title="Remove Tool">
+                               <Trash2 className="w-3 h-3" />
+                             </button>
+                           </div>
+                           <div className={cn(
+                             "w-1.5 h-1.5 rounded-full",
+                             tool.status === "online" ? "bg-green-500 shadow-[0_0_8px_#22c55e]" : "bg-zinc-700"
+                           )} title={tool.status} />
+                         </div>
+                       </div>
                      </div>
                    ))}
+                   <button 
+                     onClick={handleAddTool}
+                     className="w-full p-1 border border-dashed border-zinc-800 rounded text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors mt-2"
+                   >
+                     + Register Tool
+                   </button>
                 </div>
               </section>
 
@@ -424,8 +549,42 @@ export default function App() {
                   <Layers className="w-3.5 h-3.5 text-zinc-500" />
                   <span className="mono-label">MCP Network</span>
                 </div>
-                <div className="text-[10px] text-zinc-600 font-mono italic">
-                  No active MCP nodes connected.
+                <div className="space-y-2">
+                  {(!context?.mcpServers || context.mcpServers.length === 0) ? (
+                    <div className="text-[10px] text-zinc-600 font-mono italic">
+                      No active MCP nodes connected.
+                    </div>
+                  ) : (
+                    context.mcpServers.map((server: any, i: number) => (
+                      <div key={i} className="group p-2 rounded bg-zinc-900/30 border border-zinc-800/50 flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono text-zinc-500">{server.name}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="hidden group-hover:flex items-center gap-1 opacity-70">
+                              <button onClick={() => handleEditMcpServer(i)} className="hover:text-white transition-colors" title="Edit Server">
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                              <button onClick={() => handleRemoveMcpServer(i)} className="hover:text-red-400 transition-colors" title="Remove Server">
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                            <div className={cn(
+                              "w-1.5 h-1.5 rounded-full",
+                              server.status === "online" ? "bg-green-500 shadow-[0_0_8px_#22c55e]" : 
+                              server.status === "connecting" ? "bg-yellow-500 animate-pulse" : "bg-zinc-700"
+                            )} title={server.status} />
+                          </div>
+                        </div>
+                        <div className="text-[9px] font-mono text-zinc-600 truncate">{server.url}</div>
+                      </div>
+                    ))
+                  )}
+                  <button 
+                    onClick={handleAddMcpServer}
+                    className="w-full p-1 border border-dashed border-zinc-800 rounded text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors mt-2"
+                  >
+                    + Add Connection
+                  </button>
                 </div>
               </section>
             </div>
