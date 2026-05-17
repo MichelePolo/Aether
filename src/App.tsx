@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy file, replaced in slice-1
 import React, { useState, useEffect, useRef } from "react";
 import { 
   Terminal, 

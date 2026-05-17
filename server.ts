@@ -1,3 +1,4 @@
+// @ts-nocheck — legacy file, replaced in slice-1/2
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";

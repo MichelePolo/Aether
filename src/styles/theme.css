@@ -1,0 +1,26 @@
+@theme {
+  /* Surface scale — dal più scuro al più chiaro */
+  --color-surface-0: #080808;
+  --color-surface-1: #0a0a0a;
+  --color-surface-2: #0f0f0f;
+  --color-surface-3: #121212;
+  --color-surface-4: #1a1a1a;
+  --color-surface-5: #2a2a2a;
+
+  /* Status colors */
+  --color-status-online: #22c55e;
+  --color-status-connecting: #eab308;
+  --color-status-offline: #71717a;
+  --color-status-error: #ef4444;
+
+  /* Borders */
+  --color-border-subtle: #27272a;
+  --color-border-default: #3f3f46;
+
+  /* Accent */
+  --color-accent: #00ff9d;
+
+  /* Typography */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
