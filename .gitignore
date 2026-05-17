@@ -6,3 +6,14 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
+playwright/.cache/
+
+# Local data (allow only the directory marker files)
+data/*
+!data/.gitignore
+!data/.gitkeep
