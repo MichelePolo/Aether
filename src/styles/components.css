@@ -1,0 +1,23 @@
+@layer base {
+  body {
+    @apply bg-surface-2 text-white font-sans antialiased;
+    overflow: hidden;
+  }
+}
+
+@layer components {
+  .panel        { @apply bg-surface-2 border border-border-subtle rounded; }
+  .panel-inset  { @apply bg-zinc-900/30 border border-border-subtle/50 rounded; }
+  .mono-label   { @apply font-mono text-[10px] uppercase tracking-widest text-zinc-500; }
+  .status-dot   { @apply w-1.5 h-1.5 rounded-full inline-block; }
+  .badge        { @apply text-[9px] px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wide; }
+  .icon-btn     { @apply p-1.5 rounded text-zinc-500 hover:bg-zinc-800 hover:text-white transition-colors; }
+  .cli-input    { @apply bg-transparent border-none outline-none text-white font-mono w-full; }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-default); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #444; }
