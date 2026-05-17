@@ -33,7 +33,8 @@
     "react-markdown": "^10.1.0",
     "tailwind-merge": "^3.6.0",
     "vite": "^6.2.3",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
