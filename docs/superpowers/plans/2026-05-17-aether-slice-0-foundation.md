@@ -247,6 +247,8 @@ git commit -m "chore(slice-0): enable TS strict mode (legacy files marked nochec
 
 - [ ] **Step 4.1: Crea vitest.config.ts**
 
+> **Nota:** Vitest 4 ha rimosso `environmentMatchGlobs` in favore di `projects`. Usiamo la nuova sintassi.
+
 ```ts
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config';
@@ -262,11 +264,6 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environmentMatchGlobs: [
-      ['src/**/*.{test,spec}.{ts,tsx}', 'jsdom'],
-      ['server/**/*.{test,spec}.ts', 'node'],
-    ],
-    setupFiles: ['src/test/setup.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
@@ -290,6 +287,26 @@ export default defineConfig({
         'src/lib/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
       },
     },
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'frontend',
+          environment: 'jsdom',
+          include: ['src/**/*.{test,spec}.{ts,tsx}'],
+          setupFiles: ['src/test/setup.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'backend',
+          environment: 'node',
+          include: ['server/**/*.{test,spec}.ts'],
+          setupFiles: ['server/test/setup.ts'],
+        },
+      },
+    ],
   },
 });
 ```
@@ -345,13 +362,15 @@ git commit -m "feat(slice-0): vitest config with jsdom/node split + setup files"
 
 `src/test/msw-handlers.ts`:
 
+> **Nota:** MSW in Node richiede URL assoluti negli handlers (i path relativi non si risolvono nel contesto `msw/node`). I test useranno un base URL convenzionale `http://localhost`; per gli slice successivi che testano route reali useremo lo stesso base URL.
+
 ```ts
 import { http, HttpResponse } from 'msw';
 
-// Handlers default. Test specifici sovrascrivono con server.use(...).
+// Base URL convenzionale per i test (jsdom + msw/node).
 // Negli Slice successivi qui aggiungiamo handlers per /api/context, /api/profiles, /api/mcp/*, /api/ai/dispatch.
 export const handlers = [
-  http.get('/api/__health', () => HttpResponse.json({ ok: true })),
+  http.get('http://localhost/api/__health', () => HttpResponse.json({ ok: true })),
 ];
 ```
 
