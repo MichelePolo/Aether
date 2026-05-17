@@ -1,0 +1,6 @@
+{
+  "name": "Aether AI Dev Studio",
+  "description": "An advanced LLM development environment with full context transparency, MCP support, and cross-model subagent dispatching.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
