@@ -1,8 +1,11 @@
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import { isAppError } from './lib/errors';
+import type { ContextStore } from './domain/context/context.store';
+import { createContextRoutes } from './routes/context.routes';
 
 export interface AppDeps {
-  // Negli slice successivi: contextStore, historyStore, profilesStore, dispatcher, mcpRegistry.
+  contextStore?: ContextStore;
+  // Negli slice successivi: historyStore, profilesStore, dispatcher, mcpRegistry.
 }
 
 // In Express l'error middleware DEVE essere registrato dopo le route per
@@ -10,7 +13,7 @@ export interface AppDeps {
 // (e in futuro a chi compone più moduli) di registrare route prima dell'error
 // handler, evitando di riscrivere l'intera factory.
 export function createApp(
-  _deps: AppDeps,
+  deps: AppDeps,
   extraRoutes?: (app: Express) => void,
 ): Express {
   const app = express();
@@ -19,6 +22,10 @@ export function createApp(
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
+
+  if (deps.contextStore) {
+    app.use('/api/context', createContextRoutes(deps.contextStore));
+  }
 
   extraRoutes?.(app);
 
