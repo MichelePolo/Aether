@@ -2,8 +2,11 @@ import { useContextStore } from '@/src/stores/context.store';
 import { useDialog } from '@/src/hooks/useDialog';
 import { StatusDot } from '@/src/components/ui/StatusDot';
 
+const EMPTY_SERVERS: never[] = [];
+
 export function McpServersSection() {
-  const servers = useContextStore((s) => s.context?.mcpServers ?? []);
+  const context = useContextStore((s) => s.context);
+  const servers = context?.mcpServers ?? EMPTY_SERVERS;
   const addMcpServer = useContextStore((s) => s.addMcpServer);
   const removeMcpServer = useContextStore((s) => s.removeMcpServer);
   const dialog = useDialog();

@@ -1,8 +1,11 @@
 import { useContextStore } from '@/src/stores/context.store';
 import { useDialog } from '@/src/hooks/useDialog';
 
+const EMPTY_SKILLS: string[] = [];
+
 export function SkillsSection() {
-  const skills = useContextStore((s) => s.context?.skills ?? []);
+  const context = useContextStore((s) => s.context);
+  const skills = context?.skills ?? EMPTY_SKILLS;
   const addSkill = useContextStore((s) => s.addSkill);
   const updateSkillAt = useContextStore((s) => s.updateSkillAt);
   const removeSkillAt = useContextStore((s) => s.removeSkillAt);

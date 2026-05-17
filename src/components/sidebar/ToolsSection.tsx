@@ -2,8 +2,11 @@ import { useContextStore } from '@/src/stores/context.store';
 import { useDialog } from '@/src/hooks/useDialog';
 import { StatusDot } from '@/src/components/ui/StatusDot';
 
+const EMPTY_TOOLS: never[] = [];
+
 export function ToolsSection() {
-  const tools = useContextStore((s) => s.context?.tools ?? []);
+  const context = useContextStore((s) => s.context);
+  const tools = context?.tools ?? EMPTY_TOOLS;
   const addTool = useContextStore((s) => s.addTool);
   const removeTool = useContextStore((s) => s.removeTool);
   const dialog = useDialog();
