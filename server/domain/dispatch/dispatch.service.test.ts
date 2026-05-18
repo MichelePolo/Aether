@@ -120,6 +120,22 @@ describe('DispatchService', () => {
     expect((errEvt!.data as { retryable: boolean }).retryable).toBe(false);
   });
 
+  it('emits Context load failed when contextStore throws', async () => {
+    const provider = new FakeProvider({ chunks: ['x'] });
+    const historyStore = new HistoryStore(path.join(dir, 'sessions.json'));
+    const failingContextStore = {
+      read: async () => {
+        throw new Error('disk');
+      },
+    } as unknown as ContextStore;
+    const svc = new DispatchService({ provider, historyStore, contextStore: failingContextStore });
+    const { emitter, events } = createCollectorEmitter();
+    await svc.handle({ message: 'hi' }, emitter, new AbortController().signal);
+    const err = events.find((e) => e.event === 'error');
+    expect(err).toBeDefined();
+    expect((err!.data as { message: string }).message).toBe('Context load failed');
+  });
+
   it('marks transient errors retryable=true', async () => {
     class TransientProvider {
       readonly model = 'rl';

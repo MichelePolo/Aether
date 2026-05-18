@@ -83,6 +83,21 @@ describe('useStreamingDispatch', () => {
     });
   });
 
+  it('non-abort fetch error marks message failed with retryable=true', async () => {
+    server.use(
+      http.post('http://localhost/api/ai/dispatch', () =>
+        HttpResponse.json({ error: { message: 'oops' } }, { status: 500 }),
+      ),
+    );
+    const { result } = renderHook(() => useStreamingDispatch());
+    await act(async () => {
+      await result.current.send('hi');
+    });
+    const last = useChatStore.getState().messages.at(-1);
+    expect(last?.error).toBeDefined();
+    expect(last?.retryable).toBe(true);
+  });
+
   it('isStreaming flips during send', async () => {
     let release: () => void = () => {};
     const gate = new Promise<void>((r) => { release = r; });

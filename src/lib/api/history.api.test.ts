@@ -42,4 +42,14 @@ describe('historyApi', () => {
     );
     await expect(historyApi.fetchDefault()).rejects.toThrow(/boom/);
   });
+
+  it('clearDefault throws on 500', async () => {
+    server.use(
+      http.delete(
+        'http://localhost/api/sessions/default',
+        () => new HttpResponse(null, { status: 500 }),
+      ),
+    );
+    await expect(historyApi.clearDefault()).rejects.toThrow();
+  });
 });

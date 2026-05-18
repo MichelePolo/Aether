@@ -63,4 +63,20 @@ describe('/api/ai/dispatch', () => {
     const res = await request(app).post('/api/ai/dispatch').send({ message: 'x' });
     expect(res.status).toBe(503);
   });
+
+  it('catches dispatcher exception and emits sse.error', async () => {
+    const throwingDispatcher = {
+      handle: async () => {
+        throw new Error('boom');
+      },
+    };
+    const app = createApp({
+      contextStore,
+      historyStore,
+      dispatcher: throwingDispatcher as unknown as DispatchService,
+    });
+    const res = await request(app).post('/api/ai/dispatch').send({ message: 'x' });
+    const events = await collectSseEvents(res);
+    expect(events.find((e) => e.event === 'error')).toBeDefined();
+  });
 });
