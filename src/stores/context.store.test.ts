@@ -109,4 +109,166 @@ describe('useContextStore', () => {
     await useContextStore.getState().setSystemInstruction('Updated');
     expect(useContextStore.getState().context?.systemInstruction).toBe('Updated');
   });
+
+  it('addTool sets error on failure (no rollback needed)', async () => {
+    server.use(
+      http.get('http://localhost/api/context', () => HttpResponse.json(fixture)),
+      http.post('http://localhost/api/context/tools', () =>
+        HttpResponse.json({ error: { message: 'tool boom' } }, { status: 500 }),
+      ),
+    );
+    await useContextStore.getState().init();
+    await expect(
+      useContextStore.getState().addTool({ name: 'X', version: '1.0', status: 'online' }),
+    ).rejects.toThrow();
+    expect(useContextStore.getState().context?.tools).toEqual([]);
+    expect(useContextStore.getState().error).toMatch(/tool boom/);
+  });
+
+  it('updateTool rolls back state on error', async () => {
+    const fix = {
+      ...fixture,
+      tools: [{ id: 't1', name: 'X', version: '1.0', status: 'online' as const }],
+    };
+    server.use(
+      http.get('http://localhost/api/context', () => HttpResponse.json(fix)),
+      http.patch('http://localhost/api/context/tools/t1', () =>
+        HttpResponse.json({ error: { message: 'no patch' } }, { status: 400 }),
+      ),
+    );
+    await useContextStore.getState().init();
+    await expect(
+      useContextStore.getState().updateTool('t1', { name: 'Y' }),
+    ).rejects.toThrow();
+    expect(useContextStore.getState().context?.tools).toEqual(fix.tools);
+    expect(useContextStore.getState().error).toMatch(/no patch/);
+  });
+
+  it('updateSkillAt rolls back state on error', async () => {
+    server.use(
+      http.get('http://localhost/api/context', () => HttpResponse.json(fixture)),
+      http.patch('http://localhost/api/context/skills/0', () =>
+        HttpResponse.json({ error: { message: 'nope' } }, { status: 400 }),
+      ),
+    );
+    await useContextStore.getState().init();
+    await expect(useContextStore.getState().updateSkillAt(0, 'sx')).rejects.toThrow();
+    expect(useContextStore.getState().context?.skills).toEqual(['s1', 's2']);
+    expect(useContextStore.getState().error).toMatch(/nope/);
+  });
+
+  it('removeSkillAt rolls back state on error', async () => {
+    server.use(
+      http.get('http://localhost/api/context', () => HttpResponse.json(fixture)),
+      http.delete('http://localhost/api/context/skills/0', () =>
+        HttpResponse.json({ error: { message: 'gone' } }, { status: 404 }),
+      ),
+    );
+    await useContextStore.getState().init();
+    await expect(useContextStore.getState().removeSkillAt(0)).rejects.toThrow();
+    expect(useContextStore.getState().context?.skills).toEqual(['s1', 's2']);
+    expect(useContextStore.getState().error).toMatch(/gone/);
+  });
+
+  it('setSystemInstruction rolls back on patch failure', async () => {
+    server.use(
+      http.get('http://localhost/api/context', () => HttpResponse.json(fixture)),
+      http.patch('http://localhost/api/context', () =>
+        HttpResponse.json({ error: { message: 'sys fail' } }, { status: 500 }),
+      ),
+    );
+    await useContextStore.getState().init();
+    await expect(
+      useContextStore.getState().setSystemInstruction('Changed'),
+    ).rejects.toThrow();
+    expect(useContextStore.getState().context?.systemInstruction).toBe('You are X');
+    expect(useContextStore.getState().error).toMatch(/sys fail/);
+  });
+
+  it('addMcpServer adds and sets error on failure', async () => {
+    server.use(
+      http.get('http://localhost/api/context', () => HttpResponse.json(fixture)),
+      http.post('http://localhost/api/context/mcp-servers', () =>
+        HttpResponse.json({ error: { message: 'mcp boom' } }, { status: 500 }),
+      ),
+    );
+    await useContextStore.getState().init();
+    await expect(
+      useContextStore.getState().addMcpServer({
+        name: 'M',
+        url: 'http://m',
+        status: 'online',
+      }),
+    ).rejects.toThrow();
+    expect(useContextStore.getState().context?.mcpServers).toEqual([]);
+    expect(useContextStore.getState().error).toMatch(/mcp boom/);
+  });
+
+  it('addMcpServer succeeds and appends returned server', async () => {
+    const srv = { id: 'm1', name: 'M', url: 'http://m', status: 'online' as const };
+    server.use(
+      http.get('http://localhost/api/context', () => HttpResponse.json(fixture)),
+      http.post('http://localhost/api/context/mcp-servers', () =>
+        HttpResponse.json(srv, { status: 201 }),
+      ),
+    );
+    await useContextStore.getState().init();
+    await useContextStore.getState().addMcpServer({ name: 'M', url: 'http://m', status: 'online' });
+    expect(useContextStore.getState().context?.mcpServers).toContainEqual(srv);
+  });
+
+  it('removeMcpServer removes optimistically and rolls back on error', async () => {
+    const fix = {
+      ...fixture,
+      mcpServers: [{ id: 'm1', name: 'M', url: 'http://m', status: 'online' as const }],
+    };
+    server.use(
+      http.get('http://localhost/api/context', () => HttpResponse.json(fix)),
+      http.delete('http://localhost/api/context/mcp-servers/m1', () =>
+        HttpResponse.json({ error: { message: 'mcp gone' } }, { status: 500 }),
+      ),
+    );
+    await useContextStore.getState().init();
+    await expect(useContextStore.getState().removeMcpServer('m1')).rejects.toThrow();
+    expect(useContextStore.getState().context?.mcpServers).toEqual(fix.mcpServers);
+    expect(useContextStore.getState().error).toMatch(/mcp gone/);
+  });
+
+  it('removeMcpServer removes successfully on 204', async () => {
+    const fix = {
+      ...fixture,
+      mcpServers: [{ id: 'm1', name: 'M', url: 'http://m', status: 'online' as const }],
+    };
+    server.use(
+      http.get('http://localhost/api/context', () => HttpResponse.json(fix)),
+      http.delete(
+        'http://localhost/api/context/mcp-servers/m1',
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+    await useContextStore.getState().init();
+    await useContextStore.getState().removeMcpServer('m1');
+    expect(useContextStore.getState().context?.mcpServers).toEqual([]);
+  });
+
+  it('actions are no-ops when context not initialized', async () => {
+    await expect(useContextStore.getState().addSkill('x')).resolves.toBeUndefined();
+    await expect(useContextStore.getState().updateSkillAt(0, 'x')).resolves.toBeUndefined();
+    await expect(useContextStore.getState().removeSkillAt(0)).resolves.toBeUndefined();
+    await expect(
+      useContextStore.getState().addTool({ name: 'x', version: '1', status: 'online' }),
+    ).resolves.toBeUndefined();
+    await expect(
+      useContextStore.getState().updateTool('x', { name: 'y' }),
+    ).resolves.toBeUndefined();
+    await expect(useContextStore.getState().removeTool('x')).resolves.toBeUndefined();
+    await expect(
+      useContextStore.getState().addMcpServer({ name: 'M', url: 'u', status: 'online' }),
+    ).resolves.toBeUndefined();
+    await expect(useContextStore.getState().removeMcpServer('x')).resolves.toBeUndefined();
+    await expect(
+      useContextStore.getState().setSystemInstruction('x'),
+    ).resolves.toBeUndefined();
+    expect(useContextStore.getState().context).toBeNull();
+  });
 });
