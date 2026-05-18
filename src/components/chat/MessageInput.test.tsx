@@ -1,9 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MessageInput } from './MessageInput';
+import { useUiStore } from '@/src/stores/ui.store';
 
 describe('MessageInput', () => {
+  beforeEach(() => {
+    useUiStore.getState()._reset();
+    localStorage.clear();
+  });
+
   it('sends on Enter with trim', async () => {
     const onSend = vi.fn();
     render(<MessageInput onSend={onSend} onStop={() => {}} isStreaming={false} />);
@@ -66,5 +72,25 @@ describe('MessageInput', () => {
     await userEvent.type(screen.getByRole('textbox'), 'click-send');
     await userEvent.click(screen.getByRole('button', { name: /send/i }));
     expect(onSend).toHaveBeenCalledWith('click-send');
+  });
+
+  it('brain toggle reflects ui.store.thinkingEnabled', () => {
+    render(<MessageInput onSend={() => {}} onStop={() => {}} isStreaming={false} />);
+    const btn = screen.getByRole('button', { name: /thinking/i });
+    expect(btn).toHaveAttribute('aria-pressed', 'false');
+    act(() => {
+      useUiStore.getState().setThinkingEnabled(true);
+    });
+    // re-render-on-state-change: with Zustand selectors, the component should re-render automatically
+    expect(btn).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('clicking brain toggle flips thinkingEnabled', async () => {
+    render(<MessageInput onSend={() => {}} onStop={() => {}} isStreaming={false} />);
+    const btn = screen.getByRole('button', { name: /thinking/i });
+    await userEvent.click(btn);
+    expect(useUiStore.getState().thinkingEnabled).toBe(true);
+    await userEvent.click(btn);
+    expect(useUiStore.getState().thinkingEnabled).toBe(false);
   });
 });
