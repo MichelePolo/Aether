@@ -9,4 +9,17 @@ export interface Message {
   retryable?: boolean;
 }
 
-export type SessionsFile = Record<string, Message[]>;
+export interface SessionRecord {
+  title: string;
+  createdAt: number;
+  messages: Message[];
+}
+
+export interface SessionMeta {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type SessionsFile = Record<string, SessionRecord>;

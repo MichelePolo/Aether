@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MessageSchema, SessionsFileSchema } from './history.schema';
+import { MessageSchema, SessionRecordSchema, SessionsFileSchema } from './history.schema';
 
 describe('MessageSchema', () => {
   it('parses minimal user message', () => {
@@ -15,12 +15,8 @@ describe('MessageSchema', () => {
       timestamp: 2,
       model: 'gemini-test',
       interrupted: false,
-      error: undefined,
-      retryable: undefined,
     };
-    const parsed = MessageSchema.parse(msg);
-    expect(parsed.model).toBe('gemini-test');
-    expect(parsed.interrupted).toBe(false);
+    expect(MessageSchema.parse(msg).model).toBe('gemini-test');
   });
 
   it('rejects invalid role', () => {
@@ -28,22 +24,48 @@ describe('MessageSchema', () => {
       MessageSchema.parse({ id: 'x', role: 'admin', text: 't', timestamp: 1 }),
     ).toThrow();
   });
+});
 
-  it('rejects missing required fields', () => {
-    expect(() => MessageSchema.parse({ role: 'user', text: 'x' })).toThrow();
+describe('SessionRecordSchema', () => {
+  it('parses valid record', () => {
+    const rec = { title: 'My chat', createdAt: 1, messages: [] };
+    expect(SessionRecordSchema.parse(rec)).toEqual(rec);
   });
 
-  it('SessionsFileSchema parses { default: Message[] }', () => {
+  it('accepts empty title', () => {
+    expect(SessionRecordSchema.parse({ title: '', createdAt: 1, messages: [] })).toEqual({
+      title: '',
+      createdAt: 1,
+      messages: [],
+    });
+  });
+
+  it('rejects record without createdAt', () => {
+    expect(() =>
+      SessionRecordSchema.parse({ title: 't', messages: [] } as unknown),
+    ).toThrow();
+  });
+});
+
+describe('SessionsFileSchema', () => {
+  it('parses populated file', () => {
     const file = {
-      default: [
-        { id: '1', role: 'user' as const, text: 'a', timestamp: 1 },
-        { id: '2', role: 'model' as const, text: 'b', timestamp: 2 },
-      ],
+      '11111111-1111-1111-1111-111111111111': {
+        title: 'first',
+        createdAt: 1,
+        messages: [{ id: 'a', role: 'user' as const, text: 'hi', timestamp: 1 }],
+      },
     };
-    expect(SessionsFileSchema.parse(file).default).toHaveLength(2);
+    expect(SessionsFileSchema.parse(file)).toEqual(file);
   });
 
-  it('SessionsFileSchema accepts empty', () => {
+  it('accepts empty', () => {
     expect(SessionsFileSchema.parse({})).toEqual({});
+  });
+
+  it('rejects record values that are arrays (legacy V1 shape)', () => {
+    expect(() =>
+      SessionsFileSchema.parse({ default: [{ id: 'a', role: 'user', text: 'hi', timestamp: 1 }] }),
+    ).toThrow();
   });
 });

@@ -11,4 +11,10 @@ export const MessageSchema = z.object({
   retryable: z.boolean().optional(),
 });
 
-export const SessionsFileSchema = z.record(z.string(), z.array(MessageSchema));
+export const SessionRecordSchema = z.object({
+  title: z.string(),
+  createdAt: z.number(),
+  messages: z.array(MessageSchema),
+});
+
+export const SessionsFileSchema = z.record(z.string(), SessionRecordSchema);
