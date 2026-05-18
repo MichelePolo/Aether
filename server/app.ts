@@ -1,11 +1,15 @@
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import { isAppError } from './lib/errors';
 import type { ContextStore } from './domain/context/context.store';
+import type { HistoryStore } from './domain/history/history.store';
+import type { DispatchService } from './domain/dispatch/dispatch.service';
 import { createContextRoutes } from './routes/context.routes';
+import { createDispatchRoutes } from './routes/dispatch.routes';
 
 export interface AppDeps {
   contextStore?: ContextStore;
-  // Negli slice successivi: historyStore, profilesStore, dispatcher, mcpRegistry.
+  historyStore?: HistoryStore;
+  dispatcher?: DispatchService;
 }
 
 // In Express l'error middleware DEVE essere registrato dopo le route per
@@ -25,6 +29,14 @@ export function createApp(
 
   if (deps.contextStore) {
     app.use('/api/context', createContextRoutes(deps.contextStore));
+  }
+
+  if (deps.dispatcher) {
+    app.use('/api/ai/dispatch', createDispatchRoutes(deps.dispatcher));
+  } else {
+    app.post('/api/ai/dispatch', (_req, res) => {
+      res.status(503).json({ error: { code: 'NO_DISPATCHER', message: 'Dispatcher not configured' } });
+    });
   }
 
   extraRoutes?.(app);
