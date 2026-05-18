@@ -3,21 +3,22 @@ import { render, screen, waitFor } from '@testing-library/react';
 import App from './App';
 import { useChatStore } from '@/src/stores/chat.store';
 import { useContextStore } from '@/src/stores/context.store';
+import { useSessionsStore } from '@/src/stores/sessions.store';
 
 beforeEach(() => {
   useChatStore.getState()._reset();
   useContextStore.getState()._reset();
+  useSessionsStore.getState()._reset();
+  localStorage.clear();
 });
 
 describe('App', () => {
-  it('renders sidebar + ChatView, hydrates from /api/sessions/default', async () => {
+  it('renders sidebar with SessionsSection, ChatView present after init', async () => {
     render(<App />);
     expect(screen.getByText('AETHER_CORE')).toBeInTheDocument();
-    // l'EmptyState compare quando l'history idratata è vuota (default handler)
+    expect(screen.getByText(/Sessions/i)).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByText(/Aether ready/i)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/Scrivi un messaggio/i)).toBeInTheDocument();
     });
-    // due textbox sono attesi (System Protocol + MessageInput): ChatView monta il suo input
-    expect(screen.getByPlaceholderText(/Scrivi un messaggio/i)).toBeInTheDocument();
   });
 });

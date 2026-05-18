@@ -1,6 +1,7 @@
 import { parseSseStream, type SseEvent } from '@/src/lib/sse-parser';
 
 export interface DispatchRequestBody {
+  sessionId: string;
   message: string;
 }
 

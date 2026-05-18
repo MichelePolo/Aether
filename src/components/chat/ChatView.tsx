@@ -1,11 +1,13 @@
 import { useCallback } from 'react';
 import { useStreamingDispatch } from '@/src/hooks/useStreamingDispatch';
 import { useChatStore } from '@/src/stores/chat.store';
+import { useSessionsStore } from '@/src/stores/sessions.store';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 
 export function ChatView() {
   const { send, abort, isStreaming } = useStreamingDispatch();
+  const activeSessionId = useSessionsStore((s) => s.activeSessionId);
 
   const handleRetry = useCallback(
     async (failedId: string) => {
@@ -14,7 +16,6 @@ export function ChatView() {
       if (idx < 1) return;
       const prev = state.messages[idx - 1];
       if (prev.role !== 'user') return;
-      // rimuove il bubble fallito
       useChatStore.setState((s) => ({
         messages: s.messages.filter((m) => m.id !== failedId),
       }));
@@ -22,6 +23,14 @@ export function ChatView() {
     },
     [send],
   );
+
+  if (!activeSessionId) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-zinc-500 text-sm p-4 text-center">
+        Nessuna sessione attiva. Crea una nuova sessione dalla sidebar.
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col min-h-0">

@@ -5,9 +5,16 @@ import { http, HttpResponse } from 'msw';
 import { server } from '@/src/test/msw-server';
 import { ChatView } from './ChatView';
 import { useChatStore } from '@/src/stores/chat.store';
+import { useSessionsStore } from '@/src/stores/sessions.store';
 
 beforeEach(() => {
   useChatStore.getState()._reset();
+  useSessionsStore.getState()._reset();
+  useSessionsStore.setState({
+    sessions: [{ id: 'S1', title: '', createdAt: 0, updatedAt: 0 }],
+    activeSessionId: 'S1',
+    hydrated: true,
+  });
 });
 
 function sse(...lines: string[]) {
@@ -54,8 +61,6 @@ describe('ChatView', () => {
     render(<ChatView />);
     await userEvent.type(screen.getByRole('textbox'), 'first{Enter}');
     const retryBtn = await screen.findByRole('button', { name: /retry/i });
-
-    // ora la prossima chiamata deve riuscire
     server.use(
       http.post('http://localhost/api/ai/dispatch', () =>
         new HttpResponse(
@@ -71,5 +76,11 @@ describe('ChatView', () => {
     await waitFor(() => {
       expect(screen.getByText('OK')).toBeInTheDocument();
     });
+  });
+
+  it('shows fallback message when no active session', () => {
+    useSessionsStore.setState({ sessions: [], activeSessionId: null, hydrated: true });
+    render(<ChatView />);
+    expect(screen.getByText(/Nessuna sessione attiva/i)).toBeInTheDocument();
   });
 });

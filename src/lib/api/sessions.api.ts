@@ -1,0 +1,42 @@
+import type { SessionMeta } from '@/src/types/session.types';
+
+const BASE = '/api/sessions';
+
+interface ErrorBody {
+  error?: { message?: string };
+}
+
+async function asJson<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as ErrorBody;
+    throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
+  }
+  if (res.status === 204) return undefined as T;
+  return (await res.json()) as T;
+}
+
+const json = (method: string, body?: unknown): RequestInit => ({
+  method,
+  headers: { 'Content-Type': 'application/json' },
+  body: body !== undefined ? JSON.stringify(body) : undefined,
+});
+
+export const sessionsApi = {
+  list: async (): Promise<SessionMeta[]> => {
+    const res = await fetch(BASE);
+    const body = await asJson<{ sessions: SessionMeta[] }>(res);
+    return body.sessions;
+  },
+  create: async (): Promise<SessionMeta> => {
+    const res = await fetch(BASE, json('POST'));
+    return asJson<SessionMeta>(res);
+  },
+  rename: async (id: string, title: string): Promise<SessionMeta> => {
+    const res = await fetch(`${BASE}/${id}`, json('PATCH', { title }));
+    return asJson<SessionMeta>(res);
+  },
+  delete: async (id: string): Promise<void> => {
+    const res = await fetch(`${BASE}/${id}`, { method: 'DELETE' });
+    await asJson<void>(res);
+  },
+};

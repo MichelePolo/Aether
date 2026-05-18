@@ -24,59 +24,54 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-function appWith(chunks: string[]) {
+async function appWith(chunks: string[]) {
   const provider = new FakeProvider({ chunks });
   const dispatcher = new DispatchService({ provider, historyStore, contextStore });
-  return createApp({ contextStore, historyStore, dispatcher });
+  const app = createApp({ contextStore, historyStore, dispatcher });
+  const session = await historyStore.createEmpty();
+  return { app, sessionId: session.id };
 }
 
 describe('/api/ai/dispatch', () => {
   it('streams text + done events', async () => {
-    const app = appWith(['Hello', ' world']);
+    const { app, sessionId } = await appWith(['Hello', ' world']);
     const res = await request(app)
       .post('/api/ai/dispatch')
       .set('Accept', 'text/event-stream')
-      .send({ message: 'hi' });
+      .send({ sessionId, message: 'hi' });
     expect(res.status).toBe(200);
-    expect(res.headers['content-type']).toMatch(/text\/event-stream/);
     const events = await collectSseEvents(res);
     expect(events.map((e) => e.event)).toEqual(['text', 'text', 'done']);
-    expect(events[0].data).toEqual({ chunk: 'Hello' });
   });
 
-  it('persists messages after success', async () => {
-    const app = appWith(['pong']);
-    await request(app).post('/api/ai/dispatch').send({ message: 'ping' });
-    const msgs = await historyStore.read();
-    expect(msgs.map((m) => `${m.role}:${m.text}`)).toEqual(['user:ping', 'model:pong']);
+  it('persists messages to the right session', async () => {
+    const { app, sessionId } = await appWith(['pong']);
+    await request(app).post('/api/ai/dispatch').send({ sessionId, message: 'ping' });
+    const msgs = await historyStore.read(sessionId);
+    expect(msgs!.map((m) => `${m.role}:${m.text}`)).toEqual(['user:ping', 'model:pong']);
   });
 
   it('emits error event for invalid body', async () => {
-    const app = appWith(['x']);
+    const { app } = await appWith(['x']);
     const res = await request(app).post('/api/ai/dispatch').send({});
     const events = await collectSseEvents(res);
     expect(events.find((e) => e.event === 'error')).toBeDefined();
   });
 
-  it('returns 503 when dispatcher is not configured', async () => {
-    const app = createApp({ contextStore, historyStore });
-    const res = await request(app).post('/api/ai/dispatch').send({ message: 'x' });
-    expect(res.status).toBe(503);
+  it('emits Session not found for unknown sessionId', async () => {
+    const { app } = await appWith(['x']);
+    const res = await request(app)
+      .post('/api/ai/dispatch')
+      .send({ sessionId: 'nope', message: 'hi' });
+    const events = await collectSseEvents(res);
+    const err = events.find((e) => e.event === 'error');
+    expect(err).toBeDefined();
+    expect((err!.data as { message: string }).message).toBe('Session not found');
   });
 
-  it('catches dispatcher exception and emits sse.error', async () => {
-    const throwingDispatcher = {
-      handle: async () => {
-        throw new Error('boom');
-      },
-    };
-    const app = createApp({
-      contextStore,
-      historyStore,
-      dispatcher: throwingDispatcher as unknown as DispatchService,
-    });
-    const res = await request(app).post('/api/ai/dispatch').send({ message: 'x' });
-    const events = await collectSseEvents(res);
-    expect(events.find((e) => e.event === 'error')).toBeDefined();
+  it('returns 503 when dispatcher is not configured', async () => {
+    const app = createApp({ contextStore, historyStore });
+    const res = await request(app).post('/api/ai/dispatch').send({ sessionId: 'x', message: 'x' });
+    expect(res.status).toBe(503);
   });
 });

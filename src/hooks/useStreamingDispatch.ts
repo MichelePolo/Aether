@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { useChatStore } from '@/src/stores/chat.store';
+import { useSessionsStore } from '@/src/stores/sessions.store';
 import { createStreamingDispatch } from '@/src/lib/api/dispatch.api';
+import { computeTitle } from '@/src/lib/title';
 
 interface TextData { chunk: string }
 interface DoneData { model?: string; interrupted?: boolean }
@@ -16,16 +18,27 @@ export function useStreamingDispatch() {
   const send = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    const store = useChatStore.getState();
-    if (store.streamingId) return; // guard against double-send
+    const activeId = useSessionsStore.getState().activeSessionId;
+    if (!activeId) {
+      console.warn('[aether] no active session');
+      return;
+    }
+    const chat = useChatStore.getState();
+    if (chat.streamingId) return;
 
-    store.appendUser(trimmed);
-    const { id } = store.startAssistant();
+    // Local auto-title for instant UX feedback (server is the eventual source of truth).
+    const active = useSessionsStore.getState().sessions.find((s) => s.id === activeId);
+    if (active && !active.title) {
+      useSessionsStore.getState().setLocalTitle(activeId, computeTitle(trimmed));
+    }
+
+    chat.appendUser(trimmed);
+    const { id } = chat.startAssistant();
     const controller = new AbortController();
-    store.setAbortController(controller);
+    chat.setAbortController(controller);
 
     try {
-      for await (const ev of createStreamingDispatch({ message: trimmed }, controller.signal)) {
+      for await (const ev of createStreamingDispatch({ sessionId: activeId, message: trimmed }, controller.signal)) {
         if (ev.event === 'text') {
           useChatStore.getState().appendChunk(id, (ev.data as TextData).chunk);
         } else if (ev.event === 'done') {
@@ -38,7 +51,6 @@ export function useStreamingDispatch() {
           return;
         }
       }
-      // stream esaurito senza event:done → trattiamolo come done
       useChatStore.getState().finishAssistant(id, { interrupted: controller.signal.aborted });
     } catch (e) {
       if (controller.signal.aborted) {
@@ -46,6 +58,8 @@ export function useStreamingDispatch() {
       } else {
         useChatStore.getState().failAssistant(id, errMsg(e), true);
       }
+    } finally {
+      useSessionsStore.getState().touchUpdatedAt(activeId, Date.now());
     }
   }, []);
 
