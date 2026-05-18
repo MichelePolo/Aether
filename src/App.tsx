@@ -8,15 +8,23 @@ import { SkillsSection } from '@/src/components/sidebar/SkillsSection';
 import { ToolsSection } from '@/src/components/sidebar/ToolsSection';
 import { McpServersSection } from '@/src/components/sidebar/McpServersSection';
 import { ConnectionFooter } from '@/src/components/sidebar/ConnectionFooter';
+import { ChatView } from '@/src/components/chat/ChatView';
 import { useContextStore } from '@/src/stores/context.store';
+import { useChatStore } from '@/src/stores/chat.store';
+import { historyApi } from '@/src/lib/api/history.api';
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const init = useContextStore((s) => s.init);
+  const initContext = useContextStore((s) => s.init);
+  const hydrateChat = useChatStore((s) => s.hydrate);
 
   useEffect(() => {
-    init();
-  }, [init]);
+    initContext();
+    historyApi
+      .fetchDefault()
+      .then((msgs) => hydrateChat(msgs))
+      .catch(() => hydrateChat([]));
+  }, [initContext, hydrateChat]);
 
   return (
     <>
@@ -44,14 +52,7 @@ export default function App() {
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((v) => !v)}
         />
-        <div className="flex-1 flex items-center justify-center text-zinc-600">
-          <div className="text-center opacity-50">
-            <div className="font-mono text-xs uppercase tracking-widest text-accent mb-2">
-              Aether OS — Slice 1
-            </div>
-            <div className="text-[10px]">Chat verrà aggiunta in Slice 2</div>
-          </div>
-        </div>
+        <ChatView />
       </AppShell>
     </>
   );
