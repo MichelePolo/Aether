@@ -14,13 +14,9 @@ async function asJson<T>(res: Response): Promise<T> {
 }
 
 export const historyApi = {
-  fetchDefault: async (): Promise<Message[]> => {
-    const res = await fetch(`${BASE}/default`);
+  fetchById: async (id: string): Promise<Message[]> => {
+    const res = await fetch(`${BASE}/${id}`);
     const body = await asJson<{ messages: Message[] }>(res);
     return body.messages;
-  },
-  clearDefault: async (): Promise<void> => {
-    const res = await fetch(`${BASE}/default`, { method: 'DELETE' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
   },
 };

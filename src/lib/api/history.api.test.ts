@@ -4,62 +4,39 @@ import { server } from '@/src/test/msw-server';
 import { historyApi } from './history.api';
 
 describe('historyApi', () => {
-  it('fetchDefault returns empty messages from default handler', async () => {
-    const out = await historyApi.fetchDefault();
+  it('fetchById returns messages from default handler', async () => {
+    const out = await historyApi.fetchById('msw-session-1');
     expect(out).toEqual([]);
   });
 
-  it('fetchDefault returns messages when populated', async () => {
+  it('fetchById returns populated messages', async () => {
     server.use(
-      http.get('http://localhost/api/sessions/default', () =>
+      http.get('http://localhost/api/sessions/:id', () =>
         HttpResponse.json({
           messages: [{ id: 'a', role: 'user', text: 'hi', timestamp: 1 }],
         }),
       ),
     );
-    const out = await historyApi.fetchDefault();
+    const out = await historyApi.fetchById('any');
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ id: 'a', role: 'user' });
   });
 
-  it('clearDefault hits DELETE', async () => {
-    let called = false;
+  it('fetchById throws on 404', async () => {
     server.use(
-      http.delete('http://localhost/api/sessions/default', () => {
-        called = true;
-        return new HttpResponse(null, { status: 204 });
-      }),
+      http.get('http://localhost/api/sessions/:id', () =>
+        HttpResponse.json({ error: { message: 'not found' } }, { status: 404 }),
+      ),
     );
-    await historyApi.clearDefault();
-    expect(called).toBe(true);
+    await expect(historyApi.fetchById('nope')).rejects.toThrow();
   });
 
-  it('throws on 500', async () => {
+  it('fetchById throws on 500', async () => {
     server.use(
-      http.get('http://localhost/api/sessions/default', () =>
+      http.get('http://localhost/api/sessions/:id', () =>
         HttpResponse.json({ error: { message: 'boom' } }, { status: 500 }),
       ),
     );
-    await expect(historyApi.fetchDefault()).rejects.toThrow(/boom/);
-  });
-
-  it('clearDefault throws on 500', async () => {
-    server.use(
-      http.delete(
-        'http://localhost/api/sessions/default',
-        () => new HttpResponse(null, { status: 500 }),
-      ),
-    );
-    await expect(historyApi.clearDefault()).rejects.toThrow();
-  });
-
-  it('fetchDefault falls back to HTTP <status> when error body is empty', async () => {
-    server.use(
-      http.get(
-        'http://localhost/api/sessions/default',
-        () => new HttpResponse(null, { status: 500 }),
-      ),
-    );
-    await expect(historyApi.fetchDefault()).rejects.toThrow(/HTTP 500/);
+    await expect(historyApi.fetchById('any')).rejects.toThrow(/boom/);
   });
 });
