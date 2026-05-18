@@ -148,7 +148,7 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     if (useChatStore.getState().streamingId !== null) return;
     if (get().activeSessionId === id) return;
     persistActive(id);
-    set({ activeSessionId: id });
+    set({ activeSessionId: id, error: null });
     useChatStore.getState().reset();
     const token = ++hydrationToken;
     historyApi

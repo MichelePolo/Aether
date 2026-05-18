@@ -247,6 +247,19 @@ describe('useSessionsStore.clearError', () => {
   });
 });
 
+describe('useSessionsStore.setActive clears error', () => {
+  it('clears error when switching sessions', () => {
+    useSessionsStore.setState({
+      sessions: [m('A'), m('B')], activeSessionId: 'A', hydrated: true, error: 'leftover',
+    });
+    server.use(
+      http.get('http://localhost/api/sessions/B', () => HttpResponse.json({ messages: [] })),
+    );
+    useSessionsStore.getState().setActive('B');
+    expect(useSessionsStore.getState().error).toBeNull();
+  });
+});
+
 describe('useSessionsStore edge cases', () => {
   it('init: falls back to "Operation failed" when API throws a non-Error', async () => {
     // Force fetch to reject with a non-Error value so errMsg returns the default string.
