@@ -84,10 +84,17 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
       historyApi
         .fetchById(activeId)
         .then((msgs) => {
-          if (token === hydrationToken) useChatStore.getState().hydrate(msgs);
+          if (token !== hydrationToken) return;
+          const chat = useChatStore.getState();
+          // Don't clobber: user may have typed during the hydrate window
+          if (chat.messages.length > 0 && msgs.length === 0) return;
+          chat.hydrate(msgs);
         })
         .catch(() => {
-          if (token === hydrationToken) useChatStore.getState().hydrate([]);
+          if (token !== hydrationToken) return;
+          const chat = useChatStore.getState();
+          if (chat.messages.length > 0) return;
+          chat.hydrate([]);
         });
     } catch (e) {
       set({ sessions: [], activeSessionId: null, hydrated: true, error: errMsg(e) });
@@ -147,10 +154,17 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     historyApi
       .fetchById(id)
       .then((msgs) => {
-        if (token === hydrationToken) useChatStore.getState().hydrate(msgs);
+        if (token !== hydrationToken) return;
+        const chat = useChatStore.getState();
+        // Don't clobber: user may have typed during the hydrate window
+        if (chat.messages.length > 0 && msgs.length === 0) return;
+        chat.hydrate(msgs);
       })
       .catch(() => {
-        if (token === hydrationToken) useChatStore.getState().hydrate([]);
+        if (token !== hydrationToken) return;
+        const chat = useChatStore.getState();
+        if (chat.messages.length > 0) return;
+        chat.hydrate([]);
       });
   },
 

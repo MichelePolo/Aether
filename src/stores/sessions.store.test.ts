@@ -261,7 +261,7 @@ describe('useSessionsStore edge cases', () => {
     expect(useSessionsStore.getState().hydrated).toBe(true);
   });
 
-  it('init: hydrates chat with [] when history fetch fails', async () => {
+  it('init: hydrates chat with [] when history fetch fails and chat is empty', async () => {
     server.use(
       http.get('http://localhost/api/sessions', () =>
         HttpResponse.json({ sessions: [m('A')] }),
@@ -270,9 +270,6 @@ describe('useSessionsStore edge cases', () => {
         HttpResponse.json({ error: { message: 'no' } }, { status: 500 }),
       ),
     );
-    useChatStore.setState({
-      messages: [{ id: 'stale', role: 'user', text: 'stale', timestamp: 1 }],
-    });
     await useSessionsStore.getState().init();
     await new Promise((r) => setTimeout(r, 20));
     expect(useChatStore.getState().messages).toEqual([]);
@@ -338,6 +335,27 @@ describe('useSessionsStore edge cases', () => {
     });
     useSessionsStore.getState().setLocalTitle('A', 'new');
     expect(useSessionsStore.getState().sessions.find((x) => x.id === 'B')?.title).toBe('b');
+  });
+
+  it('setActive does not clobber chat messages with empty hydrate', async () => {
+    useSessionsStore.setState({
+      sessions: [m('A'), m('B')], activeSessionId: 'A', hydrated: true,
+    });
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => { release = r; });
+    server.use(
+      http.get('http://localhost/api/sessions/B', async () => {
+        await gate;
+        return HttpResponse.json({ messages: [] });
+      }),
+    );
+    useSessionsStore.getState().setActive('B');
+    await new Promise((r) => setTimeout(r, 5));
+    // User types something while hydrate is pending
+    useChatStore.getState().appendUser('typed during hydrate');
+    release();
+    await new Promise((r) => setTimeout(r, 30));
+    expect(useChatStore.getState().messages.map((x) => x.text)).toEqual(['typed during hydrate']);
   });
 
   it('init: ignores localStorage when read throws', async () => {
