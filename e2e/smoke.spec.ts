@@ -17,11 +17,14 @@ test('toggle sidebar hides the panel', async ({ page }) => {
   await expect(page.getByText('AETHER_CORE')).not.toBeVisible();
 });
 
-test('chat: send message and receive FakeProvider reply', async ({ page }) => {
+test('chat: send message and receive FakeProvider reply', async ({ page, request }) => {
+  // clean state for determinism (FakeProvider sessions are persisted to disk)
+  await request.delete('/api/sessions/default');
   await page.goto('/');
   const input = page.getByPlaceholder(/Scrivi un messaggio/i);
   await input.fill('ping');
   await input.press('Enter');
+  // user message visible
   await expect(page.getByText('ping')).toBeVisible();
   // FakeProvider emette ['pong'] con 50ms di delay
   await expect(page.getByText('pong')).toBeVisible({ timeout: 5000 });
