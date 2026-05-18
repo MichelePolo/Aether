@@ -1,9 +1,24 @@
 import { GoogleGenAI } from '@google/genai';
-import type { AIProvider, ProviderChunk, ProviderRequest } from './provider.types';
+import type { AIProvider, ProviderChunk, ProviderRequest, ProviderUsage } from './provider.types';
 
 export interface GeminiProviderOptions {
   apiKey: string;
   model?: string;
+}
+
+interface GeminiPart {
+  text?: string;
+  thought?: boolean;
+}
+
+interface GeminiCandidate {
+  content?: { parts?: GeminiPart[] };
+}
+
+interface GeminiChunk {
+  text?: string;
+  candidates?: GeminiCandidate[];
+  usageMetadata?: { totalTokenCount?: number };
 }
 
 export class GeminiProvider implements AIProvider {
@@ -24,25 +39,44 @@ export class GeminiProvider implements AIProvider {
       { role: 'user' as const, parts: [{ text: req.userMessage }] },
     ];
 
+    const config: Record<string, unknown> = {
+      systemInstruction: req.systemInstruction,
+      // Forward the AbortSignal so the underlying HTTP request to Gemini
+      // is cancelled when the user presses Stop. Without this, the server
+      // would keep consuming quota even after the client iteration breaks.
+      abortSignal: signal,
+    };
+    if (req.thinking === true) {
+      config.thinkingConfig = { includeThoughts: true, thinkingBudget: -1 };
+    }
+
     const stream = await this.ai.models.generateContentStream({
       model: this.model,
       contents,
-      config: {
-        systemInstruction: req.systemInstruction,
-        // Forward the AbortSignal so the underlying HTTP request to Gemini
-        // is cancelled when the user presses Stop. Without this, the server
-        // would keep consuming quota even after the client iteration breaks.
-        abortSignal: signal,
-      },
+      config,
     });
 
-    for await (const chunk of stream) {
+    let lastUsage: ProviderUsage | undefined;
+    for await (const raw of stream) {
       if (signal.aborted) return;
-      const text = chunk.text;
-      if (typeof text === 'string' && text.length > 0) {
-        yield { type: 'text', text };
+      const chunk = raw as GeminiChunk;
+
+      if (chunk.usageMetadata?.totalTokenCount !== undefined) {
+        lastUsage = { totalTokens: chunk.usageMetadata.totalTokenCount };
+      }
+
+      const parts = chunk.candidates?.[0]?.content?.parts;
+      if (parts && parts.length > 0) {
+        for (const part of parts) {
+          const text = part.text;
+          if (typeof text !== 'string' || text.length === 0) continue;
+          if (part.thought === true) yield { type: 'thinking', text };
+          else yield { type: 'text', text };
+        }
+      } else if (typeof chunk.text === 'string' && chunk.text.length > 0) {
+        yield { type: 'text', text: chunk.text };
       }
     }
-    if (!signal.aborted) yield { type: 'done' };
+    if (!signal.aborted) yield { type: 'done', usage: lastUsage };
   }
 }

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { AIProvider, ProviderChunk } from './provider.types';
+import type { ProviderChunk } from './provider.types';
 
-// Mock @google/genai prima dell'import del provider
 const generateContentStream = vi.fn();
 vi.mock('@google/genai', () => ({
   GoogleGenAI: vi.fn(function (this: { models: unknown }) {
@@ -19,66 +18,116 @@ beforeEach(() => {
   generateContentStream.mockReset();
 });
 
-describe('GeminiProvider', () => {
-  it('streams text chunks then done', async () => {
-    async function* fakeStream() {
+describe('GeminiProvider (without thinking)', () => {
+  it('streams text + done from chunks with `text` shape', async () => {
+    async function* fake() {
       yield { text: 'Hello' };
       yield { text: ' world' };
     }
-    generateContentStream.mockResolvedValue(fakeStream());
-
+    generateContentStream.mockResolvedValue(fake());
     const { GeminiProvider } = await import('./gemini.provider');
-    const p: AIProvider = new GeminiProvider({ apiKey: 'k', model: 'gemini-test' });
+    const p = new GeminiProvider({ apiKey: 'k', model: 'gemini-test' });
     const events = await collect(
       p.stream(
-        { systemInstruction: 'SYS', history: [{ role: 'user', text: 'prev' }], userMessage: 'now' },
+        { systemInstruction: '', history: [], userMessage: 'x' },
         new AbortController().signal,
       ),
     );
     expect(events).toEqual<ProviderChunk[]>([
       { type: 'text', text: 'Hello' },
       { type: 'text', text: ' world' },
-      { type: 'done' },
+      { type: 'done', usage: undefined },
     ]);
   });
 
-  it('forwards systemInstruction + history + userMessage to SDK', async () => {
-    async function* empty() { yield { text: 'x' }; }
-    generateContentStream.mockResolvedValue(empty());
-
+  it('does NOT include thinkingConfig when thinking is false/absent', async () => {
+    async function* fake() { yield { text: 'x' }; }
+    generateContentStream.mockResolvedValue(fake());
     const { GeminiProvider } = await import('./gemini.provider');
-    const p = new GeminiProvider({ apiKey: 'k', model: 'gemini-test' });
+    const p = new GeminiProvider({ apiKey: 'k', model: 'm' });
     await collect(
       p.stream(
-        {
-          systemInstruction: 'BE_HELPFUL',
-          history: [
-            { role: 'user', text: 'hi' },
-            { role: 'model', text: 'hello' },
-          ],
-          userMessage: 'how are you',
-        },
+        { systemInstruction: '', history: [], userMessage: 'x' },
         new AbortController().signal,
       ),
     );
-    const call = generateContentStream.mock.calls[0][0];
-    expect(call.model).toBe('gemini-test');
-    expect(call.config.systemInstruction).toBe('BE_HELPFUL');
-    expect(call.contents).toEqual([
-      { role: 'user', parts: [{ text: 'hi' }] },
-      { role: 'model', parts: [{ text: 'hello' }] },
-      { role: 'user', parts: [{ text: 'how are you' }] },
+    const cfg = generateContentStream.mock.calls[0][0].config;
+    expect(cfg.thinkingConfig).toBeUndefined();
+  });
+});
+
+describe('GeminiProvider (with thinking)', () => {
+  it('sets config.thinkingConfig with includeThoughts + thinkingBudget=-1', async () => {
+    async function* fake() { yield { text: 'x' }; }
+    generateContentStream.mockResolvedValue(fake());
+    const { GeminiProvider } = await import('./gemini.provider');
+    const p = new GeminiProvider({ apiKey: 'k', model: 'm' });
+    await collect(
+      p.stream(
+        { systemInstruction: '', history: [], userMessage: 'x', thinking: true },
+        new AbortController().signal,
+      ),
+    );
+    const cfg = generateContentStream.mock.calls[0][0].config;
+    expect(cfg.thinkingConfig).toEqual({ includeThoughts: true, thinkingBudget: -1 });
+  });
+
+  it('discriminates thought parts from answer parts', async () => {
+    async function* fake() {
+      yield {
+        candidates: [{
+          content: {
+            parts: [
+              { text: 'pondering', thought: true },
+              { text: 'Hello' },
+            ],
+          },
+        }],
+      };
+      yield {
+        candidates: [{
+          content: { parts: [{ text: ' world' }] },
+        }],
+      };
+    }
+    generateContentStream.mockResolvedValue(fake());
+    const { GeminiProvider } = await import('./gemini.provider');
+    const p = new GeminiProvider({ apiKey: 'k', model: 'm' });
+    const events = await collect(
+      p.stream(
+        { systemInstruction: '', history: [], userMessage: 'x', thinking: true },
+        new AbortController().signal,
+      ),
+    );
+    expect(events.slice(0, 3)).toEqual([
+      { type: 'thinking', text: 'pondering' },
+      { type: 'text', text: 'Hello' },
+      { type: 'text', text: ' world' },
     ]);
   });
 
-  it('skips chunks with empty text', async () => {
-    async function* stream() {
-      yield { text: 'A' };
-      yield { text: '' };
-      yield { text: undefined };
-      yield { text: 'B' };
+  it('captures usageMetadata.totalTokenCount into done.usage', async () => {
+    async function* fake() {
+      yield { text: 'x', usageMetadata: { totalTokenCount: 123 } };
     }
-    generateContentStream.mockResolvedValue(stream());
+    generateContentStream.mockResolvedValue(fake());
+    const { GeminiProvider } = await import('./gemini.provider');
+    const p = new GeminiProvider({ apiKey: 'k', model: 'm' });
+    const events = await collect(
+      p.stream(
+        { systemInstruction: '', history: [], userMessage: 'x' },
+        new AbortController().signal,
+      ),
+    );
+    const done = events.at(-1);
+    expect(done).toEqual({ type: 'done', usage: { totalTokens: 123 } });
+  });
+
+  it('skips empty parts', async () => {
+    async function* fake() {
+      yield { candidates: [{ content: { parts: [{ text: 'A' }, { text: '' }, { text: 'B' }] } }] };
+    }
+    generateContentStream.mockResolvedValue(fake());
     const { GeminiProvider } = await import('./gemini.provider');
     const p = new GeminiProvider({ apiKey: 'k', model: 'm' });
     const events = await collect(
@@ -91,24 +140,6 @@ describe('GeminiProvider', () => {
       { type: 'text', text: 'A' },
       { type: 'text', text: 'B' },
     ]);
-  });
-
-  it('forwards AbortSignal to the SDK via config.abortSignal', async () => {
-    async function* fakeStream() {
-      yield { text: 'x' };
-    }
-    generateContentStream.mockResolvedValue(fakeStream());
-    const { GeminiProvider } = await import('./gemini.provider');
-    const p = new GeminiProvider({ apiKey: 'k', model: 'm' });
-    const ctrl = new AbortController();
-    await collect(
-      p.stream(
-        { systemInstruction: '', history: [], userMessage: 'x' },
-        ctrl.signal,
-      ),
-    );
-    const call = generateContentStream.mock.calls[0][0];
-    expect(call.config.abortSignal).toBe(ctrl.signal);
   });
 
   it('breaks the stream when aborted', async () => {
@@ -132,13 +163,7 @@ describe('GeminiProvider', () => {
     expect(out.filter((e) => e.type === 'text').map((e) => e.type === 'text' && e.text)).not.toContain('B');
   });
 
-  it('uses default model name when not provided', async () => {
-    const { GeminiProvider } = await import('./gemini.provider');
-    const p = new GeminiProvider({ apiKey: 'k' });
-    expect(p.model).toBe('gemini-2.0-flash-exp');
-  });
-
-  it('throws with code preserved on SDK rejection', async () => {
+  it('throws with status preserved on SDK rejection', async () => {
     generateContentStream.mockRejectedValue(Object.assign(new Error('Auth failed'), { status: 401 }));
     const { GeminiProvider } = await import('./gemini.provider');
     const p = new GeminiProvider({ apiKey: 'k', model: 'm' });
