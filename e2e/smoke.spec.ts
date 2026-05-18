@@ -112,3 +112,27 @@ test('chat: delete a session removes it from the list', async ({ page }) => {
   // The session row should be gone from the sidebar.
   await expect(sidebar.getByRole('button', { name: 'to-delete', exact: true })).toHaveCount(0);
 });
+
+test('reasoning: thinking on emits steps + opens drawer', async ({ page, request }) => {
+  // clean session state for determinism
+  const list = await request.get('/api/sessions').then((r) => r.json());
+  for (const s of (list.sessions as { id: string }[])) {
+    await request.delete(`/api/sessions/${s.id}`);
+  }
+  await page.addInitScript(() => {
+    localStorage.removeItem('aether.activeSessionId');
+  });
+
+  await page.goto('/');
+  // enable thinking
+  await page.getByRole('button', { name: /toggle thinking/i }).click();
+
+  const input = page.getByPlaceholder(/Scrivi un messaggio/i);
+  await input.fill('think');
+  await input.press('Enter');
+
+  // drawer auto-opens on first thinking chunk
+  await expect(page.getByRole('complementary', { name: /reasoning/i })).toBeVisible({ timeout: 5000 });
+  // at least one reasoning step card appears (any of context/dispatch/validation badges)
+  await expect(page.getByText(/context|dispatch|validation/i).first()).toBeVisible({ timeout: 5000 });
+});
