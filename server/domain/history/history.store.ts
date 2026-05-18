@@ -11,15 +11,19 @@ const TITLE_MAX = 200;
 
 export class HistoryStore {
   private json: JsonStore<SessionsFile>;
-  private migrationApplied = false;
+  private migrationPromise: Promise<SessionsFile> | null = null;
 
   constructor(private readonly filePath: string) {
     this.json = new JsonStore<SessionsFile>(filePath, SessionsFileSchema, {});
   }
 
-  private async ensureMigrated(): Promise<SessionsFile> {
-    if (this.migrationApplied) return this.json.read();
+  private ensureMigrated(): Promise<SessionsFile> {
+    if (this.migrationPromise) return this.migrationPromise;
+    this.migrationPromise = this._doMigrate();
+    return this.migrationPromise;
+  }
 
+  private async _doMigrate(): Promise<SessionsFile> {
     // Bypass schema validation: JsonStore.read() returns the default {}
     // for files that fail zod parsing (e.g. legacy V1 shape with Message[]
     // values). To detect and migrate, we read the raw JSON ourselves.
@@ -36,12 +40,12 @@ export class HistoryStore {
     if (JSON.stringify(migrated) !== JSON.stringify(raw)) {
       await this.json.write(migrated);
     }
-    this.migrationApplied = true;
     return migrated;
   }
 
   async listSessions(): Promise<SessionMeta[]> {
-    const file = await this.ensureMigrated();
+    await this.ensureMigrated();
+    const file = await this.json.read();
     const metas: SessionMeta[] = Object.entries(file).map(([id, rec]) => ({
       id,
       title: rec.title,
@@ -53,7 +57,8 @@ export class HistoryStore {
   }
 
   async read(sessionId: string): Promise<Message[] | null> {
-    const file = await this.ensureMigrated();
+    await this.ensureMigrated();
+    const file = await this.json.read();
     return file[sessionId]?.messages ?? null;
   }
 
@@ -91,14 +96,12 @@ export class HistoryStore {
     if (!title.trim()) throw new ValidationError('Title cannot be empty');
     if (title.length > TITLE_MAX) throw new ValidationError(`Title too long (max ${TITLE_MAX})`);
     await this.ensureMigrated();
-    let rec: SessionRecord | undefined;
-    await this.json.update((cur) => {
+    const updated = await this.json.update((cur) => {
       const r = cur[sessionId];
       if (!r) throw new NotFoundError(`session ${sessionId}`);
-      rec = { ...r, title };
-      return { ...cur, [sessionId]: rec };
+      return { ...cur, [sessionId]: { ...r, title } };
     });
-    const updatedRec = rec!;
+    const updatedRec = updated[sessionId];
     return {
       id: sessionId,
       title: updatedRec.title,
