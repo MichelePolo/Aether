@@ -1,18 +1,30 @@
 import { create } from 'zustand';
 import { newId } from '@/src/lib/ids';
 import type { Message } from '@/src/types/message.types';
+import type { ReasoningStep } from '@/src/types/reasoning.types';
+
+interface CurrentReasoning {
+  thinkingText: string;
+  steps: ReasoningStep[];
+}
 
 interface ChatState {
   messages: Message[];
   streamingId: string | null;
   abortController: AbortController | null;
   hydrated: boolean;
+  currentReasoning: CurrentReasoning;
 
   hydrate: (messages: Message[]) => void;
   appendUser: (text: string) => { id: string };
   startAssistant: () => { id: string };
   appendChunk: (id: string, text: string) => void;
-  finishAssistant: (id: string, opts: { model?: string; interrupted?: boolean }) => void;
+  appendThinkingChunk: (text: string) => void;
+  appendReasoningStep: (step: ReasoningStep) => void;
+  finishAssistant: (
+    id: string,
+    opts: { model?: string; interrupted?: boolean; reasoningSteps?: ReasoningStep[] },
+  ) => void;
   failAssistant: (id: string, error: string, retryable: boolean) => void;
   setAbortController: (c: AbortController | null) => void;
   abort: () => void;
@@ -20,11 +32,14 @@ interface ChatState {
   _reset: () => void;
 }
 
+const emptyReasoning: CurrentReasoning = { thinkingText: '', steps: [] };
+
 const initial = {
   messages: [] as Message[],
   streamingId: null as string | null,
   abortController: null as AbortController | null,
   hydrated: false,
+  currentReasoning: emptyReasoning,
 };
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -42,7 +57,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   startAssistant: () => {
     const msg: Message = { id: newId(), role: 'model', text: '', timestamp: Date.now() };
-    set((s) => ({ messages: [...s.messages, msg], streamingId: msg.id }));
+    set((s) => ({
+      messages: [...s.messages, msg],
+      streamingId: msg.id,
+      currentReasoning: emptyReasoning,
+    }));
     return { id: msg.id };
   },
 
@@ -53,13 +72,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ),
     })),
 
+  appendThinkingChunk: (text) =>
+    set((s) => ({
+      currentReasoning: {
+        ...s.currentReasoning,
+        thinkingText: s.currentReasoning.thinkingText + text,
+      },
+    })),
+
+  appendReasoningStep: (step) =>
+    set((s) => ({
+      currentReasoning: {
+        ...s.currentReasoning,
+        steps: [...s.currentReasoning.steps, step],
+      },
+    })),
+
   finishAssistant: (id, opts) =>
     set((s) => ({
       streamingId: s.streamingId === id ? null : s.streamingId,
       messages: s.messages.map((m) =>
-        m.id === id ? { ...m, ...opts } : m,
+        m.id === id
+          ? {
+              ...m,
+              model: opts.model,
+              interrupted: opts.interrupted,
+              reasoningSteps: opts.reasoningSteps ?? m.reasoningSteps,
+            }
+          : m,
       ),
       abortController: null,
+      currentReasoning: emptyReasoning,
     })),
 
   failAssistant: (id, error, retryable) =>
@@ -69,6 +112,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         m.id === id ? { ...m, error, retryable } : m,
       ),
       abortController: null,
+      currentReasoning: emptyReasoning,
     })),
 
   setAbortController: (c) => set({ abortController: c }),
