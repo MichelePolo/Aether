@@ -6,10 +6,12 @@ import { server } from '@/src/test/msw-server';
 import { ChatView } from './ChatView';
 import { useChatStore } from '@/src/stores/chat.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
+import { useUiStore } from '@/src/stores/ui.store';
 
 beforeEach(() => {
   useChatStore.getState()._reset();
   useSessionsStore.getState()._reset();
+  useUiStore.getState()._reset();
   useSessionsStore.setState({
     sessions: [{ id: 'S1', title: '', createdAt: 0, updatedAt: 0 }],
     activeSessionId: 'S1',
@@ -82,5 +84,26 @@ describe('ChatView', () => {
     useSessionsStore.setState({ sessions: [], activeSessionId: null, hydrated: true });
     render(<ChatView />);
     expect(screen.getByText(/Nessuna sessione attiva/i)).toBeInTheDocument();
+  });
+
+  it('event:thinking auto-opens reasoning drawer', async () => {
+    server.use(
+      http.post('http://localhost/api/ai/dispatch', () =>
+        new HttpResponse(
+          sse(
+            'event: thinking\ndata: {"chunk":"pondering"}\n\n',
+            'event: text\ndata: {"chunk":"Hello"}\n\n',
+            'event: done\ndata: {"model":"fake-1","interrupted":false,"reasoningSteps":[]}\n\n',
+          ),
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        ),
+      ),
+    );
+    expect(useUiStore.getState().reasoningDrawerOpen).toBe(false);
+    render(<ChatView />);
+    await userEvent.type(screen.getByRole('textbox'), 'hi{Enter}');
+    await waitFor(() => {
+      expect(useUiStore.getState().reasoningDrawerOpen).toBe(true);
+    });
   });
 });
