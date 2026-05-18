@@ -93,6 +93,24 @@ describe('GeminiProvider', () => {
     ]);
   });
 
+  it('forwards AbortSignal to the SDK via config.abortSignal', async () => {
+    async function* fakeStream() {
+      yield { text: 'x' };
+    }
+    generateContentStream.mockResolvedValue(fakeStream());
+    const { GeminiProvider } = await import('./gemini.provider');
+    const p = new GeminiProvider({ apiKey: 'k', model: 'm' });
+    const ctrl = new AbortController();
+    await collect(
+      p.stream(
+        { systemInstruction: '', history: [], userMessage: 'x' },
+        ctrl.signal,
+      ),
+    );
+    const call = generateContentStream.mock.calls[0][0];
+    expect(call.config.abortSignal).toBe(ctrl.signal);
+  });
+
   it('breaks the stream when aborted', async () => {
     async function* slow() {
       yield { text: 'A' };

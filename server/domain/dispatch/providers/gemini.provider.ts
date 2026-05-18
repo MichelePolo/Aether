@@ -29,6 +29,10 @@ export class GeminiProvider implements AIProvider {
       contents,
       config: {
         systemInstruction: req.systemInstruction,
+        // Forward the AbortSignal so the underlying HTTP request to Gemini
+        // is cancelled when the user presses Stop. Without this, the server
+        // would keep consuming quota even after the client iteration breaks.
+        abortSignal: signal,
       },
     });
 
