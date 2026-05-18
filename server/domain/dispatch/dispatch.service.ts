@@ -26,7 +26,7 @@ export class DispatchService {
   ): Promise<void> {
     const parsed = DispatchRequestSchema.safeParse(rawBody);
     if (!parsed.success) {
-      sse.error('Invalid request body');
+      sse.error('Invalid request body', false);
       return;
     }
     const { message } = parsed.data;

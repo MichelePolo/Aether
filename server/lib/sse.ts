@@ -2,7 +2,7 @@ import type { Response } from 'express';
 
 export interface SseEmitter {
   event(name: string, data: unknown): void;
-  error(message: string): void;
+  error(message: string, retryable?: boolean): void;
   end(): void;
 }
 
@@ -24,10 +24,10 @@ export function createSseEmitter(res: Response): SseEmitter {
       ensureHeaders();
       res.write(`event: ${name}\ndata: ${JSON.stringify(data)}\n\n`);
     },
-    error(message) {
+    error(message, retryable = false) {
       if (closed) return;
       ensureHeaders();
-      res.write(`event: error\ndata: ${JSON.stringify({ message })}\n\n`);
+      res.write(`event: error\ndata: ${JSON.stringify({ message, retryable })}\n\n`);
       closed = true;
       res.end();
     },

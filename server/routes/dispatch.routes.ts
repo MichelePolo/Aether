@@ -20,7 +20,9 @@ export function createDispatchRoutes(dispatcher: DispatchService): Router {
       await dispatcher.handle(req.body, sse, controller.signal);
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Internal error';
-      sse.error(message);
+      // Route-level catch is for unexpected server bugs / config issues —
+      // not transient network errors. Default to retryable=false.
+      sse.error(message, false);
     }
   });
 

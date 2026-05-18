@@ -39,16 +39,33 @@ describe('createSseEmitter', () => {
     );
   });
 
-  it('emits error event then ends', () => {
+  it('emits error event then ends with retryable=false by default', () => {
     const res = fakeRes();
     const sse = createSseEmitter(res);
     sse.error('boom');
     expect(
       (res as unknown as { chunks: string[] }).chunks.some(
-        (c) => c.includes('event: error') && c.includes('"message":"boom"'),
+        (c) =>
+          c.includes('event: error') &&
+          c.includes('"message":"boom"') &&
+          c.includes('"retryable":false'),
       ),
     ).toBe(true);
     expect((res as Response).end).toHaveBeenCalled();
+  });
+
+  it('emits error event with retryable=true when passed', () => {
+    const res = fakeRes();
+    const sse = createSseEmitter(res);
+    sse.error('boom', true);
+    expect(
+      (res as unknown as { chunks: string[] }).chunks.some(
+        (c) =>
+          c.includes('event: error') &&
+          c.includes('"message":"boom"') &&
+          c.includes('"retryable":true'),
+      ),
+    ).toBe(true);
   });
 
   it('end() closes the response', () => {

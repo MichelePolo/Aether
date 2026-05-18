@@ -20,9 +20,9 @@ export function createCollectorEmitter(): {
       if (ended) return;
       events.push({ event: name, data });
     },
-    error(message) {
+    error(message, retryable = false) {
       if (ended) return;
-      events.push({ event: 'error', data: { message } });
+      events.push({ event: 'error', data: { message, retryable } });
       ended = true;
     },
     end() {
