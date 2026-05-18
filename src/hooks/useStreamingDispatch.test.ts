@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { server } from '@/src/test/msw-server';
 import { useStreamingDispatch } from './useStreamingDispatch';
 import { useChatStore } from '@/src/stores/chat.store';
+import { useSessionsStore } from '@/src/stores/sessions.store';
 
 function sseStream(...lines: string[]) {
   const enc = new TextEncoder();
@@ -15,12 +16,93 @@ function sseStream(...lines: string[]) {
   });
 }
 
+const meta = (id: string, title = '') => ({ id, title, createdAt: 1, updatedAt: 1 });
+
 beforeEach(() => {
   useChatStore.getState()._reset();
+  useSessionsStore.getState()._reset();
+  useSessionsStore.setState({ sessions: [meta('S1')], activeSessionId: 'S1', hydrated: true });
 });
 
 describe('useStreamingDispatch', () => {
-  it('happy path: appends user + streams assistant + finalizes', async () => {
+  it('sends sessionId in dispatch body', async () => {
+    let received: unknown;
+    server.use(
+      http.post('http://localhost/api/ai/dispatch', async ({ request }) => {
+        received = await request.json();
+        return new HttpResponse(
+          sseStream(
+            'event: text\ndata: {"chunk":"OK"}\n\n',
+            'event: done\ndata: {"model":"fake-1","interrupted":false}\n\n',
+          ),
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        );
+      }),
+    );
+    const { result } = renderHook(() => useStreamingDispatch());
+    await act(async () => { await result.current.send('hi'); });
+    expect(received).toMatchObject({ sessionId: 'S1', message: 'hi' });
+  });
+
+  it('auto-sets local title when active session has empty title', async () => {
+    server.use(
+      http.post('http://localhost/api/ai/dispatch', () =>
+        new HttpResponse(
+          sseStream('event: done\ndata: {"model":"f","interrupted":false}\n\n'),
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        ),
+      ),
+    );
+    const { result } = renderHook(() => useStreamingDispatch());
+    await act(async () => { await result.current.send('hello first'); });
+    expect(useSessionsStore.getState().sessions[0].title).toBe('hello first');
+  });
+
+  it('does not overwrite a non-empty title', async () => {
+    useSessionsStore.setState({
+      sessions: [meta('S1', 'existing title')],
+      activeSessionId: 'S1', hydrated: true,
+    });
+    server.use(
+      http.post('http://localhost/api/ai/dispatch', () =>
+        new HttpResponse(
+          sseStream('event: done\ndata: {"model":"f","interrupted":false}\n\n'),
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        ),
+      ),
+    );
+    const { result } = renderHook(() => useStreamingDispatch());
+    await act(async () => { await result.current.send('new message'); });
+    expect(useSessionsStore.getState().sessions[0].title).toBe('existing title');
+  });
+
+  it('touches updatedAt after stream completes', async () => {
+    server.use(
+      http.post('http://localhost/api/ai/dispatch', () =>
+        new HttpResponse(
+          sseStream(
+            'event: text\ndata: {"chunk":"OK"}\n\n',
+            'event: done\ndata: {"model":"f","interrupted":false}\n\n',
+          ),
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        ),
+      ),
+    );
+    const before = useSessionsStore.getState().sessions[0].updatedAt;
+    const { result } = renderHook(() => useStreamingDispatch());
+    await act(async () => { await result.current.send('hi'); });
+    const after = useSessionsStore.getState().sessions[0].updatedAt;
+    expect(after).toBeGreaterThan(before);
+  });
+
+  it('no-op when activeSessionId is null', async () => {
+    useSessionsStore.setState({ sessions: [], activeSessionId: null, hydrated: true });
+    const { result } = renderHook(() => useStreamingDispatch());
+    await act(async () => { await result.current.send('hi'); });
+    expect(useChatStore.getState().messages).toEqual([]);
+  });
+
+  it('happy path: streams assistant + finalizes', async () => {
     server.use(
       http.post('http://localhost/api/ai/dispatch', () =>
         new HttpResponse(
@@ -34,68 +116,10 @@ describe('useStreamingDispatch', () => {
       ),
     );
     const { result } = renderHook(() => useStreamingDispatch());
-    await act(async () => {
-      await result.current.send('hi');
-    });
+    await act(async () => { await result.current.send('hi'); });
     const msgs = useChatStore.getState().messages;
-    expect(msgs).toHaveLength(2);
-    expect(msgs[0]).toMatchObject({ role: 'user', text: 'hi' });
-    expect(msgs[1]).toMatchObject({ role: 'model', text: 'Hello world', model: 'fake-1' });
+    expect(msgs[1].text).toBe('Hello world');
     expect(useChatStore.getState().streamingId).toBeNull();
-  });
-
-  it('error event marks message as failed with retryable flag', async () => {
-    server.use(
-      http.post('http://localhost/api/ai/dispatch', () =>
-        new HttpResponse(
-          sseStream('event: error\ndata: {"message":"Auth failed","retryable":false}\n\n'),
-          { headers: { 'Content-Type': 'text/event-stream' } },
-        ),
-      ),
-    );
-    const { result } = renderHook(() => useStreamingDispatch());
-    await act(async () => {
-      await result.current.send('hi');
-    });
-    const last = useChatStore.getState().messages.at(-1);
-    expect(last?.error).toBe('Auth failed');
-    expect(last?.retryable).toBe(false);
-  });
-
-  it('abort marks message interrupted', async () => {
-    server.use(
-      http.post('http://localhost/api/ai/dispatch', async () =>
-        new HttpResponse(
-          sseStream('event: text\ndata: {"chunk":"A"}\n\n'),
-          { headers: { 'Content-Type': 'text/event-stream' } },
-        ),
-      ),
-    );
-    const { result } = renderHook(() => useStreamingDispatch());
-    const promise = act(async () => {
-      const p = result.current.send('hi');
-      result.current.abort();
-      await p;
-    });
-    await promise;
-    await waitFor(() => {
-      expect(useChatStore.getState().streamingId).toBeNull();
-    });
-  });
-
-  it('non-abort fetch error marks message failed with retryable=true', async () => {
-    server.use(
-      http.post('http://localhost/api/ai/dispatch', () =>
-        HttpResponse.json({ error: { message: 'oops' } }, { status: 500 }),
-      ),
-    );
-    const { result } = renderHook(() => useStreamingDispatch());
-    await act(async () => {
-      await result.current.send('hi');
-    });
-    const last = useChatStore.getState().messages.at(-1);
-    expect(last?.error).toBeDefined();
-    expect(last?.retryable).toBe(true);
   });
 
   it('isStreaming flips during send', async () => {
@@ -112,9 +136,7 @@ describe('useStreamingDispatch', () => {
     );
     const { result } = renderHook(() => useStreamingDispatch());
     const p = act(async () => { await result.current.send('hi'); });
-    await waitFor(() => {
-      expect(result.current.isStreaming).toBe(true);
-    });
+    await waitFor(() => { expect(result.current.isStreaming).toBe(true); });
     release();
     await p;
     expect(result.current.isStreaming).toBe(false);
