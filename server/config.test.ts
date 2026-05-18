@@ -29,6 +29,18 @@ describe('loadConfig', () => {
     expect(loadConfig().port).toBe(4321);
   });
 
+  it('falls back to 3000 when PORT is non-numeric', () => {
+    process.env.PORT = 'not-a-number';
+    expect(loadConfig().port).toBe(3000);
+  });
+
+  it('falls back to 3000 when PORT is 0 or negative', () => {
+    process.env.PORT = '0';
+    expect(loadConfig().port).toBe(3000);
+    process.env.PORT = '-5';
+    expect(loadConfig().port).toBe(3000);
+  });
+
   it('treats AETHER_FAKE_PROVIDER=1 as true, other values as false', () => {
     process.env.AETHER_FAKE_PROVIDER = '1';
     expect(loadConfig().fakeProvider).toBe(true);

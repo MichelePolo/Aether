@@ -7,9 +7,15 @@ export interface AppConfig {
   geminiApiKey: string;
 }
 
+function parsePort(raw: string | undefined): number {
+  if (!raw) return 3000;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : 3000;
+}
+
 export function loadConfig(): AppConfig {
   return {
-    port: parseInt(process.env.PORT ?? '3000', 10),
+    port: parsePort(process.env.PORT),
     dataDir: process.env.AETHER_DATA_DIR ?? path.resolve(process.cwd(), 'data'),
     fakeProvider: process.env.AETHER_FAKE_PROVIDER === '1',
     geminiApiKey: process.env.GEMINI_API_KEY ?? '',
