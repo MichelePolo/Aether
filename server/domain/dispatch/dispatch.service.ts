@@ -6,6 +6,7 @@ import type { HistoryStore } from '@/server/domain/history/history.store';
 import type { AIProvider } from './providers/provider.types';
 
 export const DispatchRequestSchema = z.object({
+  sessionId: z.string().min(1),
   message: z.string().min(1),
 });
 export type DispatchRequest = z.infer<typeof DispatchRequestSchema>;
@@ -29,8 +30,16 @@ export class DispatchService {
       sse.error('Invalid request body', false);
       return;
     }
-    const { message } = parsed.data;
+    const { sessionId, message } = parsed.data;
     const { provider, historyStore, contextStore } = this.deps;
+
+    // Confirm session exists before doing anything else.
+    const prior = await historyStore.read(sessionId);
+    if (prior === null) {
+      sse.event('error', { message: 'Session not found', retryable: false });
+      sse.end();
+      return;
+    }
 
     let context;
     try {
@@ -41,13 +50,11 @@ export class DispatchService {
       return;
     }
 
-    const priorHistory = await historyStore.read();
-    const now = Date.now();
-    await historyStore.append({
+    await historyStore.append(sessionId, {
       id: randomUUID(),
       role: 'user',
       text: message,
-      timestamp: now,
+      timestamp: Date.now(),
     });
 
     let accumulated = '';
@@ -55,7 +62,7 @@ export class DispatchService {
       const it = provider.stream(
         {
           systemInstruction: context.systemInstruction,
-          history: priorHistory.map((m) => ({ role: m.role, text: m.text })),
+          history: prior.map((m) => ({ role: m.role, text: m.text })),
           userMessage: message,
         },
         signal,
@@ -73,7 +80,7 @@ export class DispatchService {
       const { message: msg, retryable } = classifyError(e);
       sse.event('error', { message: msg, retryable });
       // salva il partial comunque per coerenza UX
-      await historyStore.append({
+      await historyStore.append(sessionId, {
         id: randomUUID(),
         role: 'model',
         text: accumulated,
@@ -87,7 +94,7 @@ export class DispatchService {
     }
 
     const interrupted = signal.aborted;
-    await historyStore.append({
+    await historyStore.append(sessionId, {
       id: randomUUID(),
       role: 'model',
       text: accumulated,
