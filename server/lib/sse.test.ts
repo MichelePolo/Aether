@@ -67,4 +67,28 @@ describe('createSseEmitter', () => {
     sse.event('text', { chunk: 'lost' });
     expect((res as unknown as { chunks: string[] }).chunks.length).toBe(before);
   });
+
+  it('error() after close is a no-op', () => {
+    const res = fakeRes();
+    const sse = createSseEmitter(res);
+    sse.error('boom');
+    const callsBefore = (res as Response).end as unknown as { mock: { calls: unknown[] } };
+    const endCallsBefore = callsBefore.mock.calls.length;
+    sse.error('again');
+    expect(((res as Response).end as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(
+      endCallsBefore,
+    );
+  });
+
+  it('end() after close is a no-op', () => {
+    const res = fakeRes();
+    const sse = createSseEmitter(res);
+    sse.end();
+    const endCallsBefore = ((res as Response).end as unknown as { mock: { calls: unknown[] } }).mock
+      .calls.length;
+    sse.end();
+    expect(((res as Response).end as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(
+      endCallsBefore,
+    );
+  });
 });

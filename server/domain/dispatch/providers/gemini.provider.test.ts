@@ -114,6 +114,12 @@ describe('GeminiProvider', () => {
     expect(out.filter((e) => e.type === 'text').map((e) => e.type === 'text' && e.text)).not.toContain('B');
   });
 
+  it('uses default model name when not provided', async () => {
+    const { GeminiProvider } = await import('./gemini.provider');
+    const p = new GeminiProvider({ apiKey: 'k' });
+    expect(p.model).toBe('gemini-2.0-flash-exp');
+  });
+
   it('throws with code preserved on SDK rejection', async () => {
     generateContentStream.mockRejectedValue(Object.assign(new Error('Auth failed'), { status: 401 }));
     const { GeminiProvider } = await import('./gemini.provider');

@@ -61,4 +61,45 @@ describe('FakeProvider', () => {
     const p = new FakeProvider({ chunks: ['x'], model: 'fake-echo' });
     expect(p.model).toBe('fake-echo');
   });
+
+  it('skips sleep branch when chunkDelayMs is 0', async () => {
+    const p = new FakeProvider({ chunks: ['a', 'b'], chunkDelayMs: 0 });
+    const out = await collect(
+      p.stream(
+        { systemInstruction: '', history: [], userMessage: '' },
+        new AbortController().signal,
+      ),
+    );
+    expect(out).toEqual([
+      { type: 'text', text: 'a' },
+      { type: 'text', text: 'b' },
+      { type: 'done' },
+    ]);
+  });
+
+  it('aborts during sleep (chunkDelayMs path)', async () => {
+    const p = new FakeProvider({ chunks: ['a', 'b'], chunkDelayMs: 50 });
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 10);
+    const out = await collect(
+      p.stream(
+        { systemInstruction: '', history: [], userMessage: '' },
+        ctrl.signal,
+      ),
+    );
+    expect(out.filter((c) => c.type === 'done')).toHaveLength(0);
+  });
+
+  it('does not yield done when signal already aborted before stream', async () => {
+    const p = new FakeProvider({ chunks: ['a'] });
+    const ctrl = new AbortController();
+    ctrl.abort();
+    const out = await collect(
+      p.stream(
+        { systemInstruction: '', history: [], userMessage: '' },
+        ctrl.signal,
+      ),
+    );
+    expect(out.find((c) => c.type === 'done')).toBeUndefined();
+  });
 });

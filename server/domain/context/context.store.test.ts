@@ -54,6 +54,48 @@ describe('ContextStore', () => {
     expect((await store.read()).skills).toEqual(['a', 'c']);
   });
 
+  it('removeSkillAt throws on out-of-bounds index', async () => {
+    await store.patch({ skills: ['a'] });
+    await expect(store.removeSkillAt(5)).rejects.toThrow();
+    await expect(store.removeSkillAt(-1)).rejects.toThrow();
+  });
+
+  it('updateSkillAt rejects empty value', async () => {
+    await store.patch({ skills: ['a'] });
+    await expect(store.updateSkillAt(0, '   ')).rejects.toThrow();
+  });
+
+  it('updateTool throws on unknown id', async () => {
+    await expect(store.updateTool('nope', { name: 'X' })).rejects.toThrow();
+  });
+
+  it('updateTool rejects invalid patch shape', async () => {
+    const tool = await store.addTool({ name: 'X', version: '1.0', status: 'online' });
+    await expect(
+      store.updateTool(tool.id, { status: 'weird' as 'online' }),
+    ).rejects.toThrow();
+  });
+
+  it('removeTool throws on unknown id', async () => {
+    await expect(store.removeTool('missing')).rejects.toThrow();
+  });
+
+  it('removeMcpServer throws on unknown id', async () => {
+    await expect(store.removeMcpServer('missing')).rejects.toThrow();
+  });
+
+  it('addTool rejects invalid shape', async () => {
+    await expect(
+      store.addTool({ name: 'X', version: '1.0', status: 'bogus' as 'online' }),
+    ).rejects.toThrow();
+  });
+
+  it('addMcpServer rejects invalid shape', async () => {
+    await expect(
+      store.addMcpServer({ name: 'M', url: 'u', status: 'bogus' as 'online' }),
+    ).rejects.toThrow();
+  });
+
   it('addTool generates id and appends', async () => {
     const tool = await store.addTool({ name: 'Search', version: '1.0.0', status: 'online' });
     expect(tool.id).toMatch(/.+/);

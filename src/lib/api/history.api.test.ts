@@ -52,4 +52,14 @@ describe('historyApi', () => {
     );
     await expect(historyApi.clearDefault()).rejects.toThrow();
   });
+
+  it('fetchDefault falls back to HTTP <status> when error body is empty', async () => {
+    server.use(
+      http.get(
+        'http://localhost/api/sessions/default',
+        () => new HttpResponse(null, { status: 500 }),
+      ),
+    );
+    await expect(historyApi.fetchDefault()).rejects.toThrow(/HTTP 500/);
+  });
 });
