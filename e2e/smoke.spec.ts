@@ -77,7 +77,7 @@ test('chat: creating a second session shows it as active', async ({ page }) => {
   // SessionsSection should now show two session rows. Scope to the sidebar
   // and use exact matching so the row's main button doesn't collide with
   // the per-row "Rename <title>" / "Delete <title>" buttons.
-  const sidebar = page.getByRole('complementary');
+  const sidebar = page.getByRole('complementary', { name: /sidebar/i });
   await expect(sidebar.getByRole('button', { name: 'first', exact: true })).toBeVisible();
   await expect(sidebar.getByRole('button', { name: 'second', exact: true })).toBeVisible();
 });
@@ -95,7 +95,7 @@ test('chat: delete a session removes it from the list', async ({ page }) => {
   // Hover the session row in the sidebar to reveal action buttons. Use
   // exact matching so we don't collide with "Rename to-delete" / "Delete
   // to-delete" buttons that share the title.
-  const sidebar = page.getByRole('complementary');
+  const sidebar = page.getByRole('complementary', { name: /sidebar/i });
   const row = sidebar.getByRole('button', { name: 'to-delete', exact: true });
   await expect(row).toBeVisible();
   await row.hover();
