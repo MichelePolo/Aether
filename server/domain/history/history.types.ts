@@ -1,3 +1,5 @@
+import type { ReasoningStep } from '@/server/domain/reasoning/reasoning.types';
+
 export interface Message {
   id: string;
   role: 'user' | 'model';
@@ -7,6 +9,7 @@ export interface Message {
   interrupted?: boolean;
   error?: string;
   retryable?: boolean;
+  reasoningSteps?: ReasoningStep[];
 }
 
 export interface SessionRecord {

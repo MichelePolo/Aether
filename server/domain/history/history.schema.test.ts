@@ -24,6 +24,37 @@ describe('MessageSchema', () => {
       MessageSchema.parse({ id: 'x', role: 'admin', text: 't', timestamp: 1 }),
     ).toThrow();
   });
+
+  it('accepts optional reasoningSteps array', () => {
+    const msg = {
+      id: 'm',
+      role: 'model' as const,
+      text: 't',
+      timestamp: 1,
+      reasoningSteps: [
+        {
+          id: 's1',
+          type: 'context_fetch' as const,
+          title: 'Read',
+          content: 'ok',
+          timestamp: 1,
+        },
+      ],
+    };
+    expect(MessageSchema.parse(msg).reasoningSteps).toHaveLength(1);
+  });
+
+  it('rejects invalid reasoningStep type inside the array', () => {
+    expect(() =>
+      MessageSchema.parse({
+        id: 'm',
+        role: 'model',
+        text: 't',
+        timestamp: 1,
+        reasoningSteps: [{ id: 's', type: 'bogus', title: 't', content: 'c', timestamp: 1 }],
+      }),
+    ).toThrow();
+  });
 });
 
 describe('SessionRecordSchema', () => {
