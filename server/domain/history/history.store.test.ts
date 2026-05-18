@@ -136,4 +136,27 @@ describe('HistoryStore', () => {
     const msgs = await store2.read(meta.id);
     expect(msgs).toEqual([{ id: 'p', role: 'user', text: 'persist', timestamp: 1 }]);
   });
+
+  it('append+read preserves reasoningSteps', async () => {
+    const meta = await store.createEmpty();
+    await store.append(meta.id, {
+      id: 'u', role: 'user', text: 'hi', timestamp: 1,
+    });
+    await store.append(meta.id, {
+      id: 'm',
+      role: 'model',
+      text: 'pong',
+      timestamp: 2,
+      model: 'fake-1',
+      reasoningSteps: [
+        { id: 's1', type: 'context_fetch', title: 't', content: 'c', timestamp: 1, durationMs: 5 },
+        { id: 's2', type: 'dispatch', title: 't2', content: 'c2', timestamp: 2, tokens: 42, durationMs: 100 },
+      ],
+    });
+    const msgs = await store.read(meta.id);
+    const model = msgs!.find((m) => m.role === 'model')!;
+    expect(model.reasoningSteps).toHaveLength(2);
+    expect(model.reasoningSteps![0]).toMatchObject({ type: 'context_fetch', durationMs: 5 });
+    expect(model.reasoningSteps![1]).toMatchObject({ type: 'dispatch', tokens: 42 });
+  });
 });

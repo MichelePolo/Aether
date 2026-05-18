@@ -41,7 +41,9 @@ describe('/api/ai/dispatch', () => {
       .send({ sessionId, message: 'hi' });
     expect(res.status).toBe(200);
     const events = await collectSseEvents(res);
-    expect(events.map((e) => e.event)).toEqual(['text', 'text', 'done']);
+    expect(
+      events.map((e) => e.event).filter((ev) => ev === 'text' || ev === 'done'),
+    ).toEqual(['text', 'text', 'done']);
   });
 
   it('persists messages to the right session', async () => {
@@ -73,5 +75,28 @@ describe('/api/ai/dispatch', () => {
     const app = createApp({ contextStore, historyStore });
     const res = await request(app).post('/api/ai/dispatch').send({ sessionId: 'x', message: 'x' });
     expect(res.status).toBe(503);
+  });
+
+  it('forwards thinking=true through to the service (emits thinking chunks)', async () => {
+    const provider = new FakeProvider({ chunks: ['pong'], thoughtChunks: ['ponder'] });
+    const dispatcher = new DispatchService({ provider, historyStore, contextStore });
+    const app = createApp({ contextStore, historyStore, dispatcher });
+    const session = await historyStore.createEmpty();
+
+    const res = await request(app)
+      .post('/api/ai/dispatch')
+      .send({ sessionId: session.id, message: 'ping', thinking: true });
+    const events = await collectSseEvents(res);
+    const thinkingChunks = events.filter((e) => e.event === 'thinking');
+    expect(thinkingChunks.length).toBeGreaterThan(0);
+  });
+
+  it('rejects non-boolean thinking', async () => {
+    const { app, sessionId } = await appWith(['x']);
+    const res = await request(app)
+      .post('/api/ai/dispatch')
+      .send({ sessionId, message: 'hi', thinking: 'yes' });
+    const events = await collectSseEvents(res);
+    expect(events.find((e) => e.event === 'error')).toBeDefined();
   });
 });

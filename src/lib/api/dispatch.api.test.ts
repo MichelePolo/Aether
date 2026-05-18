@@ -20,7 +20,7 @@ async function collect<T>(it: AsyncIterable<T>): Promise<T[]> {
 }
 
 describe('createStreamingDispatch', () => {
-  it('sends sessionId + message in body', async () => {
+  it('sends sessionId + message in body (no thinking)', async () => {
     let received: unknown;
     server.use(
       http.post('http://localhost/api/ai/dispatch', async ({ request }) => {
@@ -31,8 +31,23 @@ describe('createStreamingDispatch', () => {
         );
       }),
     );
-    await collect(createStreamingDispatch({ sessionId: 'S1', message: 'hi' }, new AbortController().signal));
-    expect(received).toEqual({ sessionId: 'S1', message: 'hi' });
+    await collect(createStreamingDispatch({ sessionId: 'S', message: 'hi' }, new AbortController().signal));
+    expect(received).toEqual({ sessionId: 'S', message: 'hi' });
+  });
+
+  it('sends sessionId + message + thinking when provided', async () => {
+    let received: unknown;
+    server.use(
+      http.post('http://localhost/api/ai/dispatch', async ({ request }) => {
+        received = await request.json();
+        return new HttpResponse(
+          sseChunks('event: done\ndata: {"model":"f","interrupted":false}\n\n'),
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        );
+      }),
+    );
+    await collect(createStreamingDispatch({ sessionId: 'S', message: 'hi', thinking: true }, new AbortController().signal));
+    expect(received).toEqual({ sessionId: 'S', message: 'hi', thinking: true });
   });
 
   it('yields parsed text + done events', async () => {

@@ -1,5 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import { useChatStore } from '@/src/stores/chat.store';
+import { useUiStore } from '@/src/stores/ui.store';
 import { StreamingIndicator } from './StreamingIndicator';
 import { cn } from '@/src/lib/cn';
 
@@ -11,10 +12,19 @@ export interface MessageBubbleProps {
 export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
   const message = useChatStore((s) => s.messages.find((m) => m.id === id));
   const isStreaming = useChatStore((s) => s.streamingId === id);
+  const isThinkingNow = useChatStore(
+    (s) => s.streamingId === id && s.currentReasoning.thinkingText.length > 0,
+  );
 
   if (!message) return null;
 
   const isUser = message.role === 'user';
+  const hasReasoningSteps = (message.reasoningSteps?.length ?? 0) > 0;
+
+  const handleReasoningClick = () => {
+    useUiStore.getState().setFocusedMessageId(id);
+    useUiStore.getState().openReasoningDrawer();
+  };
 
   return (
     <div className={cn('flex', isUser ? 'justify-end' : 'justify-start')}>
@@ -35,6 +45,19 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
             <ReactMarkdown>{message.text}</ReactMarkdown>
             {isStreaming && <StreamingIndicator />}
           </div>
+        )}
+
+        {(isThinkingNow || hasReasoningSteps) && (
+          <button
+            type="button"
+            onClick={handleReasoningClick}
+            aria-label="Show reasoning"
+            className="mt-2 text-[10px] text-zinc-500 hover:text-accent flex items-center gap-1"
+          >
+            {isThinkingNow
+              ? '💭 thinking…'
+              : `🧠 ${message.reasoningSteps!.length} steps`}
+          </button>
         )}
 
         {message.error && (

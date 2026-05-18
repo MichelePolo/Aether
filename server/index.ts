@@ -23,6 +23,7 @@ async function bootstrap() {
   if (cfg.fakeProvider) {
     provider = new FakeProvider({
       chunks: ['pong'],
+      thoughtChunks: ['thinking about it…'],
       chunkDelayMs: 50,
       model: 'fake-1',
     });
@@ -30,7 +31,7 @@ async function bootstrap() {
   } else {
     if (!cfg.geminiApiKey) {
       console.warn('[aether] GEMINI_API_KEY not set — falling back to FakeProvider');
-      provider = new FakeProvider({ chunks: ['pong'], chunkDelayMs: 50 });
+      provider = new FakeProvider({ chunks: ['pong'], thoughtChunks: ['thinking about it…'], chunkDelayMs: 50 });
     } else {
       provider = new GeminiProvider({ apiKey: cfg.geminiApiKey });
     }

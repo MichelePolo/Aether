@@ -3,9 +3,12 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MessageBubble } from './MessageBubble';
 import { useChatStore } from '@/src/stores/chat.store';
+import { useUiStore } from '@/src/stores/ui.store';
+import type { ReasoningStep } from '@/src/types/reasoning.types';
 
 beforeEach(() => {
   useChatStore.getState()._reset();
+  useUiStore.getState()._reset();
 });
 
 interface SeedInput {
@@ -17,6 +20,7 @@ interface SeedInput {
   retryable?: boolean;
   interrupted?: boolean;
   model?: string;
+  reasoningSteps?: ReasoningStep[];
 }
 
 function seed(msg: SeedInput) {
@@ -73,5 +77,44 @@ describe('MessageBubble', () => {
     seed({ id: 'z', role: 'model', text: '' });
     render(<MessageBubble id="z" />);
     expect(screen.getByText(/empty response/i)).toBeInTheDocument();
+  });
+
+  it('shows "💭 thinking…" badge when streaming this message AND thinkingText has content', () => {
+    seed({ id: 'mt', role: 'model', text: '' });
+    useChatStore.setState({
+      streamingId: 'mt',
+      currentReasoning: { thinkingText: 'pondering', steps: [] },
+    });
+    render(<MessageBubble id="mt" />);
+    expect(screen.getByText(/thinking/i)).toBeInTheDocument();
+  });
+
+  it('shows "🧠 N steps" badge when message.reasoningSteps non-empty (post-stream)', () => {
+    seed({
+      id: 'ms', role: 'model', text: 'done',
+      reasoningSteps: [
+        { id: 'a', type: 'context_fetch', title: 't', content: 'c', timestamp: 1 },
+        { id: 'b', type: 'dispatch', title: 't', content: 'c', timestamp: 1 },
+      ],
+    });
+    render(<MessageBubble id="ms" />);
+    expect(screen.getByText(/2 steps/i)).toBeInTheDocument();
+  });
+
+  it('clicking the steps badge opens drawer and sets focusedMessageId', async () => {
+    seed({
+      id: 'mb', role: 'model', text: 'done',
+      reasoningSteps: [{ id: 'a', type: 'context_fetch', title: 't', content: 'c', timestamp: 1 }],
+    });
+    render(<MessageBubble id="mb" />);
+    await userEvent.click(screen.getByRole('button', { name: /show reasoning/i }));
+    expect(useUiStore.getState().reasoningDrawerOpen).toBe(true);
+    expect(useUiStore.getState().focusedMessageId).toBe('mb');
+  });
+
+  it('no badge when message has no reasoning and not streaming', () => {
+    seed({ id: 'noreasoning', role: 'model', text: 'done' });
+    render(<MessageBubble id="noreasoning" />);
+    expect(screen.queryByRole('button', { name: /show reasoning/i })).not.toBeInTheDocument();
   });
 });

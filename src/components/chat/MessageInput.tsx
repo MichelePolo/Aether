@@ -1,5 +1,7 @@
 import { useState, type KeyboardEvent } from 'react';
-import { Send, Square } from 'lucide-react';
+import { Send, Square, Brain } from 'lucide-react';
+import { useUiStore } from '@/src/stores/ui.store';
+import { cn } from '@/src/lib/cn';
 
 export interface MessageInputProps {
   onSend: (text: string) => void;
@@ -9,6 +11,8 @@ export interface MessageInputProps {
 
 export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps) {
   const [value, setValue] = useState('');
+  const thinkingEnabled = useUiStore((s) => s.thinkingEnabled);
+  const setThinkingEnabled = useUiStore((s) => s.setThinkingEnabled);
 
   const submit = () => {
     const trimmed = value.trim();
@@ -27,6 +31,25 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   return (
     <div className="border-t border-border-subtle bg-surface-2 p-3">
       <div className="flex items-end gap-2">
+        <button
+          type="button"
+          aria-label="Toggle thinking mode"
+          aria-pressed={thinkingEnabled}
+          onClick={() => setThinkingEnabled(!thinkingEnabled)}
+          title={
+            thinkingEnabled
+              ? 'Thinking enabled (slower, shows reasoning)'
+              : 'Thinking disabled'
+          }
+          className={cn(
+            'p-2 rounded transition-colors',
+            thinkingEnabled
+              ? 'bg-accent/20 text-accent border border-accent/40'
+              : 'bg-surface-1 text-zinc-500 border border-border-subtle hover:text-zinc-300',
+          )}
+        >
+          <Brain size={16} />
+        </button>
         <textarea
           value={value}
           onChange={(e) => setValue(e.target.value)}

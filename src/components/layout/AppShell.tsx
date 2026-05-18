@@ -10,7 +10,10 @@ export function AppShell({ sidebar, sidebarOpen, children }: AppShellProps) {
   return (
     <div className="flex h-screen w-full bg-surface-1 text-zinc-300 font-sans">
       {sidebarOpen && (
-        <aside className="border-r border-border-subtle bg-surface-2 w-80 flex flex-col shrink-0 overflow-hidden">
+        <aside
+          aria-label="Sidebar"
+          className="border-r border-border-subtle bg-surface-2 w-80 flex flex-col shrink-0 overflow-hidden"
+        >
           {sidebar}
         </aside>
       )}
