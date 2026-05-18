@@ -73,8 +73,8 @@ export class DispatchService {
 
     let accumText = '';
     let accumThought = '';
+    let thinkingStart: number | undefined;
     let dispatchUsage: ProviderUsage | undefined;
-    const dispatchStart = performance.now();
 
     try {
       await tracer.step({
@@ -96,6 +96,7 @@ export class DispatchService {
               accumText += chunk.text;
               sse.event('text', { chunk: chunk.text });
             } else if (chunk.type === 'thinking') {
+              if (thinkingStart === undefined) thinkingStart = performance.now();
               accumThought += chunk.text;
               sse.event('thinking', { chunk: chunk.text });
             } else if (chunk.type === 'done') {
@@ -129,12 +130,12 @@ export class DispatchService {
       return;
     }
 
-    if (accumThought.length > 0) {
+    if (accumThought.length > 0 && thinkingStart !== undefined) {
       tracer.pushExternal({
         type: 'thinking',
         title: 'Gemini thoughts',
         content: accumThought,
-        durationMs: Math.round(performance.now() - dispatchStart),
+        durationMs: Math.round(performance.now() - thinkingStart),
       });
     }
 
