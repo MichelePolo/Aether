@@ -57,6 +57,18 @@ describe('migrateLegacyDefault', () => {
     expect(second).toEqual(first);
   });
 
+  it('re-keys SessionRecord-shaped default to a UUID', () => {
+    const file = {
+      default: { title: 'manual', createdAt: 100, messages: [] },
+    };
+    const out = migrateLegacyDefault(file);
+    expect(Object.keys(out)).toHaveLength(1);
+    const [id] = Object.keys(out);
+    expect(id).toMatch(UUID_RE);
+    expect(out[id]).toEqual({ title: 'manual', createdAt: 100, messages: [] });
+    expect(out.default).toBeUndefined();
+  });
+
   it('preserves other V2 keys when migrating default', () => {
     const file = {
       'xyz12345-abcd-abcd-abcd-abcdef123456': { title: 'kept', createdAt: 1, messages: [] },

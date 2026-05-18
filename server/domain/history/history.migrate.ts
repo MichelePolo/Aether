@@ -33,8 +33,11 @@ export function migrateLegacyDefault(file: Record<string, unknown>): SessionsFil
   }
 
   if (!isMessageArray(legacy)) {
-    // Caso inatteso: 'default' presente ma non Message[] e non SessionRecord.
-    // Salta silenziosamente per non perdere altre sessioni.
+    // Caso inatteso: 'default' presente ma non Message[].
+    // Se è già una SessionRecord, ri-chiavalo a un UUID. Altrimenti salta.
+    if (isSessionRecord(legacy)) {
+      out[randomUUID()] = legacy;
+    }
     return out;
   }
 
