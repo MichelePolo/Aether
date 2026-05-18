@@ -246,3 +246,114 @@ describe('useSessionsStore.clearError', () => {
     expect(useSessionsStore.getState().error).toBeNull();
   });
 });
+
+describe('useSessionsStore edge cases', () => {
+  it('init: falls back to "Operation failed" when API throws a non-Error', async () => {
+    // Force fetch to reject with a non-Error value so errMsg returns the default string.
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (() => Promise.reject('boom-string')) as typeof fetch;
+    try {
+      await useSessionsStore.getState().init();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    expect(useSessionsStore.getState().error).toBe('Operation failed');
+    expect(useSessionsStore.getState().hydrated).toBe(true);
+  });
+
+  it('init: hydrates chat with [] when history fetch fails', async () => {
+    server.use(
+      http.get('http://localhost/api/sessions', () =>
+        HttpResponse.json({ sessions: [m('A')] }),
+      ),
+      http.get('http://localhost/api/sessions/A', () =>
+        HttpResponse.json({ error: { message: 'no' } }, { status: 500 }),
+      ),
+    );
+    useChatStore.setState({
+      messages: [{ id: 'stale', role: 'user', text: 'stale', timestamp: 1 }],
+    });
+    await useSessionsStore.getState().init();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(useChatStore.getState().messages).toEqual([]);
+  });
+
+  it('setActive: hydrates chat with [] when fetchById fails', async () => {
+    useSessionsStore.setState({
+      sessions: [m('A'), m('B')], activeSessionId: 'A', hydrated: true,
+    });
+    useChatStore.setState({
+      messages: [{ id: 'old', role: 'user', text: 'old', timestamp: 1 }],
+    });
+    server.use(
+      http.get('http://localhost/api/sessions/B', () =>
+        HttpResponse.json({ error: { message: 'no' } }, { status: 500 }),
+      ),
+    );
+    useSessionsStore.getState().setActive('B');
+    await new Promise((r) => setTimeout(r, 20));
+    expect(useChatStore.getState().messages).toEqual([]);
+  });
+
+  it('setActive: no-op when the requested id is already active', async () => {
+    useSessionsStore.setState({
+      sessions: [m('A'), m('B')], activeSessionId: 'A', hydrated: true,
+    });
+    // No MSW handler installed — if setActive tried to hydrate, msw strict-mode would throw.
+    useSessionsStore.getState().setActive('A');
+    expect(useSessionsStore.getState().activeSessionId).toBe('A');
+  });
+
+  it('delete: removes non-active without auto-switching', async () => {
+    useSessionsStore.setState({
+      sessions: [m('A'), m('B')], activeSessionId: 'A', hydrated: true,
+    });
+    server.use(
+      http.delete('http://localhost/api/sessions/B', () => new HttpResponse(null, { status: 204 })),
+    );
+    await useSessionsStore.getState().delete('B');
+    const s = useSessionsStore.getState();
+    expect(s.sessions.map((x) => x.id)).toEqual(['A']);
+    expect(s.activeSessionId).toBe('A');
+  });
+
+  it('rename: leaves other sessions untouched (optimistic map else-branch)', async () => {
+    useSessionsStore.setState({
+      sessions: [m('A', 'a'), m('B', 'b')], activeSessionId: 'A', hydrated: true,
+    });
+    server.use(
+      http.patch('http://localhost/api/sessions/A', () =>
+        HttpResponse.json({ id: 'A', title: 'new-a', createdAt: 1, updatedAt: 2 }),
+      ),
+    );
+    await useSessionsStore.getState().rename('A', 'new-a');
+    const s = useSessionsStore.getState();
+    expect(s.sessions.find((x) => x.id === 'A')?.title).toBe('new-a');
+    expect(s.sessions.find((x) => x.id === 'B')?.title).toBe('b');
+  });
+
+  it('setLocalTitle: leaves other sessions untouched', () => {
+    useSessionsStore.setState({
+      sessions: [m('A', ''), m('B', 'b')], activeSessionId: 'A', hydrated: true,
+    });
+    useSessionsStore.getState().setLocalTitle('A', 'new');
+    expect(useSessionsStore.getState().sessions.find((x) => x.id === 'B')?.title).toBe('b');
+  });
+
+  it('init: ignores localStorage when read throws', async () => {
+    const orig = Storage.prototype.getItem;
+    Storage.prototype.getItem = function () { throw new Error('blocked'); };
+    server.use(
+      http.get('http://localhost/api/sessions', () =>
+        HttpResponse.json({ sessions: [m('A'), m('B')] }),
+      ),
+    );
+    try {
+      await useSessionsStore.getState().init();
+    } finally {
+      Storage.prototype.getItem = orig;
+    }
+    // Falls back to sessions[0] when localStorage read fails.
+    expect(useSessionsStore.getState().activeSessionId).toBe('A');
+  });
+});

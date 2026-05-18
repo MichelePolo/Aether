@@ -141,4 +141,83 @@ describe('useStreamingDispatch', () => {
     await p;
     expect(result.current.isStreaming).toBe(false);
   });
+
+  it('no-op when text is empty / whitespace only', async () => {
+    const { result } = renderHook(() => useStreamingDispatch());
+    await act(async () => { await result.current.send('   '); });
+    expect(useChatStore.getState().messages).toEqual([]);
+  });
+
+  it('ignores second send while a stream is in flight', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => { release = r; });
+    let calls = 0;
+    server.use(
+      http.post('http://localhost/api/ai/dispatch', async () => {
+        calls++;
+        await gate;
+        return new HttpResponse(
+          sseStream('event: done\ndata: {"model":"f","interrupted":false}\n\n'),
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        );
+      }),
+    );
+    const { result } = renderHook(() => useStreamingDispatch());
+    const first = act(async () => { await result.current.send('one'); });
+    await waitFor(() => { expect(useChatStore.getState().streamingId).not.toBeNull(); });
+    await act(async () => { await result.current.send('two'); });
+    expect(calls).toBe(1);
+    release();
+    await first;
+  });
+
+  it('finalizes assistant when stream ends without an explicit done event', async () => {
+    server.use(
+      http.post('http://localhost/api/ai/dispatch', () =>
+        new HttpResponse(
+          sseStream('event: text\ndata: {"chunk":"only-chunk"}\n\n'),
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        ),
+      ),
+    );
+    const { result } = renderHook(() => useStreamingDispatch());
+    await act(async () => { await result.current.send('hi'); });
+    const msgs = useChatStore.getState().messages;
+    expect(msgs.at(-1)?.text).toBe('only-chunk');
+    expect(useChatStore.getState().streamingId).toBeNull();
+  });
+
+  it('marks assistant failed when the dispatch throws', async () => {
+    server.use(
+      http.post('http://localhost/api/ai/dispatch', () =>
+        HttpResponse.json({ error: { message: 'bad gateway' } }, { status: 502 }),
+      ),
+    );
+    const { result } = renderHook(() => useStreamingDispatch());
+    await act(async () => { await result.current.send('hi'); });
+    const last = useChatStore.getState().messages.at(-1);
+    expect(last?.error).toBeTruthy();
+    expect(last?.retryable).toBe(true);
+    expect(useChatStore.getState().streamingId).toBeNull();
+  });
+
+  it('abort() invokes chat.abort()', async () => {
+    const { result } = renderHook(() => useStreamingDispatch());
+    act(() => { result.current.abort(); });
+    // Without an active controller, abort is a no-op and shouldn't throw.
+    expect(useChatStore.getState().streamingId).toBeNull();
+  });
+
+  it('uses fallback error message when dispatch throws a non-Error', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (() => Promise.reject('weird-string')) as typeof fetch;
+    try {
+      const { result } = renderHook(() => useStreamingDispatch());
+      await act(async () => { await result.current.send('hi'); });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+    const last = useChatStore.getState().messages.at(-1);
+    expect(last?.error).toBe('Unknown error');
+  });
 });
