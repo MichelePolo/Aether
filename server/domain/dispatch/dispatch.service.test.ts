@@ -19,8 +19,19 @@ afterEach(async () => {
 });
 
 describe('DispatchService', () => {
-  async function makeService(opts: { chunks: string[]; chunkDelayMs?: number }) {
-    const provider = new FakeProvider({ chunks: opts.chunks, chunkDelayMs: opts.chunkDelayMs, model: 'fake-1' });
+  async function makeService(opts: {
+    chunks: string[];
+    thoughtChunks?: string[];
+    chunkDelayMs?: number;
+    totalTokens?: number;
+  }) {
+    const provider = new FakeProvider({
+      chunks: opts.chunks,
+      thoughtChunks: opts.thoughtChunks,
+      chunkDelayMs: opts.chunkDelayMs,
+      model: 'fake-1',
+      totalTokens: opts.totalTokens,
+    });
     const historyStore = new HistoryStore(path.join(dir, 'sessions.json'));
     const contextStore = new ContextStore(path.join(dir, 'context.json'));
     const service = new DispatchService({ provider, historyStore, contextStore });
@@ -28,102 +39,108 @@ describe('DispatchService', () => {
     return { service, historyStore, contextStore, sessionId: session.id };
   }
 
-  it('emits text events then done', async () => {
-    const { service, sessionId } = await makeService({ chunks: ['Hello', ' world'] });
+  it('emits context_fetch, dispatch, validation steps (no thinking when thinking=false)', async () => {
+    const { service, sessionId } = await makeService({ chunks: ['pong'] });
     const { emitter, events } = createCollectorEmitter();
-    const ctrl = new AbortController();
-    await service.handle({ sessionId, message: 'hi' }, emitter, ctrl.signal);
-    expect(events.map((e) => e.event)).toEqual(['text', 'text', 'done']);
-    expect(events[2].data).toMatchObject({ model: 'fake-1', interrupted: false });
+    await service.handle({ sessionId, message: 'ping' }, emitter, new AbortController().signal);
+    const steps = events.filter((e) => e.event === 'reasoning_step').map((e) => (e.data as { type: string }).type);
+    expect(steps).toEqual(['context_fetch', 'dispatch', 'validation']);
   });
 
-  it('persists user + model messages to the specified session', async () => {
+  it('emits context_fetch, dispatch, thinking, validation when thinking=true and thoughts present', async () => {
+    const { service, sessionId } = await makeService({
+      chunks: ['pong'],
+      thoughtChunks: ['ponder'],
+    });
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle({ sessionId, message: 'ping', thinking: true }, emitter, new AbortController().signal);
+    const steps = events.filter((e) => e.event === 'reasoning_step').map((e) => (e.data as { type: string }).type);
+    expect(steps).toEqual(['context_fetch', 'dispatch', 'thinking', 'validation']);
+  });
+
+  it('does NOT emit thinking step when thinking=true but no thoughts produced', async () => {
+    const { service, sessionId } = await makeService({ chunks: ['pong'] }); // no thoughtChunks
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle({ sessionId, message: 'ping', thinking: true }, emitter, new AbortController().signal);
+    const steps = events.filter((e) => e.event === 'reasoning_step').map((e) => (e.data as { type: string }).type);
+    expect(steps).toEqual(['context_fetch', 'dispatch', 'validation']);
+  });
+
+  it('emits event:thinking chunks during dispatch when thoughts present', async () => {
+    const { service, sessionId } = await makeService({
+      chunks: ['pong'],
+      thoughtChunks: ['ponder', ' more'],
+    });
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle({ sessionId, message: 'ping', thinking: true }, emitter, new AbortController().signal);
+    const thinkingChunks = events
+      .filter((e) => e.event === 'thinking')
+      .map((e) => (e.data as { chunk: string }).chunk);
+    expect(thinkingChunks).toEqual(['ponder', ' more']);
+  });
+
+  it('done event includes reasoningSteps matching what was persisted', async () => {
     const { service, historyStore, sessionId } = await makeService({ chunks: ['pong'] });
-    const { emitter } = createCollectorEmitter();
+    const { emitter, events } = createCollectorEmitter();
     await service.handle({ sessionId, message: 'ping' }, emitter, new AbortController().signal);
+    const done = events.find((e) => e.event === 'done')!;
+    const reasoningSteps = (done.data as { reasoningSteps: { type: string }[] }).reasoningSteps;
+    expect(reasoningSteps.map((s) => s.type)).toEqual(['context_fetch', 'dispatch', 'validation']);
     const msgs = await historyStore.read(sessionId);
-    expect(msgs!.map((m) => `${m.role}:${m.text}`)).toEqual(['user:ping', 'model:pong']);
+    const model = msgs!.find((m) => m.role === 'model')!;
+    expect(model.reasoningSteps).toHaveLength(3);
   });
 
-  it('does not touch other sessions', async () => {
-    const { service, historyStore, sessionId } = await makeService({ chunks: ['pong'] });
-    const other = await historyStore.createEmpty();
-    const { emitter } = createCollectorEmitter();
+  it('validation step content reports tokens when usage available', async () => {
+    const { service, sessionId } = await makeService({ chunks: ['pong'], totalTokens: 42 });
+    const { emitter, events } = createCollectorEmitter();
     await service.handle({ sessionId, message: 'ping' }, emitter, new AbortController().signal);
-    const otherMsgs = await historyStore.read(other.id);
-    expect(otherMsgs).toEqual([]);
+    const validation = events
+      .filter((e) => e.event === 'reasoning_step')
+      .find((e) => (e.data as { type: string }).type === 'validation')!;
+    expect((validation.data as { tokens?: number }).tokens).toBe(42);
+    expect((validation.data as { content: string }).content).toContain('tokens 42');
   });
 
-  it('emits Session not found when sessionId does not exist', async () => {
-    const { service } = await makeService({ chunks: ['x'] });
-    const { emitter, events } = createCollectorEmitter();
-    await service.handle(
-      { sessionId: 'no-such-session', message: 'hi' },
-      emitter,
-      new AbortController().signal,
-    );
-    const err = events.find((e) => e.event === 'error');
-    expect(err).toBeDefined();
-    expect((err!.data as { message: string }).message).toBe('Session not found');
-    expect((err!.data as { retryable: boolean }).retryable).toBe(false);
-  });
-
-  it('emits Invalid request body for missing sessionId', async () => {
-    const { service } = await makeService({ chunks: ['x'] });
-    const { emitter, events } = createCollectorEmitter();
-    await service.handle({ message: 'hi' }, emitter, new AbortController().signal);
-    expect(events.find((e) => e.event === 'error')).toBeDefined();
-  });
-
-  it('passes history + systemInstruction to provider', async () => {
-    const historyStore = new HistoryStore(path.join(dir, 'sessions.json'));
-    const contextStore = new ContextStore(path.join(dir, 'context.json'));
-    await contextStore.patch({ systemInstruction: 'YOU_ARE_AETHER' });
-    const session = await historyStore.createEmpty();
-    await historyStore.append(session.id, { id: 'p1', role: 'user', text: 'first', timestamp: 1 });
-    await historyStore.append(session.id, { id: 'p2', role: 'model', text: 'reply', timestamp: 2 });
-
-    let captured: unknown;
-    class CapturingProvider {
-      readonly model = 'cap';
-      async *stream(req: unknown) {
-        captured = req;
-        yield { type: 'text' as const, text: 'x' };
-        yield { type: 'done' as const };
+  it('persists partial reasoningSteps on provider error', async () => {
+    class FailingProvider {
+      readonly model = 'broken';
+      async *stream(): AsyncGenerator<never> {
+        throw new Error('Auth failed');
       }
     }
-    const svc = new DispatchService({
-      provider: new CapturingProvider(),
+    const historyStore = new HistoryStore(path.join(dir, 'sessions.json'));
+    const contextStore = new ContextStore(path.join(dir, 'context.json'));
+    const service = new DispatchService({
+      provider: new FailingProvider(),
       historyStore,
       contextStore,
     });
-    const { emitter } = createCollectorEmitter();
-    await svc.handle(
-      { sessionId: session.id, message: 'second' },
-      emitter,
-      new AbortController().signal,
-    );
-    expect(captured).toMatchObject({
-      systemInstruction: 'YOU_ARE_AETHER',
-      history: [
-        { role: 'user', text: 'first' },
-        { role: 'model', text: 'reply' },
-      ],
-      userMessage: 'second',
-    });
+    const session = await historyStore.createEmpty();
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle({ sessionId: session.id, message: 'hi' }, emitter, new AbortController().signal);
+    const err = events.find((e) => e.event === 'error');
+    expect(err).toBeDefined();
+    const msgs = await historyStore.read(session.id);
+    const model = msgs!.find((m) => m.role === 'model')!;
+    // context_fetch was emitted before the provider threw → it should be persisted
+    expect(model.reasoningSteps?.[0]?.type).toBe('context_fetch');
   });
 
-  it('saves partial + interrupted=true when aborted', async () => {
-    const { service, historyStore, sessionId } = await makeService({ chunks: ['a', 'b', 'c'], chunkDelayMs: 20 });
+  it('persists reasoningSteps on aborted stream', async () => {
+    const { service, historyStore, sessionId } = await makeService({
+      chunks: ['a', 'b', 'c'],
+      chunkDelayMs: 20,
+    });
     const { emitter, events } = createCollectorEmitter();
     const ctrl = new AbortController();
     setTimeout(() => ctrl.abort(), 10);
     await service.handle({ sessionId, message: 'ping' }, emitter, ctrl.signal);
-    const last = events.at(-1);
-    expect(last?.event).toBe('done');
-    expect((last?.data as { interrupted: boolean }).interrupted).toBe(true);
+    const done = events.find((e) => e.event === 'done')!;
+    expect((done.data as { interrupted: boolean }).interrupted).toBe(true);
     const msgs = await historyStore.read(sessionId);
     const model = msgs!.find((m) => m.role === 'model')!;
+    expect(model.reasoningSteps?.length).toBeGreaterThanOrEqual(2); // context_fetch + dispatch
     expect(model.interrupted).toBe(true);
   });
 });

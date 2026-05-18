@@ -41,7 +41,9 @@ describe('/api/ai/dispatch', () => {
       .send({ sessionId, message: 'hi' });
     expect(res.status).toBe(200);
     const events = await collectSseEvents(res);
-    expect(events.map((e) => e.event)).toEqual(['text', 'text', 'done']);
+    expect(
+      events.map((e) => e.event).filter((ev) => ev === 'text' || ev === 'done'),
+    ).toEqual(['text', 'text', 'done']);
   });
 
   it('persists messages to the right session', async () => {
