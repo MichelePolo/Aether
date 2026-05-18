@@ -5,6 +5,7 @@ import type { HistoryStore } from './domain/history/history.store';
 import type { DispatchService } from './domain/dispatch/dispatch.service';
 import { createContextRoutes } from './routes/context.routes';
 import { createDispatchRoutes } from './routes/dispatch.routes';
+import { createHistoryRoutes } from './routes/history.routes';
 
 export interface AppDeps {
   contextStore?: ContextStore;
@@ -37,6 +38,10 @@ export function createApp(
     app.post('/api/ai/dispatch', (_req, res) => {
       res.status(503).json({ error: { code: 'NO_DISPATCHER', message: 'Dispatcher not configured' } });
     });
+  }
+
+  if (deps.historyStore) {
+    app.use('/api/sessions', createHistoryRoutes(deps.historyStore));
   }
 
   extraRoutes?.(app);
