@@ -1,0 +1,77 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MessageBubble } from './MessageBubble';
+import { useChatStore } from '@/src/stores/chat.store';
+
+beforeEach(() => {
+  useChatStore.getState()._reset();
+});
+
+interface SeedInput {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+  timestamp?: number;
+  error?: string;
+  retryable?: boolean;
+  interrupted?: boolean;
+  model?: string;
+}
+
+function seed(msg: SeedInput) {
+  useChatStore.getState().hydrate([{ timestamp: 0, ...msg }]);
+}
+
+describe('MessageBubble', () => {
+  it('renders user message as plain text', () => {
+    seed({ id: 'u1', role: 'user', text: 'Hello **world**' });
+    render(<MessageBubble id="u1" />);
+    // user messages: niente markdown rendering, testo puro
+    expect(screen.getByText('Hello **world**')).toBeInTheDocument();
+  });
+
+  it('renders model message with markdown', () => {
+    seed({ id: 'm1', role: 'model', text: 'Hello **bold**' });
+    render(<MessageBubble id="m1" />);
+    const strong = screen.getByText('bold');
+    expect(strong.tagName).toBe('STRONG');
+  });
+
+  it('shows error footer with Retry when retryable=true', async () => {
+    const onRetry = vi.fn();
+    seed({ id: 'e1', role: 'model', text: 'partial', error: 'Network down', retryable: true });
+    render(<MessageBubble id="e1" onRetry={onRetry} />);
+    expect(screen.getByText(/Network down/)).toBeInTheDocument();
+    const btn = screen.getByRole('button', { name: /retry/i });
+    await userEvent.click(btn);
+    expect(onRetry).toHaveBeenCalledWith('e1');
+  });
+
+  it('shows error footer without Retry when retryable=false', () => {
+    seed({ id: 'e2', role: 'model', text: 'x', error: 'Bad API key', retryable: false });
+    render(<MessageBubble id="e2" onRetry={() => {}} />);
+    expect(screen.getByText(/Bad API key/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /retry/i })).not.toBeInTheDocument();
+  });
+
+  it('shows interrupted label when interrupted (no error)', () => {
+    seed({ id: 'i1', role: 'model', text: 'half', interrupted: true });
+    render(<MessageBubble id="i1" />);
+    expect(screen.getByText(/Interrotto/i)).toBeInTheDocument();
+  });
+
+  it('shows StreamingIndicator only while streaming this message', () => {
+    seed({ id: 'm2', role: 'model', text: '' });
+    // simula streamingId == m2
+    useChatStore.setState({ streamingId: 'm2' });
+    render(<MessageBubble id="m2" />);
+    expect(screen.getByLabelText('streaming')).toBeInTheDocument();
+  });
+
+  it('renders empty model bubble with placeholder text', () => {
+    seed({ id: 'z', role: 'model', text: '' });
+    render(<MessageBubble id="z" />);
+    expect(screen.getByText(/empty response/i)).toBeInTheDocument();
+  });
+});

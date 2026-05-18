@@ -88,4 +88,73 @@ describe('contextApi', () => {
     );
     await expect(contextApi.removeMcpServer('m1')).resolves.toBeUndefined();
   });
+
+  it('bulkOverwrite PUTs whole context and returns new state', async () => {
+    const incoming = {
+      systemInstruction: 'New',
+      skills: ['s'],
+      tools: [],
+      mcpServers: [],
+    };
+    server.use(
+      http.put('http://localhost/api/context', async ({ request }) => {
+        const body = (await request.json()) as typeof incoming;
+        return HttpResponse.json(body);
+      }),
+    );
+    const out = await contextApi.bulkOverwrite(incoming);
+    expect(out).toEqual(incoming);
+  });
+
+  it('updateSkillAt PATCHes and resolves on 204', async () => {
+    server.use(
+      http.patch(
+        'http://localhost/api/context/skills/2',
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+    await expect(contextApi.updateSkillAt(2, 'v')).resolves.toBeUndefined();
+  });
+
+  it('removeSkillAt DELETEs and resolves on 204', async () => {
+    server.use(
+      http.delete(
+        'http://localhost/api/context/skills/3',
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+    await expect(contextApi.removeSkillAt(3)).resolves.toBeUndefined();
+  });
+
+  it('updateTool PATCHes and resolves on 204', async () => {
+    server.use(
+      http.patch(
+        'http://localhost/api/context/tools/abc',
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+    await expect(contextApi.updateTool('abc', { name: 'Y' })).resolves.toBeUndefined();
+  });
+
+  it('addMcpServer POSTs and returns server object', async () => {
+    const srv = { id: 'm1', name: 'M', url: 'http://m', status: 'online' as const };
+    server.use(
+      http.post(
+        'http://localhost/api/context/mcp-servers',
+        () => HttpResponse.json(srv, { status: 201 }),
+      ),
+    );
+    const out = await contextApi.addMcpServer({ name: 'M', url: 'http://m', status: 'online' });
+    expect(out).toEqual(srv);
+  });
+
+  it('falls back to HTTP <status> message when error body is empty', async () => {
+    server.use(
+      http.delete(
+        'http://localhost/api/context/tools/none',
+        () => new HttpResponse(null, { status: 500 }),
+      ),
+    );
+    await expect(contextApi.removeTool('none')).rejects.toThrow(/HTTP 500/);
+  });
 });

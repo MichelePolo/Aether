@@ -29,4 +29,16 @@ describe('errors', () => {
     expect(isAppError('string')).toBe(false);
     expect(isAppError(null)).toBe(false);
   });
+
+  it('AppError uses default status=500 and code=INTERNAL when no options provided', () => {
+    const e = new AppError('oops');
+    expect(e.status).toBe(500);
+    expect(e.code).toBe('INTERNAL');
+  });
+
+  it('AppError preserves cause when supplied', () => {
+    const root = new Error('root cause');
+    const e = new AppError('wrap', { cause: root });
+    expect(e.cause).toBe(root);
+  });
 });

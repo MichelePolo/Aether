@@ -85,4 +85,19 @@ describe('parseSseStream', () => {
     expect(events).toHaveLength(1);
     expect(events[0].data).toEqual({ chunk: 'complete' });
   });
+
+  it('skips event blocks with no data line', async () => {
+    const events = await collect(streamFromChunks([
+      'event: text\n\nevent: text\ndata: "second"\n\n',
+    ]));
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({ event: 'text', data: 'second' });
+  });
+
+  it('ignores unknown field lines', async () => {
+    const events = await collect(streamFromChunks([
+      'id: 42\nretry: 1000\nevent: text\ndata: "hi"\n\n',
+    ]));
+    expect(events).toEqual([{ event: 'text', data: 'hi' }]);
+  });
 });

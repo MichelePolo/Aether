@@ -39,16 +39,33 @@ describe('createSseEmitter', () => {
     );
   });
 
-  it('emits error event then ends', () => {
+  it('emits error event then ends with retryable=false by default', () => {
     const res = fakeRes();
     const sse = createSseEmitter(res);
     sse.error('boom');
     expect(
       (res as unknown as { chunks: string[] }).chunks.some(
-        (c) => c.includes('event: error') && c.includes('"message":"boom"'),
+        (c) =>
+          c.includes('event: error') &&
+          c.includes('"message":"boom"') &&
+          c.includes('"retryable":false'),
       ),
     ).toBe(true);
     expect((res as Response).end).toHaveBeenCalled();
+  });
+
+  it('emits error event with retryable=true when passed', () => {
+    const res = fakeRes();
+    const sse = createSseEmitter(res);
+    sse.error('boom', true);
+    expect(
+      (res as unknown as { chunks: string[] }).chunks.some(
+        (c) =>
+          c.includes('event: error') &&
+          c.includes('"message":"boom"') &&
+          c.includes('"retryable":true'),
+      ),
+    ).toBe(true);
   });
 
   it('end() closes the response', () => {
@@ -66,5 +83,29 @@ describe('createSseEmitter', () => {
     const before = (res as unknown as { chunks: string[] }).chunks.length;
     sse.event('text', { chunk: 'lost' });
     expect((res as unknown as { chunks: string[] }).chunks.length).toBe(before);
+  });
+
+  it('error() after close is a no-op', () => {
+    const res = fakeRes();
+    const sse = createSseEmitter(res);
+    sse.error('boom');
+    const callsBefore = (res as Response).end as unknown as { mock: { calls: unknown[] } };
+    const endCallsBefore = callsBefore.mock.calls.length;
+    sse.error('again');
+    expect(((res as Response).end as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(
+      endCallsBefore,
+    );
+  });
+
+  it('end() after close is a no-op', () => {
+    const res = fakeRes();
+    const sse = createSseEmitter(res);
+    sse.end();
+    const endCallsBefore = ((res as Response).end as unknown as { mock: { calls: unknown[] } }).mock
+      .calls.length;
+    sse.end();
+    expect(((res as Response).end as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(
+      endCallsBefore,
+    );
   });
 });
