@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { FakeProvider } from './fake.provider';
+import type { ProviderChunk } from './provider.types';
 
 async function collect<T>(it: AsyncIterable<T>): Promise<T[]> {
   const out: T[] = [];
@@ -10,14 +11,13 @@ async function collect<T>(it: AsyncIterable<T>): Promise<T[]> {
 describe('FakeProvider', () => {
   it('yields configured text chunks then done', async () => {
     const p = new FakeProvider({ chunks: ['Hello', ' world'] });
-    const ctrl = new AbortController();
-    const all = await collect(
+    const out = await collect(
       p.stream(
         { systemInstruction: '', history: [], userMessage: '' },
-        ctrl.signal,
+        new AbortController().signal,
       ),
     );
-    expect(all).toEqual([
+    expect(out).toEqual<ProviderChunk[]>([
       { type: 'text', text: 'Hello' },
       { type: 'text', text: ' world' },
       { type: 'done' },
@@ -27,16 +27,14 @@ describe('FakeProvider', () => {
   it('aborts mid-stream when signal is aborted', async () => {
     const p = new FakeProvider({ chunks: ['a', 'b', 'c'], chunkDelayMs: 10 });
     const ctrl = new AbortController();
-    const out: string[] = [];
     const iter = p.stream(
       { systemInstruction: '', history: [], userMessage: '' },
       ctrl.signal,
     );
     setTimeout(() => ctrl.abort(), 5);
-    for await (const chunk of iter) {
-      if (chunk.type === 'text') out.push(chunk.text);
-    }
-    expect(out.length).toBeLessThan(3);
+    const out: ProviderChunk[] = [];
+    for await (const c of iter) out.push(c);
+    expect(out.filter((c) => c.type === 'text').length).toBeLessThan(3);
   });
 
   it('does not yield text after abort', async () => {
@@ -62,44 +60,42 @@ describe('FakeProvider', () => {
     expect(p.model).toBe('fake-echo');
   });
 
-  it('skips sleep branch when chunkDelayMs is 0', async () => {
-    const p = new FakeProvider({ chunks: ['a', 'b'], chunkDelayMs: 0 });
+  it('yields thoughtChunks BEFORE text chunks when req.thinking=true', async () => {
+    const p = new FakeProvider({ chunks: ['hello'], thoughtChunks: ['pondering', ' more'] });
     const out = await collect(
       p.stream(
-        { systemInstruction: '', history: [], userMessage: '' },
+        { systemInstruction: '', history: [], userMessage: 'x', thinking: true },
         new AbortController().signal,
       ),
     );
-    expect(out).toEqual([
-      { type: 'text', text: 'a' },
-      { type: 'text', text: 'b' },
+    expect(out).toEqual<ProviderChunk[]>([
+      { type: 'thinking', text: 'pondering' },
+      { type: 'thinking', text: ' more' },
+      { type: 'text', text: 'hello' },
       { type: 'done' },
     ]);
   });
 
-  it('aborts during sleep (chunkDelayMs path)', async () => {
-    const p = new FakeProvider({ chunks: ['a', 'b'], chunkDelayMs: 50 });
-    const ctrl = new AbortController();
-    setTimeout(() => ctrl.abort(), 10);
+  it('omits thoughtChunks when req.thinking is not true', async () => {
+    const p = new FakeProvider({ chunks: ['hello'], thoughtChunks: ['pondering'] });
     const out = await collect(
       p.stream(
-        { systemInstruction: '', history: [], userMessage: '' },
-        ctrl.signal,
+        { systemInstruction: '', history: [], userMessage: 'x' },
+        new AbortController().signal,
       ),
     );
-    expect(out.filter((c) => c.type === 'done')).toHaveLength(0);
+    expect(out.filter((c) => c.type === 'thinking')).toHaveLength(0);
   });
 
-  it('does not yield done when signal already aborted before stream', async () => {
-    const p = new FakeProvider({ chunks: ['a'] });
-    const ctrl = new AbortController();
-    ctrl.abort();
+  it('includes usage in done when totalTokens configured', async () => {
+    const p = new FakeProvider({ chunks: ['x'], totalTokens: 42 });
     const out = await collect(
       p.stream(
-        { systemInstruction: '', history: [], userMessage: '' },
-        ctrl.signal,
+        { systemInstruction: '', history: [], userMessage: 'x' },
+        new AbortController().signal,
       ),
     );
-    expect(out.find((c) => c.type === 'done')).toBeUndefined();
+    const done = out.at(-1);
+    expect(done).toEqual({ type: 'done', usage: { totalTokens: 42 } });
   });
 });

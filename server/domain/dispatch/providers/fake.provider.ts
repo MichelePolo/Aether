@@ -2,8 +2,10 @@ import type { AIProvider, ProviderChunk, ProviderRequest } from './provider.type
 
 export interface FakeProviderOptions {
   chunks: string[];
+  thoughtChunks?: string[];
   chunkDelayMs?: number;
   model?: string;
+  totalTokens?: number;
 }
 
 export class FakeProvider implements AIProvider {
@@ -14,9 +16,20 @@ export class FakeProvider implements AIProvider {
   }
 
   async *stream(
-    _req: ProviderRequest,
+    req: ProviderRequest,
     signal: AbortSignal,
   ): AsyncGenerator<ProviderChunk> {
+    // Thought chunks emitted FIRST, only when req.thinking === true.
+    if (req.thinking === true && this.opts.thoughtChunks) {
+      for (const text of this.opts.thoughtChunks) {
+        if (signal.aborted) return;
+        if (this.opts.chunkDelayMs && this.opts.chunkDelayMs > 0) {
+          await sleep(this.opts.chunkDelayMs, signal);
+          if (signal.aborted) return;
+        }
+        yield { type: 'thinking', text };
+      }
+    }
     for (const text of this.opts.chunks) {
       if (signal.aborted) return;
       if (this.opts.chunkDelayMs && this.opts.chunkDelayMs > 0) {
@@ -25,7 +38,15 @@ export class FakeProvider implements AIProvider {
       }
       yield { type: 'text', text };
     }
-    if (!signal.aborted) yield { type: 'done' };
+    if (!signal.aborted) {
+      yield {
+        type: 'done',
+        usage:
+          this.opts.totalTokens !== undefined
+            ? { totalTokens: this.opts.totalTokens }
+            : undefined,
+      };
+    }
   }
 }
 
