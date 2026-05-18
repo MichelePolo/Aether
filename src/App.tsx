@@ -3,6 +3,7 @@ import { AppShell } from '@/src/components/layout/AppShell';
 import { TopBar } from '@/src/components/layout/TopBar';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { DialogHost } from '@/src/components/layout/DialogHost';
+import { SessionsSection } from '@/src/components/sidebar/SessionsSection';
 import { SystemProtocolSection } from '@/src/components/sidebar/SystemProtocolSection';
 import { SkillsSection } from '@/src/components/sidebar/SkillsSection';
 import { ToolsSection } from '@/src/components/sidebar/ToolsSection';
@@ -10,21 +11,17 @@ import { McpServersSection } from '@/src/components/sidebar/McpServersSection';
 import { ConnectionFooter } from '@/src/components/sidebar/ConnectionFooter';
 import { ChatView } from '@/src/components/chat/ChatView';
 import { useContextStore } from '@/src/stores/context.store';
-import { useChatStore } from '@/src/stores/chat.store';
-import { historyApi } from '@/src/lib/api/history.api';
+import { useSessionsStore } from '@/src/stores/sessions.store';
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const initContext = useContextStore((s) => s.init);
-  const hydrateChat = useChatStore((s) => s.hydrate);
+  const initSessions = useSessionsStore((s) => s.init);
 
   useEffect(() => {
     initContext();
-    historyApi
-      .fetchDefault()
-      .then((msgs) => hydrateChat(msgs))
-      .catch(() => hydrateChat([]));
-  }, [initContext, hydrateChat]);
+    initSessions();
+  }, [initContext, initSessions]);
 
   return (
     <>
@@ -40,6 +37,7 @@ export default function App() {
             }
             footer={<ConnectionFooter />}
           >
+            <SessionsSection />
             <SystemProtocolSection />
             <SkillsSection />
             <ToolsSection />
