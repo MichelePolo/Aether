@@ -141,6 +141,70 @@ describe('useStreamingDispatch', () => {
     expect(useUiStore.getState().focusedMessageId).toBeNull();
   });
 
+  it('marks message as interrupted when abort is called mid-stream', async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => { release = r; });
+    server.use(
+      http.post('http://localhost/api/ai/dispatch', async ({ request }) => {
+        // Hook abort to the AbortSignal so the fetch rejects with AbortError.
+        const abortPromise = new Promise<never>((_, reject) => {
+          request.signal.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'));
+          });
+        });
+        await gate;
+        return Promise.race([
+          abortPromise,
+          new Promise<HttpResponse>((r) => {
+            r(new HttpResponse(
+              sseStream('event: text\ndata: {"chunk":"x"}\n\n'),
+              { headers: { 'Content-Type': 'text/event-stream' } },
+            ));
+          }),
+        ]);
+      }),
+    );
+    const { result } = renderHook(() => useStreamingDispatch());
+    const p = act(async () => { await result.current.send('hi'); });
+    await waitFor(() => { expect(result.current.isStreaming).toBe(true); });
+    act(() => { result.current.abort(); });
+    release();
+    await p;
+    const last = useChatStore.getState().messages.at(-1);
+    expect(last?.interrupted).toBe(true);
+  });
+
+  it('fails message when fetch throws non-abort error', async () => {
+    server.use(
+      http.post('http://localhost/api/ai/dispatch', () => {
+        return HttpResponse.error();
+      }),
+    );
+    const { result } = renderHook(() => useStreamingDispatch());
+    await act(async () => { await result.current.send('hi'); });
+    const last = useChatStore.getState().messages.at(-1);
+    expect(last?.error).toBeDefined();
+    expect(last?.retryable).toBe(true);
+  });
+
+  it('finishes assistant when stream closes without done event', async () => {
+    server.use(
+      http.post('http://localhost/api/ai/dispatch', () =>
+        new HttpResponse(
+          sseStream('event: text\ndata: {"chunk":"partial"}\n\n'),
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        ),
+      ),
+    );
+    const { result } = renderHook(() => useStreamingDispatch());
+    await act(async () => { await result.current.send('hi'); });
+    const last = useChatStore.getState().messages.at(-1);
+    expect(last?.text).toBe('partial');
+    expect(last?.error).toBeUndefined();
+    // After fallthrough finishAssistant, streamingId is cleared.
+    expect(useChatStore.getState().streamingId).toBeNull();
+  });
+
   it('isStreaming flips during send', async () => {
     let release: () => void = () => {};
     const gate = new Promise<void>((r) => { release = r; });
