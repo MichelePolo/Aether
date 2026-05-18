@@ -10,18 +10,22 @@ import { ToolsSection } from '@/src/components/sidebar/ToolsSection';
 import { McpServersSection } from '@/src/components/sidebar/McpServersSection';
 import { ConnectionFooter } from '@/src/components/sidebar/ConnectionFooter';
 import { ChatView } from '@/src/components/chat/ChatView';
+import { ReasoningDrawer } from '@/src/components/reasoning/ReasoningDrawer';
 import { useContextStore } from '@/src/stores/context.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
+import { useUiStore } from '@/src/stores/ui.store';
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const initContext = useContextStore((s) => s.init);
   const initSessions = useSessionsStore((s) => s.init);
+  const initUi = useUiStore((s) => s.initFromStorage);
 
   useEffect(() => {
     initContext();
     initSessions();
-  }, [initContext, initSessions]);
+    initUi();
+  }, [initContext, initSessions, initUi]);
 
   return (
     <>
@@ -52,6 +56,7 @@ export default function App() {
         />
         <ChatView />
       </AppShell>
+      <ReasoningDrawer />
     </>
   );
 }
