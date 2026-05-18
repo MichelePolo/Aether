@@ -23,25 +23,76 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-describe('/api/sessions/default', () => {
-  it('GET returns empty messages on empty history', async () => {
-    const res = await request(app).get('/api/sessions/default');
+describe('/api/sessions', () => {
+  it('GET returns empty list initially', async () => {
+    const res = await request(app).get('/api/sessions');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ messages: [] });
+    expect(res.body).toEqual({ sessions: [] });
   });
 
-  it('GET returns stored messages', async () => {
-    await historyStore.append({ id: 'a', role: 'user', text: 'hi', timestamp: 1 });
-    await historyStore.append({ id: 'b', role: 'model', text: 'hello', timestamp: 2 });
-    const res = await request(app).get('/api/sessions/default');
-    expect(res.body.messages).toHaveLength(2);
+  it('POST creates an empty session', async () => {
+    const res = await request(app).post('/api/sessions');
+    expect(res.status).toBe(201);
+    expect(res.body.id).toMatch(/[0-9a-f-]{36}/);
+    expect(res.body.title).toBe('');
+    expect(typeof res.body.createdAt).toBe('number');
+  });
+
+  it('GET lists created sessions', async () => {
+    const a = await historyStore.createEmpty();
+    const b = await historyStore.createEmpty();
+    const res = await request(app).get('/api/sessions');
+    expect(res.body.sessions).toHaveLength(2);
+    expect(res.body.sessions.map((s: { id: string }) => s.id)).toEqual(
+      expect.arrayContaining([a.id, b.id]),
+    );
+  });
+
+  it('GET /:id returns messages of the session', async () => {
+    const meta = await historyStore.createEmpty();
+    await historyStore.append(meta.id, { id: 'a', role: 'user', text: 'hi', timestamp: 1 });
+    const res = await request(app).get(`/api/sessions/${meta.id}`);
+    expect(res.status).toBe(200);
+    expect(res.body.messages).toHaveLength(1);
     expect(res.body.messages[0]).toMatchObject({ id: 'a', role: 'user' });
   });
 
-  it('DELETE clears the session', async () => {
-    await historyStore.append({ id: 'a', role: 'user', text: 'x', timestamp: 1 });
-    const res = await request(app).delete('/api/sessions/default');
+  it('GET /:id returns 404 for unknown session', async () => {
+    const res = await request(app).get('/api/sessions/nope');
+    expect(res.status).toBe(404);
+  });
+
+  it('PATCH /:id renames the session', async () => {
+    const meta = await historyStore.createEmpty();
+    const res = await request(app)
+      .patch(`/api/sessions/${meta.id}`)
+      .send({ title: 'My chat' });
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBe('My chat');
+  });
+
+  it('PATCH /:id rejects empty title', async () => {
+    const meta = await historyStore.createEmpty();
+    const res = await request(app)
+      .patch(`/api/sessions/${meta.id}`)
+      .send({ title: '' });
+    expect(res.status).toBe(400);
+  });
+
+  it('PATCH /:id returns 404 for unknown session', async () => {
+    const res = await request(app).patch('/api/sessions/nope').send({ title: 'x' });
+    expect(res.status).toBe(404);
+  });
+
+  it('DELETE /:id removes the session', async () => {
+    const meta = await historyStore.createEmpty();
+    const res = await request(app).delete(`/api/sessions/${meta.id}`);
     expect(res.status).toBe(204);
-    expect(await historyStore.read()).toEqual([]);
+    expect(await historyStore.read(meta.id)).toBeNull();
+  });
+
+  it('DELETE /:id returns 404 for unknown session', async () => {
+    const res = await request(app).delete('/api/sessions/nope');
+    expect(res.status).toBe(404);
   });
 });
