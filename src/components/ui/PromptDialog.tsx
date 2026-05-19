@@ -26,14 +26,17 @@ export function PromptDialog({
   onCancel,
 }: PromptDialogProps) {
   const [value, setValue] = useState(defaultValue);
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (open) {
       setValue(defaultValue);
-      setTimeout(() => inputRef.current?.focus(), 10);
+      setTimeout(() => {
+        (multiline ? textareaRef : inputRef).current?.focus();
+      }, 10);
     }
-  }, [open, defaultValue]);
+  }, [open, defaultValue, multiline]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -52,7 +55,7 @@ export function PromptDialog({
           <span className="mono-label">{label}</span>
           {multiline ? (
             <textarea
-              ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+              ref={textareaRef}
               value={value}
               onChange={(e) => setValue(e.target.value)}
               placeholder={placeholder}
@@ -61,7 +64,7 @@ export function PromptDialog({
             />
           ) : (
             <input
-              ref={inputRef as React.RefObject<HTMLInputElement>}
+              ref={inputRef}
               type="text"
               value={value}
               onChange={(e) => setValue(e.target.value)}
