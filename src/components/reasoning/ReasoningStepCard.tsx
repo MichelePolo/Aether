@@ -11,6 +11,7 @@ const TYPE_LABELS: Record<ReasoningStepType, string> = {
   validation: 'validation',
   logic: 'logic',
   resolve_subagent: 'subagent',
+  tool_call: 'tool',
 };
 
 const TYPE_COLORS: Record<ReasoningStepType, string> = {
@@ -21,6 +22,7 @@ const TYPE_COLORS: Record<ReasoningStepType, string> = {
   validation: 'bg-green-500/10 text-green-400',
   logic: 'bg-zinc-800 text-zinc-400',
   resolve_subagent: 'bg-amber-500/10 text-amber-400',
+  tool_call: 'bg-cyan-500/10 text-cyan-300',
 };
 
 function formatDuration(ms?: number): string {

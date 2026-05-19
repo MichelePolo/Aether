@@ -8,7 +8,17 @@ export const ReasoningStepTypeSchema = z.enum([
   'validation',
   'logic',
   'resolve_subagent',
+  'tool_call',
 ]);
+
+export const ToolCallTraceSchema = z.object({
+  id: z.string(),
+  qualifiedName: z.string(),
+  args: z.record(z.string(), z.unknown()),
+  result: z.unknown().optional(),
+  error: z.string().optional(),
+  durationMs: z.number(),
+});
 
 export const ReasoningStepSchema = z.object({
   id: z.string(),
@@ -18,5 +28,6 @@ export const ReasoningStepSchema = z.object({
   tokens: z.number().optional(),
   durationMs: z.number().optional(),
   subAgent: z.string().optional(),
+  toolCall: ToolCallTraceSchema.optional(),
   timestamp: z.number(),
 });
