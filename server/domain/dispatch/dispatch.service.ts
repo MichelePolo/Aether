@@ -10,6 +10,7 @@ import type { SubAgentsStore } from '@/server/domain/subagents/subagents.store';
 import type { SubAgentRecord } from '@/server/domain/subagents/subagents.types';
 import { parseLeadingMention } from './subagent-parser';
 import { assemble } from './prompt-assembler';
+import type { McpRegistry } from '@/server/domain/mcp/registry';
 
 export const DispatchRequestSchema = z.object({
   sessionId: z.string().min(1),
@@ -23,6 +24,7 @@ export interface DispatchServiceDeps {
   historyStore: HistoryStore;
   contextStore: ContextStore;
   subAgentsStore?: SubAgentsStore;
+  mcpRegistry?: McpRegistry;
 }
 
 export class DispatchService {

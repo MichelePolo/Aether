@@ -20,11 +20,10 @@ async function makeApp() {
     ],
   });
   const mcpRegistry = new McpRegistry(contextStore);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return { app: createApp({ contextStore, mcpRegistry } as any), mcpRegistry };
+  return { app: createApp({ contextStore, mcpRegistry }), mcpRegistry };
 }
 
-describe.skip('mcp routes (un-skip after Task I1 wires AppDeps)', () => {
+describe('mcp routes', () => {
   let app: Awaited<ReturnType<typeof makeApp>>['app'];
   let reg: McpRegistry;
   beforeEach(async () => {

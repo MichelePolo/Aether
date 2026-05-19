@@ -12,6 +12,7 @@ import { DispatchService } from './domain/dispatch/dispatch.service';
 import { FakeProvider } from './domain/dispatch/providers/fake.provider';
 import { GeminiProvider } from './domain/dispatch/providers/gemini.provider';
 import type { AIProvider } from './domain/dispatch/providers/provider.types';
+import { McpRegistry } from './domain/mcp/registry';
 
 dotenv.config();
 
@@ -41,9 +42,11 @@ async function bootstrap() {
     }
   }
 
-  const dispatcher = new DispatchService({ provider, historyStore, contextStore, subAgentsStore });
+  const mcpRegistry = new McpRegistry(contextStore);
 
-  const app = createApp({ contextStore, historyStore, dispatcher, profilesStore, subAgentsStore });
+  const dispatcher = new DispatchService({ provider, historyStore, contextStore, subAgentsStore, mcpRegistry });
+
+  const app = createApp({ contextStore, historyStore, dispatcher, profilesStore, subAgentsStore, mcpRegistry });
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
