@@ -132,10 +132,11 @@ test('profiles: save → apply roundtrip', async ({ page, request }) => {
 
   // Save current as new
   await dialog.getByRole('button', { name: /save current as new/i }).click();
-  // PromptDialog appears (a second dialog on top)
-  const promptDialog = page.getByRole('dialog').last();
-  await promptDialog.getByRole('textbox').fill('e2e profile');
-  await promptDialog.getByRole('button', { name: /ok|save|confirm/i }).last().click();
+  // PromptDialog stacks above ProfilesModal — scope by exact label to avoid sidebar "Rename" buttons
+  const nameInput = page.getByLabel('Name', { exact: true });
+  await expect(nameInput).toBeVisible({ timeout: 5000 });
+  await nameInput.fill('e2e profile');
+  await page.getByRole('button', { name: /confirm/i }).click();
 
   // Row visible in table
   await expect(page.getByText('e2e profile')).toBeVisible({ timeout: 5000 });
@@ -174,9 +175,9 @@ test('palette: ⌘K → new session via palette', async ({ page, request }) => {
   // Palette closes
   await expect(input).toHaveCount(0, { timeout: 5000 });
 
-  // A new session row appears in the sidebar
+  // A new session row appears in the sidebar (default title = "Nuova sessione")
   const sidebar = page.getByRole('complementary', { name: /sidebar/i });
-  await expect(sidebar.getByRole('button', { name: /untitled/i }).first()).toBeVisible({
+  await expect(sidebar.getByRole('button', { name: /nuova sessione/i }).first()).toBeVisible({
     timeout: 5000,
   });
 });
@@ -195,15 +196,17 @@ test('subagent: create + invoke + reasoning badge', async ({ page, request }) =>
   const sidebar = page.getByRole('complementary', { name: /sidebar/i });
   await sidebar.getByRole('button', { name: /new sub-agent/i }).click();
 
-  // First prompt: name (single-line input)
-  const nameDialog = page.getByRole('dialog');
-  await nameDialog.getByRole('textbox').fill('designer');
-  await nameDialog.getByRole('button', { name: /confirm/i }).click();
+  // First prompt: name (single-line input). Use exact label to avoid sidebar "Rename" buttons.
+  const nameInput = page.getByLabel('Name', { exact: true });
+  await expect(nameInput).toBeVisible({ timeout: 5000 });
+  await nameInput.fill('designer');
+  await page.getByRole('button', { name: /confirm/i }).click();
 
-  // Second prompt: system instruction (multiline)
-  const sysDialog = page.getByRole('dialog');
-  await sysDialog.getByRole('textbox').fill('You are a designer.');
-  await sysDialog.getByRole('button', { name: /confirm/i }).click();
+  // Second prompt: system instruction (multiline textarea)
+  const sysInput = page.getByLabel('System instruction', { exact: true });
+  await expect(sysInput).toBeVisible({ timeout: 5000 });
+  await sysInput.fill('You are a designer.');
+  await page.getByRole('button', { name: /confirm/i }).click();
 
   // The sidebar should now show the new sub-agent
   await expect(sidebar.getByText('designer')).toBeVisible({ timeout: 5000 });
@@ -216,8 +219,8 @@ test('subagent: create + invoke + reasoning badge', async ({ page, request }) =>
   // Wait for the reply
   await expect(page.getByText('pong').first()).toBeVisible({ timeout: 5000 });
 
-  // Open the reasoning drawer and check the badge
-  await page.getByRole('button', { name: /toggle reasoning/i }).click();
+  // Open the reasoning drawer via the per-message "Show reasoning" button (rendered when message has reasoningSteps)
+  await page.getByRole('button', { name: /show reasoning/i }).last().click();
   const drawer = page.getByRole('complementary', { name: /reasoning/i });
   await expect(drawer.getByText(/sub-agent: designer/i)).toBeVisible({ timeout: 5000 });
 });
