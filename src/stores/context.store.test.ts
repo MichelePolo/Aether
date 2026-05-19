@@ -271,4 +271,51 @@ describe('useContextStore', () => {
     ).resolves.toBeUndefined();
     expect(useContextStore.getState().context).toBeNull();
   });
+
+  it('getCurrentContext returns null when not hydrated', () => {
+    useContextStore.getState()._reset();
+    expect(useContextStore.getState().getCurrentContext()).toBeNull();
+  });
+
+  it('getCurrentContext returns context after hydration', async () => {
+    server.use(
+      http.get('http://localhost/api/context', () =>
+        HttpResponse.json({
+          systemInstruction: 'hydrated sys',
+          skills: ['skillA'],
+          tools: [],
+          mcpServers: [],
+        }),
+      ),
+    );
+    await useContextStore.getState().init();
+    expect(useContextStore.getState().getCurrentContext()).toMatchObject({
+      systemInstruction: 'hydrated sys',
+    });
+  });
+
+  it('bulkOverwrite PUTs and updates state', async () => {
+    let received: unknown;
+    const next = { systemInstruction: 'new', skills: [], tools: [], mcpServers: [] };
+    server.use(
+      http.put('http://localhost/api/context', async ({ request }) => {
+        received = await request.json();
+        return HttpResponse.json(next);
+      }),
+    );
+    await useContextStore.getState().bulkOverwrite(next);
+    expect(received).toEqual(next);
+    expect(useContextStore.getState().getCurrentContext()).toEqual(next);
+  });
+
+  it('bulkOverwrite sets error and throws on 400', async () => {
+    server.use(
+      http.put('http://localhost/api/context', () =>
+        HttpResponse.json({ error: { message: 'bad' } }, { status: 400 }),
+      ),
+    );
+    const next = { systemInstruction: 'x', skills: [], tools: [], mcpServers: [] };
+    await expect(useContextStore.getState().bulkOverwrite(next)).rejects.toThrow(/bad/);
+    expect(useContextStore.getState().error).toBeTruthy();
+  });
 });
