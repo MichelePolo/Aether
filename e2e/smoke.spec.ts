@@ -149,6 +149,38 @@ test('profiles: save → apply roundtrip', async ({ page, request }) => {
   );
 });
 
+test('palette: ⌘K → new session via palette', async ({ page, request }) => {
+  // wipe sessions
+  const list = await request.get('/api/sessions').then((r) => r.json());
+  for (const s of list.sessions as { id: string }[]) {
+    await request.delete(`/api/sessions/${s.id}`);
+  }
+  await page.addInitScript(() => {
+    localStorage.removeItem('aether.activeSessionId');
+  });
+
+  await page.goto('/');
+  // Allow init() to settle
+  await expect(page.getByText('AETHER_CORE')).toBeVisible();
+
+  // Open palette via Cmd+K
+  await page.keyboard.press('Meta+K');
+  const input = page.getByPlaceholder(/type a command/i);
+  await expect(input).toBeVisible({ timeout: 5000 });
+
+  await input.fill('new session');
+  await page.keyboard.press('Enter');
+
+  // Palette closes
+  await expect(input).toHaveCount(0, { timeout: 5000 });
+
+  // A new session row appears in the sidebar
+  const sidebar = page.getByRole('complementary', { name: /sidebar/i });
+  await expect(sidebar.getByRole('button', { name: /untitled/i }).first()).toBeVisible({
+    timeout: 5000,
+  });
+});
+
 test('reasoning: thinking on emits steps + opens drawer', async ({ page, request }) => {
   // clean session state for determinism
   const list = await request.get('/api/sessions').then((r) => r.json());
