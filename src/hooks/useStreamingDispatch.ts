@@ -5,11 +5,15 @@ import { useUiStore } from '@/src/stores/ui.store';
 import { createStreamingDispatch } from '@/src/lib/api/dispatch.api';
 import { computeTitle } from '@/src/lib/title';
 import type { ReasoningStep } from '@/src/types/reasoning.types';
+import { emitToolCallRequest, type ToolCallRequestEvent } from './useToolCallDecisions';
+import { useMcpStore } from '@/src/stores/mcp.store';
+import type { McpConnectionState } from '@/src/types/mcp.types';
 
 interface TextData { chunk: string }
 interface ThinkingData { chunk: string }
 interface DoneData { model?: string; interrupted?: boolean; reasoningSteps?: ReasoningStep[] }
 interface ErrorData { message: string; retryable: boolean }
+interface McpStateChangeData { id: string; state: McpConnectionState; error?: string }
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : 'Unknown error';
@@ -74,6 +78,16 @@ export function useStreamingDispatch() {
           const d = ev.data as ErrorData;
           useChatStore.getState().failAssistant(id, d.message, !!d.retryable);
           return;
+        } else if (ev.event === 'tool_call_request') {
+          // payload shape from backend N1: { id, qualifiedName, args }
+          emitToolCallRequest(ev.data as ToolCallRequestEvent);
+        } else if (ev.event === 'tool_call_result') {
+          // No client-side action in slice 7 — the reasoning_step event that follows
+          // includes the structured tool result for the drawer. This branch exists
+          // so we don't fall through to "unknown event" logging.
+        } else if (ev.event === 'mcp:state_change') {
+          const d = ev.data as McpStateChangeData;
+          useMcpStore.getState().applyServerStateEvent(d.id, d.state, d.error);
         }
       }
       useChatStore.getState().finishAssistant(id, { interrupted: controller.signal.aborted });
