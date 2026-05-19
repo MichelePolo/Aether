@@ -3,10 +3,12 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MessageInput } from './MessageInput';
 import { useUiStore } from '@/src/stores/ui.store';
+import { useSubAgentsStore } from '@/src/stores/subagents.store';
 
 describe('MessageInput', () => {
   beforeEach(() => {
     useUiStore.getState()._reset();
+    useSubAgentsStore.getState()._reset();
     localStorage.clear();
   });
 
@@ -92,5 +94,32 @@ describe('MessageInput', () => {
     expect(useUiStore.getState().thinkingEnabled).toBe(true);
     await userEvent.click(btn);
     expect(useUiStore.getState().thinkingEnabled).toBe(false);
+  });
+
+  it('opens mention popover when typing @', async () => {
+    useSubAgentsStore.setState({
+      list: [{ id: 'a', name: 'designer', createdAt: 1, updatedAt: 1 }],
+      hydrated: true,
+    });
+    const user = userEvent.setup();
+    render(<MessageInput onSend={() => {}} onStop={() => {}} isStreaming={false} />);
+    const ta = screen.getByPlaceholderText(/scrivi un messaggio/i);
+    await user.click(ta);
+    await user.keyboard('@d');
+    expect(screen.getByText('designer')).toBeInTheDocument();
+  });
+
+  it('selecting from popover inserts @name<space>', async () => {
+    useSubAgentsStore.setState({
+      list: [{ id: 'a', name: 'designer', createdAt: 1, updatedAt: 1 }],
+      hydrated: true,
+    });
+    const user = userEvent.setup();
+    render(<MessageInput onSend={() => {}} onStop={() => {}} isStreaming={false} />);
+    const ta = screen.getByPlaceholderText(/scrivi un messaggio/i) as HTMLTextAreaElement;
+    await user.click(ta);
+    await user.keyboard('@des');
+    await user.keyboard('{Enter}');
+    expect(ta.value).toBe('@designer ');
   });
 });
