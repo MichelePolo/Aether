@@ -70,3 +70,22 @@ describe('useUiStore.focusedMessageId', () => {
     expect(useUiStore.getState().focusedMessageId).toBeNull();
   });
 });
+
+describe('useUiStore.profilesModal', () => {
+  it('starts closed by default', () => {
+    expect(useUiStore.getState().profilesModalOpen).toBe(false);
+  });
+
+  it('openProfilesModal sets true; closeProfilesModal sets false', () => {
+    useUiStore.getState().openProfilesModal();
+    expect(useUiStore.getState().profilesModalOpen).toBe(true);
+    useUiStore.getState().closeProfilesModal();
+    expect(useUiStore.getState().profilesModalOpen).toBe(false);
+  });
+
+  it('_reset sets profilesModalOpen back to false', () => {
+    useUiStore.getState().openProfilesModal();
+    useUiStore.getState()._reset();
+    expect(useUiStore.getState().profilesModalOpen).toBe(false);
+  });
+});

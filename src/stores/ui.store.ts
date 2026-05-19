@@ -6,12 +6,15 @@ interface UiState {
   reasoningDrawerOpen: boolean;
   thinkingEnabled: boolean;
   focusedMessageId: string | null;
+  profilesModalOpen: boolean;
 
   toggleReasoningDrawer: () => void;
   openReasoningDrawer: () => void;
   closeReasoningDrawer: () => void;
   setThinkingEnabled: (v: boolean) => void;
   setFocusedMessageId: (id: string | null) => void;
+  openProfilesModal: () => void;
+  closeProfilesModal: () => void;
   initFromStorage: () => void;
   _reset: () => void;
 }
@@ -20,6 +23,7 @@ const initial = {
   reasoningDrawerOpen: false,
   thinkingEnabled: false,
   focusedMessageId: null as string | null,
+  profilesModalOpen: false,
 };
 
 function readStoredThinking(): boolean {
@@ -54,6 +58,9 @@ export const useUiStore = create<UiState>((set) => ({
   },
 
   setFocusedMessageId: (id) => set({ focusedMessageId: id }),
+
+  openProfilesModal: () => set({ profilesModalOpen: true }),
+  closeProfilesModal: () => set({ profilesModalOpen: false }),
 
   initFromStorage: () => set({ thinkingEnabled: readStoredThinking() }),
 }));
