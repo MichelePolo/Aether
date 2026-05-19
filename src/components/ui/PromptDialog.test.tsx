@@ -49,4 +49,38 @@ describe('PromptDialog', () => {
     render(<PromptDialog open required title="T" label="L" onConfirm={() => {}} onCancel={() => {}} />);
     expect(screen.getByRole('button', { name: /confirm|ok/i })).toBeDisabled();
   });
+
+  it('renders a textarea when multiline=true', () => {
+    render(
+      <PromptDialog
+        open
+        title="T"
+        label="L"
+        multiline
+        onConfirm={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+    const ta = screen.getByLabelText('L');
+    expect(ta.tagName).toBe('TEXTAREA');
+  });
+
+  it('submits via the form button in multiline mode (Enter inserts newline)', async () => {
+    const onConfirm = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <PromptDialog
+        open
+        title="T"
+        label="L"
+        multiline
+        onConfirm={onConfirm}
+        onCancel={() => {}}
+      />,
+    );
+    const ta = screen.getByLabelText('L');
+    await user.type(ta, 'line1{Enter}line2');
+    await user.click(screen.getByRole('button', { name: /confirm/i }));
+    expect(onConfirm).toHaveBeenCalledWith('line1\nline2');
+  });
 });

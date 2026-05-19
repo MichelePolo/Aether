@@ -9,6 +9,7 @@ export interface PromptDialogProps {
   defaultValue?: string;
   placeholder?: string;
   required?: boolean;
+  multiline?: boolean;
   onConfirm: (value: string) => void;
   onCancel: () => void;
 }
@@ -20,11 +21,12 @@ export function PromptDialog({
   defaultValue = '',
   placeholder,
   required = false,
+  multiline = false,
   onConfirm,
   onCancel,
 }: PromptDialogProps) {
   const [value, setValue] = useState(defaultValue);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -40,20 +42,33 @@ export function PromptDialog({
   };
 
   const canConfirm = !required || value.trim().length > 0;
+  const fieldClass =
+    'mt-1 w-full bg-zinc-900 border border-border-subtle rounded px-2 py-1.5 text-sm text-white outline-none focus:border-accent';
 
   return (
     <Modal open={open} onClose={onCancel} title={title}>
       <form onSubmit={submit} className="space-y-4">
         <label className="block">
           <span className="mono-label">{label}</span>
-          <input
-            ref={inputRef}
-            type="text"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder={placeholder}
-            className="mt-1 w-full bg-zinc-900 border border-border-subtle rounded px-2 py-1.5 text-sm text-white outline-none focus:border-accent"
-          />
+          {multiline ? (
+            <textarea
+              ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={placeholder}
+              rows={8}
+              className={`${fieldClass} font-mono text-xs resize-y min-h-[160px]`}
+            />
+          ) : (
+            <input
+              ref={inputRef as React.RefObject<HTMLInputElement>}
+              type="text"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={placeholder}
+              className={fieldClass}
+            />
+          )}
         </label>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
