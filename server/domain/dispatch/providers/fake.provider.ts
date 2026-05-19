@@ -10,6 +10,7 @@ export interface FakeProviderOptions {
 
 export class FakeProvider implements AIProvider {
   readonly model: string;
+  lastRequest: ProviderRequest | undefined;
 
   constructor(private readonly opts: FakeProviderOptions) {
     this.model = opts.model ?? 'fake-1';
@@ -19,6 +20,7 @@ export class FakeProvider implements AIProvider {
     req: ProviderRequest,
     signal: AbortSignal,
   ): AsyncGenerator<ProviderChunk> {
+    this.lastRequest = req;
     // Thought chunks emitted FIRST, only when req.thinking === true.
     if (req.thinking === true && this.opts.thoughtChunks) {
       for (const text of this.opts.thoughtChunks) {

@@ -6,6 +6,10 @@ import type { ContextStore } from '@/server/domain/context/context.store';
 import type { HistoryStore } from '@/server/domain/history/history.store';
 import type { AIProvider, ProviderUsage } from './providers/provider.types';
 import { ReasoningTracer } from '@/server/domain/reasoning/reasoning.tracer';
+import type { SubAgentsStore } from '@/server/domain/subagents/subagents.store';
+import type { SubAgentRecord } from '@/server/domain/subagents/subagents.types';
+import { parseLeadingMention } from './subagent-parser';
+import { assemble } from './prompt-assembler';
 
 export const DispatchRequestSchema = z.object({
   sessionId: z.string().min(1),
@@ -18,6 +22,7 @@ export interface DispatchServiceDeps {
   provider: AIProvider;
   historyStore: HistoryStore;
   contextStore: ContextStore;
+  subAgentsStore?: SubAgentsStore;
 }
 
 export class DispatchService {
@@ -64,6 +69,46 @@ export class DispatchService {
       return;
     }
 
+    let knownNames: ReadonlySet<string> = new Set<string>();
+    let allRecords: Array<{ name: string; record: SubAgentRecord }> = [];
+    if (this.deps.subAgentsStore) {
+      try {
+        const metas = await this.deps.subAgentsStore.list();
+        const recs = await Promise.all(
+          metas.map(async (m) => {
+            const record = await this.deps.subAgentsStore!.read(m.id);
+            return record ? { name: m.name, record } : null;
+          }),
+        );
+        allRecords = recs.filter((r): r is { name: string; record: SubAgentRecord } => r !== null);
+        knownNames = new Set(allRecords.map((r) => r.name));
+      } catch {
+        // Degrade silently: knownNames stays empty.
+      }
+    }
+
+    const mention = parseLeadingMention(message, knownNames);
+    const matchedSubAgent =
+      mention.name === null
+        ? null
+        : allRecords.find((r) => r.name === mention.name)?.record ?? null;
+
+    if (matchedSubAgent && mention.name) {
+      const subName = mention.name;
+      const sa = matchedSubAgent;
+      await tracer.step({
+        type: 'resolve_subagent',
+        title: `Sub-agent: ${subName}`,
+        run: async () => ({
+          content: `systemInstruction +${sa.systemInstruction.length} chars, +${sa.skills.length} skills, +${sa.tools.length} tools`,
+          subAgent: subName,
+          result: null,
+        }),
+      });
+    }
+
+    const assembled = assemble(context, matchedSubAgent, mention.stripped, mention.name);
+
     await historyStore.append(sessionId, {
       id: randomUUID(),
       role: 'user',
@@ -83,9 +128,9 @@ export class DispatchService {
         run: async () => {
           const it = provider.stream(
             {
-              systemInstruction: context.systemInstruction,
+              systemInstruction: assembled.systemInstruction,
               history: prior.map((m) => ({ role: m.role, text: m.text })),
-              userMessage: message,
+              userMessage: assembled.message,
               thinking,
             },
             signal,
@@ -109,6 +154,7 @@ export class DispatchService {
               accumThought.length > 0 ? `, ${accumThought.length} chars thinking` : ''
             }`,
             tokens: dispatchUsage?.totalTokens,
+            subAgent: assembled.subAgent ?? undefined,
             result: null,
           };
         },
