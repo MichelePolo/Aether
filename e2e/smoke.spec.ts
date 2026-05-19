@@ -113,6 +113,42 @@ test('chat: delete a session removes it from the list', async ({ page }) => {
   await expect(sidebar.getByRole('button', { name: 'to-delete', exact: true })).toHaveCount(0);
 });
 
+test('profiles: save → apply roundtrip', async ({ page, request }) => {
+  // clean profile state
+  const list = await request.get('/api/profiles').then((r) => r.json());
+  for (const p of list.profiles as { id: string }[]) {
+    await request.delete(`/api/profiles/${p.id}`);
+  }
+  await page.addInitScript(() => {
+    localStorage.removeItem('aether.activeProfileId');
+  });
+
+  await page.goto('/');
+
+  // Open Profiles modal
+  await page.getByRole('button', { name: /open profiles manager/i }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+
+  // Save current as new
+  await dialog.getByRole('button', { name: /save current as new/i }).click();
+  // PromptDialog appears (a second dialog on top)
+  const promptDialog = page.getByRole('dialog').last();
+  await promptDialog.getByRole('textbox').fill('e2e profile');
+  await promptDialog.getByRole('button', { name: /ok|save|confirm/i }).last().click();
+
+  // Row visible in table
+  await expect(page.getByText('e2e profile')).toBeVisible({ timeout: 5000 });
+
+  // Apply
+  await page.getByRole('button', { name: /^apply$/i }).first().click();
+
+  // TopBar button now shows the profile name
+  await expect(page.getByRole('button', { name: /open profiles manager/i })).toContainText(
+    'e2e profile',
+  );
+});
+
 test('reasoning: thinking on emits steps + opens drawer', async ({ page, request }) => {
   // clean session state for determinism
   const list = await request.get('/api/sessions').then((r) => r.json());
