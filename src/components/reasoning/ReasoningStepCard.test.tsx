@@ -44,4 +44,22 @@ describe('ReasoningStepCard', () => {
     render(<ReasoningStepCard step={{ ...baseStep, subAgent: 'Coder' }} />);
     expect(screen.getByText('Coder')).toBeInTheDocument();
   });
+
+  it('renders resolve_subagent step with badge label and subAgent name', () => {
+    render(
+      <ReasoningStepCard
+        step={{
+          id: '1',
+          type: 'resolve_subagent',
+          title: 'Sub-agent: designer',
+          content: 'systemInstruction +12 chars, +1 skills, +0 tools',
+          subAgent: 'designer',
+          timestamp: 0,
+        }}
+      />,
+    );
+    expect(screen.getByText(/^subagent$/i)).toBeInTheDocument();
+    expect(screen.getByText('designer')).toBeInTheDocument();
+    expect(screen.getByText('Sub-agent: designer')).toBeInTheDocument();
+  });
 });
