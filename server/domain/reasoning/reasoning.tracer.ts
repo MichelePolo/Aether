@@ -6,7 +6,7 @@ import type { ReasoningStep, ReasoningStepType } from './reasoning.types';
 export interface TracerStepOpts<T> {
   type: ReasoningStepType;
   title: string;
-  run: () => Promise<{ content: string; tokens?: number; result: T }>;
+  run: () => Promise<{ content: string; tokens?: number; subAgent?: string; result: T }>;
 }
 
 export class ReasoningTracer {
@@ -16,7 +16,7 @@ export class ReasoningTracer {
 
   async step<T>(opts: TracerStepOpts<T>): Promise<T> {
     const t0 = performance.now();
-    const { content, tokens, result } = await opts.run();
+    const { content, tokens, subAgent, result } = await opts.run();
     const t1 = performance.now();
     const step: ReasoningStep = {
       id: randomUUID(),
@@ -24,6 +24,7 @@ export class ReasoningTracer {
       title: opts.title,
       content,
       tokens,
+      subAgent,
       durationMs: Math.round(t1 - t0),
       timestamp: Date.now(),
     };

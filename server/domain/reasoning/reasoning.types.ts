@@ -4,7 +4,8 @@ export type ReasoningStepType =
   | 'dispatch'
   | 'thinking'
   | 'validation'
-  | 'logic';
+  | 'logic'
+  | 'resolve_subagent';
 
 export interface ReasoningStep {
   id: string;
