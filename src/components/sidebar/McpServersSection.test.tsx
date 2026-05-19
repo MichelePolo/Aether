@@ -1,13 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { McpServersSection } from './McpServersSection';
 import { useContextStore } from '@/src/stores/context.store';
+import { useMcpStore } from '@/src/stores/mcp.store';
 import { DialogHost } from '@/src/components/layout/DialogHost';
 import { _resetDialogStore } from '@/src/hooks/useDialog';
 
 beforeEach(() => {
   _resetDialogStore();
+  useMcpStore.getState()._reset();
   useContextStore.setState({
     context: { systemInstruction: '', skills: [], tools: [], mcpServers: [] },
     isLoading: false,
@@ -77,5 +79,47 @@ describe('McpServersSection', () => {
     await user.click(screen.getByRole('button', { name: /remove x/i }));
     await user.click(screen.getByRole('button', { name: /^(confirm|ok)$/i }));
     expect(useContextStore.getState().context?.mcpServers).toHaveLength(0);
+  });
+
+  it('shows Connect button when server is offline', () => {
+    useContextStore.setState({
+      context: {
+        systemInstruction: '', skills: [], tools: [],
+        mcpServers: [{ id: 'M1', name: 'mock', transport: 'mock', status: 'offline' }],
+      },
+    });
+    render(<McpServersSection />);
+    expect(screen.getByRole('button', { name: /connect mock/i })).toBeInTheDocument();
+  });
+
+  it('clicking Connect triggers useMcpStore.connect', async () => {
+    useContextStore.setState({
+      context: {
+        systemInstruction: '', skills: [], tools: [],
+        mcpServers: [{ id: 'M1', name: 'mock', transport: 'mock', status: 'offline' }],
+      },
+    });
+    const spy = vi.spyOn(useMcpStore.getState(), 'connect').mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<McpServersSection />);
+    await user.click(screen.getByRole('button', { name: /connect mock/i }));
+    expect(spy).toHaveBeenCalledWith('M1');
+  });
+
+  it('when online, lists live tools and a Disconnect button', () => {
+    useContextStore.setState({
+      context: {
+        systemInstruction: '', skills: [], tools: [],
+        mcpServers: [{ id: 'M1', name: 'mock', transport: 'mock', status: 'offline' }],
+      },
+    });
+    useMcpStore.setState({
+      liveTools: [{ qualifiedName: 'mock.echo', serverId: 'M1', serverName: 'mock', tool: { name: 'echo', inputSchema: {} }, autoApprove: true }],
+      connectStates: { M1: 'online' },
+      errors: {},
+    });
+    render(<McpServersSection />);
+    expect(screen.getByText('mock.echo')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /disconnect mock/i })).toBeInTheDocument();
   });
 });
