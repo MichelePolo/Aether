@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { GoogleGenAI } from '@google/genai';
 import type { AIProvider, ProviderChunk, ProviderRequest, ProviderUsage } from './provider.types';
 
@@ -9,6 +10,7 @@ export interface GeminiProviderOptions {
 interface GeminiPart {
   text?: string;
   thought?: boolean;
+  functionCall?: { name: string; args?: Record<string, unknown> };
 }
 
 interface GeminiCandidate {
@@ -34,10 +36,32 @@ export class GeminiProvider implements AIProvider {
     req: ProviderRequest,
     signal: AbortSignal,
   ): AsyncGenerator<ProviderChunk> {
+    // Build functionResponse entries for any tool results from a previous turn.
+    const toolResultEntries = (req.toolResults ?? []).map((r) => ({
+      role: 'user' as const,
+      parts: [{
+        functionResponse: {
+          name: r.qualifiedName.replace('.', '__'),
+          response: (r.ok ? r.output : { error: r.error }) as Record<string, unknown>,
+        },
+      }],
+    }));
+
     const contents = [
       ...req.history.map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
+      ...toolResultEntries,
       { role: 'user' as const, parts: [{ text: req.userMessage }] },
     ];
+
+    const toolsConfig = (req.mcpTools && req.mcpTools.length > 0)
+      ? [{
+          functionDeclarations: req.mcpTools.map((t) => ({
+            name: t.qualifiedName.replace('.', '__'),
+            description: t.description,
+            parameters: t.schema,
+          })),
+        }]
+      : undefined;
 
     const config: Record<string, unknown> = {
       systemInstruction: req.systemInstruction,
@@ -48,6 +72,9 @@ export class GeminiProvider implements AIProvider {
     };
     if (req.thinking === true) {
       config.thinkingConfig = { includeThoughts: true, thinkingBudget: -1 };
+    }
+    if (toolsConfig) {
+      config.tools = toolsConfig;
     }
 
     const stream = await this.ai.models.generateContentStream({
@@ -68,6 +95,17 @@ export class GeminiProvider implements AIProvider {
       const parts = chunk.candidates?.[0]?.content?.parts;
       if (parts && parts.length > 0) {
         for (const part of parts) {
+          if (part.functionCall) {
+            yield {
+              type: 'function_call' as const,
+              call: {
+                callId: randomUUID(),
+                qualifiedName: String(part.functionCall.name).replace('__', '.'),
+                args: (part.functionCall.args ?? {}) as Record<string, unknown>,
+              },
+            };
+            continue;
+          }
           const text = part.text;
           if (typeof text !== 'string' || text.length === 0) continue;
           if (part.thought === true) yield { type: 'thinking', text };
