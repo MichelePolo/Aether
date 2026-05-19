@@ -41,7 +41,7 @@ async function bootstrap() {
     }
   }
 
-  const dispatcher = new DispatchService({ provider, historyStore, contextStore });
+  const dispatcher = new DispatchService({ provider, historyStore, contextStore, subAgentsStore });
 
   const app = createApp({ contextStore, historyStore, dispatcher, profilesStore, subAgentsStore });
 

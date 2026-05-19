@@ -42,7 +42,6 @@ export default function App() {
 
   return (
     <>
-      <DialogHost />
       <AppShell
         sidebarOpen={sidebarOpen}
         sidebar={
@@ -73,6 +72,7 @@ export default function App() {
       <ReasoningDrawer />
       <ProfilesModal />
       <CommandPalette />
+      <DialogHost />
     </>
   );
 }
