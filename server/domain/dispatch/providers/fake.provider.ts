@@ -1,4 +1,4 @@
-import type { AIProvider, ProviderChunk, ProviderRequest } from './provider.types';
+import type { AIProvider, ProviderChunk, ProviderFunctionCall, ProviderRequest } from './provider.types';
 
 export interface FakeProviderOptions {
   chunks: string[];
@@ -6,14 +6,17 @@ export interface FakeProviderOptions {
   chunkDelayMs?: number;
   model?: string;
   totalTokens?: number;
+  functionCallSequence?: ProviderFunctionCall[];
 }
 
 export class FakeProvider implements AIProvider {
   readonly model: string;
   lastRequest: ProviderRequest | undefined;
+  private functionCallQueue: ProviderFunctionCall[];
 
   constructor(private readonly opts: FakeProviderOptions) {
     this.model = opts.model ?? 'fake-1';
+    this.functionCallQueue = [...(opts.functionCallSequence ?? [])];
   }
 
   async *stream(
@@ -21,6 +24,14 @@ export class FakeProvider implements AIProvider {
     signal: AbortSignal,
   ): AsyncGenerator<ProviderChunk> {
     this.lastRequest = req;
+    // If there's a queued function_call AND we are NOT in a continuation call,
+    // emit it and finish this stream.
+    if (this.functionCallQueue.length > 0 && (!req.toolResults || req.toolResults.length === 0)) {
+      const call = this.functionCallQueue.shift()!;
+      yield { type: 'function_call', call };
+      yield { type: 'done' };
+      return;
+    }
     // Thought chunks emitted FIRST, only when req.thinking === true.
     if (req.thinking === true && this.opts.thoughtChunks) {
       for (const text of this.opts.thoughtChunks) {
