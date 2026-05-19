@@ -3,14 +3,17 @@ import { isAppError } from './lib/errors';
 import type { ContextStore } from './domain/context/context.store';
 import type { HistoryStore } from './domain/history/history.store';
 import type { DispatchService } from './domain/dispatch/dispatch.service';
+import type { ProfilesStore } from './domain/profiles/profiles.store';
 import { createContextRoutes } from './routes/context.routes';
 import { createDispatchRoutes } from './routes/dispatch.routes';
 import { createHistoryRoutes } from './routes/history.routes';
+import { createProfilesRoutes } from './routes/profiles.routes';
 
 export interface AppDeps {
   contextStore?: ContextStore;
   historyStore?: HistoryStore;
   dispatcher?: DispatchService;
+  profilesStore?: ProfilesStore;
 }
 
 // In Express l'error middleware DEVE essere registrato dopo le route per
@@ -42,6 +45,10 @@ export function createApp(
 
   if (deps.historyStore) {
     app.use('/api/sessions', createHistoryRoutes(deps.historyStore));
+  }
+
+  if (deps.profilesStore) {
+    app.use('/api/profiles', createProfilesRoutes(deps.profilesStore));
   }
 
   extraRoutes?.(app);
