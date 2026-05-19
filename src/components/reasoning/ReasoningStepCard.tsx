@@ -54,6 +54,26 @@ export function ReasoningStepCard({ step }: ReasoningStepCardProps) {
       </div>
       <div className="text-xs font-mono text-zinc-200 mb-1">{step.title}</div>
       <div className="text-[11px] text-zinc-400 whitespace-pre-wrap mb-2">{step.content}</div>
+      {step.toolCall && (
+        <div className="mt-1 space-y-1 text-[10px] font-mono">
+          <details>
+            <summary className="cursor-pointer text-zinc-500">args</summary>
+            <pre className="mt-1 p-1.5 rounded bg-zinc-900/60 text-zinc-300 overflow-x-auto">
+              {JSON.stringify(step.toolCall.args, null, 2)}
+            </pre>
+          </details>
+          {step.toolCall.error ? (
+            <div className="p-1.5 rounded bg-status-error/10 text-status-error">{step.toolCall.error}</div>
+          ) : step.toolCall.result !== undefined ? (
+            <details>
+              <summary className="cursor-pointer text-zinc-500">result</summary>
+              <pre className="mt-1 p-1.5 rounded bg-zinc-900/60 text-zinc-300 overflow-x-auto">
+                {JSON.stringify(step.toolCall.result, null, 2)}
+              </pre>
+            </details>
+          ) : null}
+        </div>
+      )}
       <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono">
         <span>{formatDuration(step.durationMs)}</span>
         <span>{formatTokens(step.tokens)} t</span>
