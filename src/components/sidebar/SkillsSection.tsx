@@ -1,3 +1,4 @@
+import { addSkillFlow } from '@/src/lib/context/addFlows';
 import { useContextStore } from '@/src/stores/context.store';
 import { useDialog } from '@/src/hooks/useDialog';
 
@@ -11,10 +12,7 @@ export function SkillsSection() {
   const removeSkillAt = useContextStore((s) => s.removeSkillAt);
   const dialog = useDialog();
 
-  const handleAdd = async () => {
-    const name = await dialog.prompt({ title: 'Add Skill', label: 'Skill name', required: true });
-    if (name) await addSkill(name).catch(() => {});
-  };
+  const handleAdd = () => addSkillFlow(dialog, addSkill);
 
   const handleEdit = async (index: number, current: string) => {
     const name = await dialog.prompt({

@@ -1,3 +1,4 @@
+import { addToolFlow } from '@/src/lib/context/addFlows';
 import { useContextStore } from '@/src/stores/context.store';
 import { useDialog } from '@/src/hooks/useDialog';
 import { StatusDot } from '@/src/components/ui/StatusDot';
@@ -11,24 +12,7 @@ export function ToolsSection() {
   const removeTool = useContextStore((s) => s.removeTool);
   const dialog = useDialog();
 
-  const handleAdd = async () => {
-    const name = await dialog.prompt({ title: 'Register Tool', label: 'Name', required: true });
-    if (!name) return;
-    const version = await dialog.prompt({
-      title: 'Register Tool',
-      label: 'Version',
-      defaultValue: '1.0.0',
-      required: true,
-    });
-    if (!version) return;
-    const isOnline = await dialog.confirm({
-      title: 'Register Tool',
-      message: `Set status of ${name} to ONLINE? (Cancel = offline)`,
-      confirmLabel: 'Online',
-      cancelLabel: 'Offline',
-    });
-    await addTool({ name, version, status: isOnline ? 'online' : 'offline' }).catch(() => {});
-  };
+  const handleAdd = () => addToolFlow(dialog, addTool);
 
   const handleRemove = async (id: string, name: string) => {
     const ok = await dialog.confirm({

@@ -47,4 +47,19 @@ describe('App', () => {
       screen.getByRole('button', { name: /open profiles manager/i }),
     ).toBeInTheDocument();
   });
+
+  it('mounts CommandPalette (closed by default)', () => {
+    render(<App />);
+    expect(screen.queryByPlaceholderText(/type a command/i)).toBeNull();
+  });
+
+  it('opens CommandPalette when ui.store flips paletteOpen', async () => {
+    render(<App />);
+    act(() => {
+      useUiStore.getState().openPalette();
+    });
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/type a command/i)).toBeInTheDocument();
+    });
+  });
 });

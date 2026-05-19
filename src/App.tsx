@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { AppShell } from '@/src/components/layout/AppShell';
 import { TopBar } from '@/src/components/layout/TopBar';
 import { Sidebar } from '@/src/components/layout/Sidebar';
@@ -12,13 +12,16 @@ import { ConnectionFooter } from '@/src/components/sidebar/ConnectionFooter';
 import { ChatView } from '@/src/components/chat/ChatView';
 import { ReasoningDrawer } from '@/src/components/reasoning/ReasoningDrawer';
 import { ProfilesModal } from '@/src/components/profiles/ProfilesModal';
+import { CommandPalette } from '@/src/components/palette/CommandPalette';
 import { useContextStore } from '@/src/stores/context.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useProfilesStore } from '@/src/stores/profiles.store';
+import { useGlobalShortcuts } from '@/src/hooks/useGlobalShortcuts';
 
 export default function App() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const sidebarOpen = useUiStore((s) => s.sidebarOpen);
+  const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const initContext = useContextStore((s) => s.init);
   const initSessions = useSessionsStore((s) => s.init);
   const initUi = useUiStore((s) => s.initFromStorage);
@@ -30,6 +33,8 @@ export default function App() {
     initUi();
     initProfiles();
   }, [initContext, initSessions, initUi, initProfiles]);
+
+  useGlobalShortcuts();
 
   return (
     <>
@@ -56,12 +61,13 @@ export default function App() {
         <TopBar
           title="Aether Dev Studio"
           sidebarOpen={sidebarOpen}
-          onToggleSidebar={() => setSidebarOpen((v) => !v)}
+          onToggleSidebar={toggleSidebar}
         />
         <ChatView />
       </AppShell>
       <ReasoningDrawer />
       <ProfilesModal />
+      <CommandPalette />
     </>
   );
 }

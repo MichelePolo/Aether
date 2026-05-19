@@ -6,6 +6,7 @@ type PromptOptions = {
   defaultValue?: string;
   placeholder?: string;
   required?: boolean;
+  multiline?: boolean;
 };
 
 type ConfirmOptions = {
