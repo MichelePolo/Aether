@@ -1,7 +1,14 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TopBar } from './TopBar';
+import { useProfilesStore } from '@/src/stores/profiles.store';
+import { useUiStore } from '@/src/stores/ui.store';
+
+beforeEach(() => {
+  useProfilesStore.getState()._reset();
+  useUiStore.getState()._reset();
+});
 
 describe('TopBar', () => {
   it('renders title', () => {
@@ -20,5 +27,10 @@ describe('TopBar', () => {
   it('marks toggle button as active when sidebar is open', () => {
     render(<TopBar title="X" onToggleSidebar={() => {}} sidebarOpen />);
     expect(screen.getByRole('button', { name: /toggle sidebar/i }).className).toMatch(/bg-zinc-800/);
+  });
+
+  it('mounts ProfilesButton', () => {
+    render(<TopBar title="X" sidebarOpen onToggleSidebar={() => {}} />);
+    expect(screen.getByRole('button', { name: /open profiles manager/i })).toBeInTheDocument();
   });
 });
