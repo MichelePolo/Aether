@@ -1,3 +1,4 @@
+import { addMcpFlow } from '@/src/lib/context/addFlows';
 import { useContextStore } from '@/src/stores/context.store';
 import { useDialog } from '@/src/hooks/useDialog';
 import { StatusDot } from '@/src/components/ui/StatusDot';
@@ -11,18 +12,7 @@ export function McpServersSection() {
   const removeMcpServer = useContextStore((s) => s.removeMcpServer);
   const dialog = useDialog();
 
-  const handleAdd = async () => {
-    const name = await dialog.prompt({ title: 'Add MCP Server', label: 'Name', required: true });
-    if (!name) return;
-    const url = await dialog.prompt({
-      title: 'Add MCP Server',
-      label: 'URL',
-      defaultValue: 'http://localhost:8080/mcp',
-      required: true,
-    });
-    if (!url) return;
-    await addMcpServer({ name, url, status: 'connecting' }).catch(() => {});
-  };
+  const handleAdd = () => addMcpFlow(dialog, addMcpServer);
 
   const handleRemove = async (id: string, name: string) => {
     const ok = await dialog.confirm({
