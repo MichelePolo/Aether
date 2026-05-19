@@ -20,6 +20,7 @@ import { useUiStore } from '@/src/stores/ui.store';
 import { useProfilesStore } from '@/src/stores/profiles.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
 import { useGlobalShortcuts } from '@/src/hooks/useGlobalShortcuts';
+import { useToolCallDecisions } from '@/src/hooks/useToolCallDecisions';
 
 export default function App() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
@@ -39,6 +40,7 @@ export default function App() {
   }, [initContext, initSessions, initUi, initProfiles, initSubAgents]);
 
   useGlobalShortcuts();
+  useToolCallDecisions();
 
   return (
     <>

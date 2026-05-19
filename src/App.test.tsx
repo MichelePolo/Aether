@@ -7,6 +7,7 @@ import { useSessionsStore } from '@/src/stores/sessions.store';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useProfilesStore } from '@/src/stores/profiles.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
+import { useMcpStore } from '@/src/stores/mcp.store';
 
 beforeEach(() => {
   useChatStore.getState()._reset();
@@ -15,6 +16,7 @@ beforeEach(() => {
   useUiStore.getState()._reset();
   useProfilesStore.getState()._reset();
   useSubAgentsStore.getState()._reset();
+  useMcpStore.getState()._reset();
   localStorage.clear();
 });
 
@@ -68,5 +70,21 @@ describe('App', () => {
   it('mounts SubAgentsSection in sidebar', () => {
     render(<App />);
     expect(screen.getAllByText(/sub-agents/i).length).toBeGreaterThan(0);
+  });
+
+  it('useToolCallDecisions is mounted (dialog opens when emitToolCallRequest fires for non-auto-approve)', async () => {
+    useMcpStore.setState({
+      liveTools: [{ qualifiedName: 'mock.fs', serverId: 'M1', serverName: 'mock', tool: { name: 'fs', inputSchema: {} }, autoApprove: false }],
+      connectStates: { M1: 'online' },
+      errors: {},
+    });
+    render(<App />);
+    await act(async () => {
+      const { emitToolCallRequest } = await import('@/src/hooks/useToolCallDecisions');
+      emitToolCallRequest({ id: 'C1', qualifiedName: 'mock.fs', args: { path: '/tmp' } });
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/tool call request/i)).toBeInTheDocument();
+    });
   });
 });
