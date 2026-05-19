@@ -89,3 +89,57 @@ describe('useUiStore.profilesModal', () => {
     expect(useUiStore.getState().profilesModalOpen).toBe(false);
   });
 });
+
+describe('useUiStore.palette', () => {
+  it('paletteOpen defaults false; open/close/toggle work', () => {
+    const s = useUiStore.getState();
+    expect(s.paletteOpen).toBe(false);
+    s.openPalette();
+    expect(useUiStore.getState().paletteOpen).toBe(true);
+    s.closePalette();
+    expect(useUiStore.getState().paletteOpen).toBe(false);
+    s.togglePalette();
+    expect(useUiStore.getState().paletteOpen).toBe(true);
+    s.togglePalette();
+    expect(useUiStore.getState().paletteOpen).toBe(false);
+  });
+});
+
+describe('useUiStore.sidebar', () => {
+  it('sidebarOpen defaults true; toggle flips and persists', () => {
+    const s = useUiStore.getState();
+    expect(s.sidebarOpen).toBe(true);
+    s.toggleSidebar();
+    expect(useUiStore.getState().sidebarOpen).toBe(false);
+    expect(localStorage.getItem('aether.sidebarOpen')).toBe('0');
+    s.setSidebarOpen(true);
+    expect(useUiStore.getState().sidebarOpen).toBe(true);
+    expect(localStorage.getItem('aether.sidebarOpen')).toBe('1');
+  });
+
+  it('initFromStorage hydrates sidebarOpen from "0" and falls back to true on garbage', () => {
+    localStorage.setItem('aether.sidebarOpen', '0');
+    useUiStore.getState().initFromStorage();
+    expect(useUiStore.getState().sidebarOpen).toBe(false);
+
+    localStorage.setItem('aether.sidebarOpen', 'garbage');
+    useUiStore.getState().initFromStorage();
+    expect(useUiStore.getState().sidebarOpen).toBe(true);
+
+    localStorage.removeItem('aether.sidebarOpen');
+    useUiStore.getState().initFromStorage();
+    expect(useUiStore.getState().sidebarOpen).toBe(true);
+  });
+});
+
+describe('useUiStore.toggleThinking', () => {
+  it('toggleThinking flips thinkingEnabled and persists', () => {
+    expect(useUiStore.getState().thinkingEnabled).toBe(false);
+    useUiStore.getState().toggleThinking();
+    expect(useUiStore.getState().thinkingEnabled).toBe(true);
+    expect(localStorage.getItem('aether.thinkingEnabled')).toBe('1');
+    useUiStore.getState().toggleThinking();
+    expect(useUiStore.getState().thinkingEnabled).toBe(false);
+    expect(localStorage.getItem('aether.thinkingEnabled')).toBe('0');
+  });
+});
