@@ -7,14 +7,21 @@ export const ToolSchema = z.object({
   status: z.enum(['online', 'offline']),
 });
 
+const McpToolPolicySchema = z.object({ autoApprove: z.boolean() });
+
+/** Loose stored shape — accepts both legacy and slice-7 entries. The registry validates
+ *  transport-specific requirements (e.g. `command` for stdio) at connect-time. */
 export const McpServerSchema = z.object({
   id: z.string(),
   name: z.string(),
   url: z.string().optional(),
   status: z.enum(['online', 'offline', 'connecting', 'error']),
+  transport: z.enum(['stdio', 'mock']).optional(),
+  command: z.string().optional(),
+  args: z.array(z.string()).optional(),
+  env: z.record(z.string(), z.string()).optional(),
+  toolPolicies: z.record(z.string(), McpToolPolicySchema).optional(),
 });
-
-const McpToolPolicySchema = z.object({ autoApprove: z.boolean() });
 
 const StdioMcpSchema = z.object({
   transport: z.literal('stdio'),
