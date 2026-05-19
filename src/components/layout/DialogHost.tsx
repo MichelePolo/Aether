@@ -15,6 +15,7 @@ export function DialogHost() {
         defaultValue={current.defaultValue}
         placeholder={current.placeholder}
         required={current.required}
+        multiline={current.multiline}
         onConfirm={(v) => current.resolve(v)}
         onCancel={current.cancel}
       />
