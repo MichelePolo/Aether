@@ -9,12 +9,10 @@ import { SubAgentsStore } from '@/server/domain/subagents/subagents.store';
 function makeApp() {
   const dir = mkdtempSync(path.join(tmpdir(), 'aether-sa-routes-'));
   const subAgentsStore = new SubAgentsStore(path.join(dir, 'subagents.json'));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return createApp({ subAgentsStore } as any);
+  return createApp({ subAgentsStore });
 }
 
-// TODO(C4): un-skip once subAgentsStore is wired into AppDeps in createApp
-describe.skip('subagents routes', () => {
+describe('subagents routes', () => {
   let app: ReturnType<typeof makeApp>;
   beforeEach(() => {
     app = makeApp();
