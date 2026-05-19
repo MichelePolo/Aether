@@ -17,6 +17,8 @@ interface ContextState {
   removeTool: (id: string) => Promise<void>;
   addMcpServer: (input: Omit<McpServerConfig, 'id'>) => Promise<void>;
   removeMcpServer: (id: string) => Promise<void>;
+  getCurrentContext: () => AetherContext | null;
+  bulkOverwrite: (ctx: AetherContext) => Promise<void>;
   _reset: () => void;
 }
 
@@ -151,6 +153,19 @@ export const useContextStore = create<ContextState>((set, get) => ({
       await contextApi.removeMcpServer(id);
     } catch (e) {
       set({ context: prev, error: errMsg(e) });
+      throw e;
+    }
+  },
+
+  getCurrentContext: () => get().context,
+
+  bulkOverwrite: async (ctx) => {
+    set({ error: null });
+    try {
+      const fresh = await contextApi.bulkOverwrite(ctx);
+      set({ context: fresh });
+    } catch (e) {
+      set({ error: errMsg(e) });
       throw e;
     }
   },

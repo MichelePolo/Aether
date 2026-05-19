@@ -6,6 +6,7 @@ import { createApp } from './app';
 import { loadConfig } from './config';
 import { ContextStore } from './domain/context/context.store';
 import { HistoryStore } from './domain/history/history.store';
+import { ProfilesStore } from './domain/profiles/profiles.store';
 import { DispatchService } from './domain/dispatch/dispatch.service';
 import { FakeProvider } from './domain/dispatch/providers/fake.provider';
 import { GeminiProvider } from './domain/dispatch/providers/gemini.provider';
@@ -18,6 +19,7 @@ async function bootstrap() {
 
   const contextStore = new ContextStore(path.join(cfg.dataDir, 'context.json'));
   const historyStore = new HistoryStore(path.join(cfg.dataDir, 'sessions.json'));
+  const profilesStore = new ProfilesStore(path.join(cfg.dataDir, 'profiles.json'));
 
   let provider: AIProvider;
   if (cfg.fakeProvider) {
@@ -39,7 +41,7 @@ async function bootstrap() {
 
   const dispatcher = new DispatchService({ provider, historyStore, contextStore });
 
-  const app = createApp({ contextStore, historyStore, dispatcher });
+  const app = createApp({ contextStore, historyStore, dispatcher, profilesStore });
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

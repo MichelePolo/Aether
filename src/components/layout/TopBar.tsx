@@ -1,4 +1,5 @@
 import { IconButton } from '@/src/components/ui/IconButton';
+import { ProfilesButton } from '@/src/components/profiles/ProfilesButton';
 
 export interface TopBarProps {
   title: string;
@@ -21,6 +22,7 @@ export function TopBar({ title, sidebarOpen, onToggleSidebar }: TopBarProps) {
         </svg>
       </IconButton>
       <span className="ml-3 font-mono text-sm tracking-tight text-white font-bold">{title}</span>
+      <ProfilesButton />
     </header>
   );
 }

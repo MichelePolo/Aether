@@ -155,7 +155,7 @@ describe('useStreamingDispatch', () => {
         await gate;
         return Promise.race([
           abortPromise,
-          new Promise<HttpResponse>((r) => {
+          new Promise<HttpResponse<BodyInit>>((r) => {
             r(new HttpResponse(
               sseStream('event: text\ndata: {"chunk":"x"}\n\n'),
               { headers: { 'Content-Type': 'text/event-stream' } },

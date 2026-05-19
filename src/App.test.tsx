@@ -5,12 +5,14 @@ import { useChatStore } from '@/src/stores/chat.store';
 import { useContextStore } from '@/src/stores/context.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
 import { useUiStore } from '@/src/stores/ui.store';
+import { useProfilesStore } from '@/src/stores/profiles.store';
 
 beforeEach(() => {
   useChatStore.getState()._reset();
   useContextStore.getState()._reset();
   useSessionsStore.getState()._reset();
   useUiStore.getState()._reset();
+  useProfilesStore.getState()._reset();
   localStorage.clear();
 });
 
@@ -37,5 +39,12 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('complementary', { name: /reasoning/i })).toBeInTheDocument();
     });
+  });
+
+  it('mounts ProfilesButton in TopBar', () => {
+    render(<App />);
+    expect(
+      screen.getByRole('button', { name: /open profiles manager/i }),
+    ).toBeInTheDocument();
   });
 });
