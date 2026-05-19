@@ -52,4 +52,32 @@ export const handlers = [
       { status: 201 },
     ),
   ),
+  http.get('http://localhost/api/subagents', () => HttpResponse.json({ subAgents: [] })),
+  http.post('http://localhost/api/subagents', async ({ request }) => {
+    const body = (await request.json()) as { name: string };
+    return HttpResponse.json(
+      { id: `sa-${Date.now()}`, name: body.name, createdAt: Date.now(), updatedAt: Date.now() },
+      { status: 201 },
+    );
+  }),
+  http.get('http://localhost/api/subagents/:id', ({ params }) =>
+    HttpResponse.json({
+      id: params.id,
+      name: 'default',
+      systemInstruction: '',
+      skills: [],
+      tools: [],
+      createdAt: 1,
+      updatedAt: 1,
+    }),
+  ),
+  http.put('http://localhost/api/subagents/:id', ({ params }) =>
+    HttpResponse.json({
+      id: params.id,
+      name: 'updated',
+      createdAt: 1,
+      updatedAt: Date.now(),
+    }),
+  ),
+  http.delete('http://localhost/api/subagents/:id', () => new HttpResponse(null, { status: 204 })),
 ];
