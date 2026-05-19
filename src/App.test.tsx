@@ -6,6 +6,7 @@ import { useContextStore } from '@/src/stores/context.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useProfilesStore } from '@/src/stores/profiles.store';
+import { useSubAgentsStore } from '@/src/stores/subagents.store';
 
 beforeEach(() => {
   useChatStore.getState()._reset();
@@ -13,6 +14,7 @@ beforeEach(() => {
   useSessionsStore.getState()._reset();
   useUiStore.getState()._reset();
   useProfilesStore.getState()._reset();
+  useSubAgentsStore.getState()._reset();
   localStorage.clear();
 });
 
@@ -61,5 +63,10 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/type a command/i)).toBeInTheDocument();
     });
+  });
+
+  it('mounts SubAgentsSection in sidebar', () => {
+    render(<App />);
+    expect(screen.getAllByText(/sub-agents/i).length).toBeGreaterThan(0);
   });
 });

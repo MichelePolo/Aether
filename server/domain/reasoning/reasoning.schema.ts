@@ -7,6 +7,7 @@ export const ReasoningStepTypeSchema = z.enum([
   'thinking',
   'validation',
   'logic',
+  'resolve_subagent',
 ]);
 
 export const ReasoningStepSchema = z.object({

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createApp } from '@/server/app';
@@ -8,6 +9,7 @@ import { ContextStore } from '@/server/domain/context/context.store';
 import { HistoryStore } from '@/server/domain/history/history.store';
 import { DispatchService } from '@/server/domain/dispatch/dispatch.service';
 import { FakeProvider } from '@/server/domain/dispatch/providers/fake.provider';
+import { SubAgentsStore } from '@/server/domain/subagents/subagents.store';
 import { collectSseEvents } from '@/server/test/sse-collector';
 
 let dir: string;
@@ -98,5 +100,77 @@ describe('/api/ai/dispatch', () => {
       .send({ sessionId, message: 'hi', thinking: 'yes' });
     const events = await collectSseEvents(res);
     expect(events.find((e) => e.event === 'error')).toBeDefined();
+  });
+});
+
+describe('dispatch with @subagent', () => {
+  let saDir: string;
+
+  afterEach(async () => {
+    if (saDir) await rm(saDir, { recursive: true, force: true });
+  });
+
+  it('emits resolve_subagent step and tags dispatch step', async () => {
+    saDir = mkdtempSync(path.join(tmpdir(), 'aether-dispatch-sa-'));
+    const subAgentsStore = new SubAgentsStore(path.join(saDir, 'subagents.json'));
+    await subAgentsStore.create({ name: 'designer', systemInstruction: 'Design.' });
+
+    const provider = new FakeProvider({ chunks: ['ok'] });
+    const dispatcher = new DispatchService({ provider, historyStore, contextStore, subAgentsStore });
+    const app = createApp({ contextStore, historyStore, dispatcher });
+    const session = await historyStore.createEmpty();
+
+    const res = await request(app)
+      .post('/api/ai/dispatch')
+      .set('Accept', 'text/event-stream')
+      .send({ sessionId: session.id, message: '@designer ping' });
+
+    expect(res.status).toBe(200);
+    const events = await collectSseEvents(res);
+
+    const reasoningSteps = events
+      .filter((e) => e.event === 'reasoning_step')
+      .map((e) => e.data as { type: string; subAgent?: string });
+
+    const resolveStep = reasoningSteps.find((s) => s.type === 'resolve_subagent');
+    expect(resolveStep).toBeDefined();
+    expect(resolveStep?.subAgent).toBe('designer');
+
+    const dispatchStep = reasoningSteps.find((s) => s.type === 'dispatch');
+    expect(dispatchStep).toBeDefined();
+    expect(dispatchStep?.subAgent).toBe('designer');
+
+    expect(provider.lastRequest?.systemInstruction).toContain('# Sub-agent: designer');
+    expect(provider.lastRequest?.userMessage).toBe('ping');
+
+    const msgs = await historyStore.read(session.id);
+    const userMsg = msgs?.find((m) => m.role === 'user');
+    expect(userMsg?.text).toBe('@designer ping');
+  });
+
+  it('with unknown @name: no resolve_subagent step; userMessage unstripped', async () => {
+    saDir = mkdtempSync(path.join(tmpdir(), 'aether-dispatch-sa-2-'));
+    const subAgentsStore = new SubAgentsStore(path.join(saDir, 'subagents.json'));
+    // No subagent named 'unknown' is created.
+
+    const provider = new FakeProvider({ chunks: ['ok'] });
+    const dispatcher = new DispatchService({ provider, historyStore, contextStore, subAgentsStore });
+    const app = createApp({ contextStore, historyStore, dispatcher });
+    const session = await historyStore.createEmpty();
+
+    const res = await request(app)
+      .post('/api/ai/dispatch')
+      .set('Accept', 'text/event-stream')
+      .send({ sessionId: session.id, message: '@unknown hello' });
+
+    expect(res.status).toBe(200);
+    const events = await collectSseEvents(res);
+
+    const reasoningSteps = events
+      .filter((e) => e.event === 'reasoning_step')
+      .map((e) => e.data as { type: string });
+
+    expect(reasoningSteps.find((s) => s.type === 'resolve_subagent')).toBeUndefined();
+    expect(provider.lastRequest?.userMessage).toBe('@unknown hello');
   });
 });

@@ -181,6 +181,47 @@ test('palette: ⌘K → new session via palette', async ({ page, request }) => {
   });
 });
 
+test('subagent: create + invoke + reasoning badge', async ({ page, request }) => {
+  // wipe sub-agents
+  const list = await request.get('/api/subagents').then((r) => r.json());
+  for (const s of list.subAgents as { id: string }[]) {
+    await request.delete(`/api/subagents/${s.id}`);
+  }
+
+  await page.goto('/');
+  await expect(page.getByText('AETHER_CORE')).toBeVisible();
+
+  // Create a sub-agent via the sidebar
+  const sidebar = page.getByRole('complementary', { name: /sidebar/i });
+  await sidebar.getByRole('button', { name: /new sub-agent/i }).click();
+
+  // First prompt: name (single-line input)
+  const nameDialog = page.getByRole('dialog');
+  await nameDialog.getByRole('textbox').fill('designer');
+  await nameDialog.getByRole('button', { name: /confirm/i }).click();
+
+  // Second prompt: system instruction (multiline)
+  const sysDialog = page.getByRole('dialog');
+  await sysDialog.getByRole('textbox').fill('You are a designer.');
+  await sysDialog.getByRole('button', { name: /confirm/i }).click();
+
+  // The sidebar should now show the new sub-agent
+  await expect(sidebar.getByText('designer')).toBeVisible({ timeout: 5000 });
+
+  // Send a message that mentions the sub-agent
+  const ta = page.getByPlaceholder(/scrivi un messaggio/i);
+  await ta.fill('@designer ping');
+  await ta.press('Enter');
+
+  // Wait for the reply
+  await expect(page.getByText('pong').first()).toBeVisible({ timeout: 5000 });
+
+  // Open the reasoning drawer and check the badge
+  await page.getByRole('button', { name: /toggle reasoning/i }).click();
+  const drawer = page.getByRole('complementary', { name: /reasoning/i });
+  await expect(drawer.getByText(/sub-agent: designer/i)).toBeVisible({ timeout: 5000 });
+});
+
 test('reasoning: thinking on emits steps + opens drawer', async ({ page, request }) => {
   // clean session state for determinism
   const list = await request.get('/api/sessions').then((r) => r.json());
