@@ -7,8 +7,11 @@ export const SubAgentNameSchema = z
   .max(64)
   .regex(/^[A-Za-z][A-Za-z0-9_-]*$/);
 
+// Stored names may include collision suffixes like "designer (2)"
+const SubAgentStoredNameSchema = z.string().min(1).max(80);
+
 export const SubAgentRecordSchema = z.object({
-  name: SubAgentNameSchema,
+  name: SubAgentStoredNameSchema,
   systemInstruction: z.string().max(8000),
   skills: z.array(z.string()).max(50),
   tools: z.array(ToolSchema).max(50),
