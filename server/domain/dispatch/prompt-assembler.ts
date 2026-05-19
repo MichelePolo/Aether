@@ -1,5 +1,6 @@
 import type { AetherContext, Tool } from '@/server/domain/context/context.types';
 import type { SubAgentRecord } from '@/server/domain/subagents/subagents.types';
+import type { ProviderToolDecl } from './providers/provider.types';
 
 export interface AssembledPrompt {
   systemInstruction: string;
@@ -7,6 +8,7 @@ export interface AssembledPrompt {
   tools: Tool[];
   message: string;
   subAgent: string | null;
+  mcpTools: ProviderToolDecl[];
 }
 
 function dedupStrings(arr: string[]): string[] {
@@ -36,6 +38,7 @@ export function assemble(
   subAgent: SubAgentRecord | null,
   parsedMessage: string,
   resolvedName: string | null,
+  mcpTools: ProviderToolDecl[] = [],
 ): AssembledPrompt {
   if (!subAgent) {
     return {
@@ -44,6 +47,7 @@ export function assemble(
       tools: ctx.tools,
       message: parsedMessage,
       subAgent: null,
+      mcpTools,
     };
   }
   const sys = [
@@ -55,5 +59,5 @@ export function assemble(
     .join('\n\n');
   const skills = dedupStrings([...ctx.skills, ...subAgent.skills]);
   const tools = dedupToolsById([...ctx.tools, ...subAgent.tools]);
-  return { systemInstruction: sys, skills, tools, message: parsedMessage, subAgent: resolvedName };
+  return { systemInstruction: sys, skills, tools, message: parsedMessage, subAgent: resolvedName, mcpTools };
 }
