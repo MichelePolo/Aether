@@ -41,6 +41,9 @@ export class McpRegistry {
   constructor(private readonly contextStore: ContextStore) {}
 
   async connect(id: string): Promise<{ tools: McpTool[] }> {
+    if (this.live.has(id)) {
+      return { tools: this.live.get(id)!.tools };
+    }
     const ctx = await this.contextStore.read();
     const cfg = ctx.mcpServers.find((s) => s.id === id);
     if (!cfg) throw new Error(`Unknown MCP server '${id}'`);
@@ -52,6 +55,10 @@ export class McpRegistry {
       const connection = this.makeConnection(cfg);
       await connection.initialize();
       const tools = await connection.listTools();
+      if (this.live.has(id)) {
+        await connection.close().catch(() => {});
+        return { tools: this.live.get(id)!.tools };
+      }
       this.live.set(id, {
         connection,
         serverName: cfg.name,
@@ -216,8 +223,9 @@ export class McpRegistry {
     id: string,
     cfg: McpServerConfig,
     signal: AbortSignal,
+    startAttempt = 1,
   ): Promise<void> {
-    for (let attempt = 1; attempt <= MAX_RECONNECT_ATTEMPTS; attempt++) {
+    for (let attempt = startAttempt; attempt <= MAX_RECONNECT_ATTEMPTS; attempt++) {
       if (signal.aborted) return;
       this.states.set(id, {
         state: 'reconnecting',
@@ -315,7 +323,7 @@ export class McpRegistry {
         void this.triggerReconnect(id, cfg);
       });
     } catch {
-      await this.reconnectLoop(id, cfg, signal);
+      await this.reconnectLoop(id, cfg, signal, 2);
     }
   }
 }
