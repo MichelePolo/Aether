@@ -11,6 +11,7 @@ import { McpServersSection } from '@/src/components/sidebar/McpServersSection';
 import { SubAgentsSection } from '@/src/components/sidebar/SubAgentsSection';
 import { ConnectionFooter } from '@/src/components/sidebar/ConnectionFooter';
 import { ChatView } from '@/src/components/chat/ChatView';
+import { ToolCallBanner } from '@/src/components/chat/ToolCallBanner';
 import { ReasoningDrawer } from '@/src/components/reasoning/ReasoningDrawer';
 import { ProfilesModal } from '@/src/components/profiles/ProfilesModal';
 import { SubAgentEditModal } from '@/src/components/subagents/SubAgentEditModal';
@@ -74,6 +75,7 @@ export default function App() {
           onToggleSidebar={toggleSidebar}
         />
         <ChatView />
+        <ToolCallBanner />
       </AppShell>
       <ReasoningDrawer />
       <ProfilesModal />
