@@ -1,10 +1,15 @@
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { query, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
+import { z } from 'zod';
 import type {
   AIProvider,
   ProviderCapabilities,
   ProviderChunk,
   ProviderRequest,
+  ProviderToolDecl,
 } from './provider.types';
+
+const AETHER_MCP_NAME = 'aether';
+const AETHER_TOOL_PREFIX = `mcp__${AETHER_MCP_NAME}__`;
 
 export interface AnthropicProviderOpts {
   model: 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5';
@@ -63,12 +68,21 @@ export class AnthropicProvider implements AIProvider {
         systemPrompt: req.systemInstruction,
         model: this.model,
         maxTurns: 1,
-        allowedTools: [],
-        mcpServers: {},
         abortController: aborter,
       };
       if (req.thinking === true) {
         options.thinking = { type: 'enabled', budgetTokens: 8000 };
+      }
+      if (req.mcpTools && req.mcpTools.length > 0) {
+        const server = createSdkMcpServer({
+          name: AETHER_MCP_NAME,
+          tools: req.mcpTools.map(toolDefFor),
+        });
+        options.mcpServers = { [AETHER_MCP_NAME]: server };
+        options.allowedTools = req.mcpTools.map((t) => AETHER_TOOL_PREFIX + t.qualifiedName);
+      } else {
+        options.allowedTools = [];
+        options.mcpServers = {};
       }
 
       const iter = query({
@@ -91,11 +105,15 @@ export class AnthropicProvider implements AIProvider {
                 yield { type: 'thinking', text: block.thinking };
               }
             } else if (block.type === 'tool_use') {
+              const rawName = String(block.name ?? '');
+              const qualifiedName = rawName.startsWith(AETHER_TOOL_PREFIX)
+                ? rawName.slice(AETHER_TOOL_PREFIX.length)
+                : rawName;
               yield {
                 type: 'function_call',
                 call: {
                   callId: String(block.id ?? ''),
-                  qualifiedName: String(block.name ?? ''),
+                  qualifiedName,
                   args: (block.input ?? {}) as Record<string, unknown>,
                 },
               };
@@ -117,6 +135,39 @@ export class AnthropicProvider implements AIProvider {
       signal.removeEventListener('abort', onAbort);
     }
   }
+}
+
+/**
+ * Build an SDK tool definition that declares an Aether tool to Claude.
+ *
+ * The handler intentionally throws: with maxTurns:1 the SDK stops at the first
+ * assistant turn (which surfaces tool_use blocks back to Aether), so the
+ * handler is never invoked in normal flow. If it ever IS invoked, that means
+ * our assumption about maxTurns has changed — failing loud is better than
+ * silently bypassing Aether's approval+execution layer.
+ */
+function toolDefFor(decl: ProviderToolDecl): {
+  name: string;
+  description: string;
+  inputSchema: Record<string, z.ZodType>;
+  handler: (args: unknown, extra: unknown) => Promise<{ content: Array<{ type: 'text'; text: string }>; isError: boolean }>;
+} {
+  const shape: Record<string, z.ZodType> = {};
+  for (const key of Object.keys(decl.schema.properties ?? {})) {
+    shape[key] = z.unknown();
+  }
+  return {
+    name: decl.qualifiedName,
+    description: decl.description ?? '',
+    inputSchema: shape,
+    handler: async () => {
+      throw new Error(
+        `AnthropicProvider tool handler for '${decl.qualifiedName}' was invoked unexpectedly. ` +
+          'With maxTurns:1 the SDK should surface tool_use blocks for Aether to execute, ' +
+          'not call the in-process handler.',
+      );
+    },
+  };
 }
 
 async function* buildPromptStream(req: ProviderRequest): AsyncGenerator<SdkUserMessageEnvelope> {

@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const querySpy = vi.fn();
+const createSdkMcpServerSpy = vi.fn((opts: unknown) => ({ type: 'sdk', name: 'aether', instance: { __opts: opts } }));
 
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   query: (...args: unknown[]) => querySpy(...args),
+  createSdkMcpServer: (...args: unknown[]) => createSdkMcpServerSpy(...(args as [unknown])),
 }));
 
 import { AnthropicProvider } from './anthropic.provider';
@@ -32,6 +34,7 @@ async function collect(it: AsyncIterable<ProviderChunk>): Promise<ProviderChunk[
 
 beforeEach(() => {
   querySpy.mockReset();
+  createSdkMcpServerSpy.mockClear();
 });
 
 describe('AnthropicProvider', () => {
@@ -80,10 +83,10 @@ describe('AnthropicProvider', () => {
     expect(chunks).toContainEqual({ type: 'text', text: 'answer' });
   });
 
-  it('maps tool_use to function_call and terminates the stream', async () => {
+  it('maps tool_use to function_call and terminates the stream (strips mcp__aether__ prefix)', async () => {
     querySpy.mockReturnValue(asyncIterableFrom([
       { type: 'assistant', message: { content: [{ type: 'text', text: 'I will use a tool' }] } },
-      { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'TC1', name: 'mock.echo', input: { message: 'hi' } }] } },
+      { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'TC1', name: 'mcp__aether__mock.echo', input: { message: 'hi' } }] } },
       { type: 'assistant', message: { content: [{ type: 'text', text: 'should not appear' }] } },
       { type: 'result', usage: { input_tokens: 5, output_tokens: 5 } },
     ]));
@@ -93,6 +96,18 @@ describe('AnthropicProvider', () => {
       { type: 'text', text: 'I will use a tool' },
       { type: 'function_call', call: { callId: 'TC1', qualifiedName: 'mock.echo', args: { message: 'hi' } } },
     ]);
+  });
+
+  it('forwards tool_use names unchanged when prefix is missing (defensive)', async () => {
+    querySpy.mockReturnValue(asyncIterableFrom([
+      { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'TC1', name: 'mock.echo', input: {} }] } },
+    ]));
+    const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
+    const chunks = await collect(p.stream(baseReq(), new AbortController().signal));
+    expect(chunks[0]).toEqual({
+      type: 'function_call',
+      call: { callId: 'TC1', qualifiedName: 'mock.echo', args: {} },
+    });
   });
 
   it('forwards systemPrompt, history, userMessage to the SDK as an AsyncIterable<SDKUserMessage>', async () => {
@@ -190,5 +205,53 @@ describe('AnthropicProvider', () => {
     ]));
     const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
     await expect(collect(p.stream(baseReq(), new AbortController().signal))).rejects.toThrow(/authentication_failed/);
+  });
+
+  it('builds an in-process MCP server with one tool per req.mcpTools entry', async () => {
+    querySpy.mockReturnValue(asyncIterableFrom([
+      { type: 'result', usage: { input_tokens: 0, output_tokens: 0 } },
+    ]));
+    const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
+    await collect(p.stream(baseReq({
+      mcpTools: [
+        { qualifiedName: 'mock.echo', description: 'Echoes', schema: { type: 'object', properties: { message: {} } } },
+        { qualifiedName: 'mock.current_time', description: 'Now', schema: { type: 'object', properties: {} } },
+      ],
+    }), new AbortController().signal));
+
+    expect(createSdkMcpServerSpy).toHaveBeenCalledTimes(1);
+    const serverOpts = createSdkMcpServerSpy.mock.calls[0][0] as {
+      name: string;
+      tools: Array<{ name: string; description: string; inputSchema: Record<string, unknown> }>;
+    };
+    expect(serverOpts.name).toBe('aether');
+    expect(serverOpts.tools).toHaveLength(2);
+    expect(serverOpts.tools[0].name).toBe('mock.echo');
+    expect(serverOpts.tools[0].description).toBe('Echoes');
+    expect(Object.keys(serverOpts.tools[0].inputSchema)).toEqual(['message']);
+    expect(serverOpts.tools[1].name).toBe('mock.current_time');
+
+    const arg = querySpy.mock.calls[0][0] as {
+      options: { mcpServers: Record<string, unknown>; allowedTools: string[] };
+    };
+    expect(arg.options.mcpServers).toHaveProperty('aether');
+    expect(arg.options.allowedTools).toEqual([
+      'mcp__aether__mock.echo',
+      'mcp__aether__mock.current_time',
+    ]);
+  });
+
+  it('does not build an MCP server when req.mcpTools is empty or absent', async () => {
+    querySpy.mockReturnValue(asyncIterableFrom([
+      { type: 'result', usage: { input_tokens: 0, output_tokens: 0 } },
+    ]));
+    const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
+    await collect(p.stream(baseReq(), new AbortController().signal));
+    expect(createSdkMcpServerSpy).not.toHaveBeenCalled();
+    const arg = querySpy.mock.calls[0][0] as {
+      options: { mcpServers: Record<string, unknown>; allowedTools: string[] };
+    };
+    expect(arg.options.mcpServers).toEqual({});
+    expect(arg.options.allowedTools).toEqual([]);
   });
 });
