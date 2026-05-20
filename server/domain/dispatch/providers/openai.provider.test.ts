@@ -208,6 +208,27 @@ describe('OpenAIProvider', () => {
     });
   });
 
+  it('splices pendingAssistantText as an assistant turn before the new userMessage', async () => {
+    let captured: { init?: RequestInit } = {};
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (_url: string, init?: RequestInit) => {
+      captured = { init };
+      return new Response(streamFromString(ssePayload([
+        JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }),
+        JSON.stringify({ choices: [], usage: { total_tokens: 0 } }),
+      ])), { status: 200 });
+    });
+
+    const p = new OpenAIProvider({ apiKey: 'sk-x', model: 'gpt-5' });
+    await collect(p.stream(baseReq({ pendingAssistantText: 'partial answer' }), new AbortController().signal));
+
+    const body = JSON.parse(captured.init?.body as string) as {
+      messages: Array<{ role: string; content?: string }>;
+    };
+    const idx = body.messages.findIndex((m) => m.role === 'assistant' && m.content === 'partial answer');
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(body.messages[idx + 1]).toEqual({ role: 'user', content: 'hi' });
+  });
+
   it('throws OpenAI auth failed message on HTTP 401', async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       new Response(JSON.stringify({ error: { message: 'invalid_api_key' } }), { status: 401 }),
