@@ -3,7 +3,14 @@ import { z } from 'zod';
 import type { HistoryStore } from '@/server/domain/history/history.store';
 import { ValidationError } from '@/server/lib/errors';
 
-const RenameBody = z.object({ title: z.string() });
+const PatchBody = z
+  .object({
+    title: z.string().optional(),
+    providerName: z.string().optional(),
+  })
+  .refine((b) => b.title !== undefined || b.providerName !== undefined, {
+    message: 'At least one field is required',
+  });
 
 function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -44,9 +51,20 @@ export function createHistoryRoutes(store: HistoryStore): Router {
   router.patch(
     '/:id',
     asyncHandler(async (req, res) => {
-      const parsed = RenameBody.safeParse(req.body);
-      if (!parsed.success) throw new ValidationError('Invalid rename payload', parsed.error);
-      const meta = await store.rename(req.params.id, parsed.data.title);
+      const parsed = PatchBody.safeParse(req.body);
+      if (!parsed.success) throw new ValidationError('Invalid patch payload', parsed.error);
+      if (parsed.data.title !== undefined) {
+        await store.rename(req.params.id, parsed.data.title);
+      }
+      if (parsed.data.providerName !== undefined) {
+        await store.setProviderName(req.params.id, parsed.data.providerName);
+      }
+      const list = await store.listSessions();
+      const meta = list.find((m) => m.id === req.params.id);
+      if (!meta) {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
+        return;
+      }
       res.json(meta);
     }),
   );

@@ -96,3 +96,34 @@ describe('/api/sessions', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('PATCH /api/history/:id providerName (slice-8)', () => {
+  it('accepts providerName and persists it', async () => {
+    const meta = await historyStore.createEmpty();
+    const res = await request(app)
+      .patch(`/api/sessions/${meta.id}`)
+      .send({ providerName: 'ollama:llama3' });
+    expect(res.status).toBe(200);
+    const record = await historyStore.readRecord(meta.id);
+    expect(record?.providerName).toBe('ollama:llama3');
+  });
+
+  it('rejects empty body', async () => {
+    const meta = await historyStore.createEmpty();
+    const res = await request(app)
+      .patch(`/api/sessions/${meta.id}`)
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('accepts both fields at once', async () => {
+    const meta = await historyStore.createEmpty();
+    const res = await request(app)
+      .patch(`/api/sessions/${meta.id}`)
+      .send({ title: 'new-title', providerName: 'fake:default' });
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBe('new-title');
+    const record = await historyStore.readRecord(meta.id);
+    expect(record?.providerName).toBe('fake:default');
+  });
+});
