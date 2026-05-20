@@ -68,4 +68,84 @@ describe('useMcpStore', () => {
     expect(useMcpStore.getState().connectStates.Mbad).toBe('error');
     expect(useMcpStore.getState().errors.Mbad).toBe('Boom');
   });
+
+  it('registerInFlightCall adds to inFlightCalls', () => {
+    useMcpStore.getState().registerInFlightCall({
+      callId: 'C1',
+      qualifiedName: 'mock.echo',
+      args: { message: 'hi' },
+    });
+    expect(useMcpStore.getState().inFlightCalls.C1?.qualifiedName).toBe('mock.echo');
+  });
+
+  it('updateInFlightProgress sets progressNote', () => {
+    useMcpStore.getState().registerInFlightCall({
+      callId: 'C1',
+      qualifiedName: 'mock.echo',
+      args: {},
+    });
+    useMcpStore.getState().updateInFlightProgress('C1', '50%');
+    expect(useMcpStore.getState().inFlightCalls.C1?.progressNote).toBe('50%');
+  });
+
+  it('updateInFlightProgress is a no-op for unknown callId', () => {
+    useMcpStore.getState().updateInFlightProgress('missing', '50%');
+    expect(useMcpStore.getState().inFlightCalls.missing).toBeUndefined();
+  });
+
+  it('clearInFlightCall removes the entry', () => {
+    useMcpStore.getState().registerInFlightCall({
+      callId: 'C1',
+      qualifiedName: 'mock.echo',
+      args: {},
+    });
+    useMcpStore.getState().clearInFlightCall('C1');
+    expect(useMcpStore.getState().inFlightCalls.C1).toBeUndefined();
+  });
+
+  it('refreshServer calls API and replaces server tools in liveTools', async () => {
+    useMcpStore.setState({
+      liveTools: [
+        {
+          qualifiedName: 'mock.echo',
+          serverId: 'M1',
+          serverName: 'mock',
+          tool: { name: 'echo', inputSchema: {} },
+          autoApprove: true,
+        },
+        {
+          qualifiedName: 'other.foo',
+          serverId: 'M2',
+          serverName: 'other',
+          tool: { name: 'foo', inputSchema: {} },
+          autoApprove: false,
+        },
+      ],
+    });
+    server.use(
+      http.post('http://localhost/api/mcp/M1/refresh-tools', () =>
+        HttpResponse.json({
+          tools: [{
+            qualifiedName: 'mock.current_time', serverId: 'M1', serverName: 'mock',
+            tool: { name: 'current_time', inputSchema: {} }, autoApprove: true,
+          }],
+        }),
+      ),
+    );
+    await useMcpStore.getState().refreshServer('M1');
+    const live = useMcpStore.getState().liveTools;
+    expect(live).toHaveLength(2);
+    expect(live.find((t) => t.serverId === 'M1')?.tool.name).toBe('current_time');
+    expect(live.find((t) => t.serverId === 'M2')?.tool.name).toBe('foo');
+  });
+
+  it('refreshServer sets error on failure', async () => {
+    server.use(
+      http.post('http://localhost/api/mcp/M1/refresh-tools', () =>
+        HttpResponse.json({ error: { message: 'Not online' } }, { status: 409 }),
+      ),
+    );
+    await expect(useMcpStore.getState().refreshServer('M1')).rejects.toThrow();
+    expect(useMcpStore.getState().errors.M1).toBe('Not online');
+  });
 });

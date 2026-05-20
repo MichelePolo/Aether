@@ -2,17 +2,29 @@ import { create } from 'zustand';
 import { mcpApi } from '@/src/lib/api/mcp.api';
 import type { LiveTool, McpConnectionState } from '@/src/types/mcp.types';
 
+export interface InFlightCall {
+  callId: string;
+  qualifiedName: string;
+  args: Record<string, unknown>;
+  progressNote?: string;
+}
+
 interface McpState {
   liveTools: LiveTool[];
   connectStates: Record<string, McpConnectionState>;
   errors: Record<string, string>;
+  inFlightCalls: Record<string, InFlightCall>;
 
   connect: (id: string) => Promise<void>;
   disconnect: (id: string) => Promise<void>;
   togglePolicy: (serverId: string, name: string, autoApprove: boolean) => Promise<void>;
   refresh: () => Promise<void>;
+  refreshServer: (id: string) => Promise<void>;
   applyServerStateEvent: (id: string, state: McpConnectionState, error?: string) => void;
   clearError: (id: string) => void;
+  registerInFlightCall: (call: InFlightCall) => void;
+  updateInFlightProgress: (callId: string, note: string) => void;
+  clearInFlightCall: (callId: string) => void;
   _reset: () => void;
 }
 
@@ -20,6 +32,7 @@ const initial = {
   liveTools: [] as LiveTool[],
   connectStates: {} as Record<string, McpConnectionState>,
   errors: {} as Record<string, string>,
+  inFlightCalls: {} as Record<string, InFlightCall>,
 };
 
 function errMsg(e: unknown): string {
@@ -78,6 +91,18 @@ export const useMcpStore = create<McpState>((set) => ({
     set({ liveTools: tools });
   },
 
+  refreshServer: async (id) => {
+    try {
+      const tools = await mcpApi.refreshTools(id);
+      set((s) => ({
+        liveTools: [...s.liveTools.filter((t) => t.serverId !== id), ...tools],
+      }));
+    } catch (e) {
+      set((s) => ({ errors: { ...s.errors, [id]: errMsg(e) } }));
+      throw e;
+    }
+  },
+
   applyServerStateEvent: (id, state, error) =>
     set((s) => ({
       connectStates: { ...s.connectStates, [id]: state },
@@ -89,5 +114,24 @@ export const useMcpStore = create<McpState>((set) => ({
       const next = { ...s.errors };
       delete next[id];
       return { errors: next };
+    }),
+
+  registerInFlightCall: (call) =>
+    set((s) => ({ inFlightCalls: { ...s.inFlightCalls, [call.callId]: call } })),
+
+  updateInFlightProgress: (callId, note) =>
+    set((s) => {
+      const cur = s.inFlightCalls[callId];
+      if (!cur) return s;
+      return {
+        inFlightCalls: { ...s.inFlightCalls, [callId]: { ...cur, progressNote: note } },
+      };
+    }),
+
+  clearInFlightCall: (callId) =>
+    set((s) => {
+      const next = { ...s.inFlightCalls };
+      delete next[callId];
+      return { inFlightCalls: next };
     }),
 }));
