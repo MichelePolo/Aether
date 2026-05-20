@@ -93,4 +93,51 @@ describe('McpRegistry', () => {
     const after = await ctx.read();
     expect(after.mcpServers[0].toolPolicies).toEqual({ echo: { autoApprove: false } });
   });
+
+  it('refreshTools updates the live entry', async () => {
+    await reg.connect('M1');
+    const before = reg.listLiveTools().length;
+    expect(before).toBe(3);
+    const tools = await reg.refreshTools('M1');
+    expect(tools.length).toBe(3);
+  });
+
+  it('refreshTools on disconnected server throws', async () => {
+    await expect(reg.refreshTools('M1')).rejects.toThrow();
+  });
+
+  it('listLiveTools after refresh reflects mock tools unchanged', async () => {
+    await reg.connect('M1');
+    await reg.refreshTools('M1');
+    expect(reg.listLiveTools().map((t) => t.tool.name).sort()).toEqual([
+      'current_time', 'echo', 'read_file_mock',
+    ]);
+  });
+
+  it('callTool forwards opts.signal to the connection', async () => {
+    await reg.connect('M1');
+    const ctrl = new AbortController();
+    ctrl.abort();
+    const res = await reg.callTool('mock.echo', { message: 'hi' }, { signal: ctrl.signal });
+    expect(res).toEqual({ ok: false, error: 'Cancelled by user' });
+  });
+
+  it('passes onProgress through callTool (mock ignores; assert no throw)', async () => {
+    await reg.connect('M1');
+    const notes: string[] = [];
+    const res = await reg.callTool('mock.echo', { message: 'hi' }, { onProgress: (n) => notes.push(n) });
+    expect(res.ok).toBe(true);
+    expect(notes).toEqual([]);
+  });
+
+  it('cancelToolCall is idempotent (no-op when controller missing)', () => {
+    expect(() => reg.cancelToolCall?.('nonexistent')).not.toThrow();
+  });
+
+  it('auto-reconnect: triggers reconnecting state and returns to online', async () => {
+    await reg.connect('M1');
+    const promise = (reg as unknown as { __forceReconnectForTest(id: string): Promise<void> }).__forceReconnectForTest('M1');
+    await promise;
+    expect(reg.stateOf('M1').state).toBe('online');
+  }, 10_000);
 });
