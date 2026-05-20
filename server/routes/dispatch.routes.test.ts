@@ -264,4 +264,55 @@ describe('dispatch with MCP tool call (slice 7)', () => {
     expect(toolCallInHistory).toBeDefined();
     expect((toolCallInHistory as { toolCall?: { qualifiedName: string } } | undefined)?.toolCall?.qualifiedName).toBe('mock.echo');
   });
+
+  it('emits tool_call_started between tool_call_request and tool_call_result', async () => {
+    mcpDir = mkdtempSync(path.join(tmpdir(), 'aether-dispatch-mcp-started-'));
+    const mcpContextStore = new ContextStore(path.join(mcpDir, 'context.json'));
+
+    const srv = await mcpContextStore.addMcpServer({
+      name: 'mock',
+      transport: 'mock',
+      status: 'offline',
+    });
+
+    const mcpRegistry = new McpRegistry(mcpContextStore);
+    await mcpRegistry.connect(srv.id);
+
+    const provider = new FakeProvider({
+      chunks: ['final-text'],
+      functionCallSequence: [
+        { callId: 'call-started-1', qualifiedName: 'mock.echo', args: { message: 'pong' } },
+      ],
+    });
+
+    const providers = await buildSingleProviderRegistry(provider);
+    const dispatcher = new DispatchService({
+      providers,
+      historyStore,
+      contextStore: mcpContextStore,
+      mcpRegistry,
+    });
+    const app = createApp({ contextStore: mcpContextStore, historyStore, dispatcher });
+    const session = await historyStore.createEmpty();
+
+    const res = await request(app)
+      .post('/api/ai/dispatch')
+      .set('Accept', 'text/event-stream')
+      .send({ sessionId: session.id, message: 'test tool call ordering' });
+
+    expect(res.status).toBe(200);
+    const events = await collectSseEvents(res);
+
+    const idxRequest = events.findIndex((e) => e.event === 'tool_call_request');
+    const idxStarted = events.findIndex((e) => e.event === 'tool_call_started');
+    const idxResult = events.findIndex((e) => e.event === 'tool_call_result');
+
+    expect(idxRequest).toBeGreaterThanOrEqual(0);
+    expect(idxStarted).toBeGreaterThan(idxRequest);
+    expect(idxResult).toBeGreaterThan(idxStarted);
+
+    const startedEvent = events[idxStarted];
+    expect((startedEvent.data as { callId: string }).callId).toBe('call-started-1');
+    expect((startedEvent.data as { qualifiedName: string }).qualifiedName).toBe('mock.echo');
+  });
 });

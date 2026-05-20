@@ -35,7 +35,39 @@ export interface DispatchServiceDeps {
 }
 
 export class DispatchService {
+  private inFlightControllers = new Map<string, AbortController>();
+
   constructor(private readonly deps: DispatchServiceDeps) {}
+
+  getInFlightController(callId: string): AbortController | undefined {
+    return this.inFlightControllers.get(callId);
+  }
+
+  private async executeToolCall(
+    pendingCall: ProviderFunctionCall,
+    sse: SseEmitter,
+  ): Promise<{ result: McpToolResult; progressNote: string }> {
+    const ctrl = new AbortController();
+    this.inFlightControllers.set(pendingCall.callId, ctrl);
+    sse.event('tool_call_started', pendingCall);
+    let latestProgress = '';
+    try {
+      const result = await this.deps.mcpRegistry!.callTool(
+        pendingCall.qualifiedName,
+        pendingCall.args,
+        {
+          signal: ctrl.signal,
+          onProgress: (note) => {
+            latestProgress = note;
+            sse.event('tool_call_progress', { id: pendingCall.callId, note });
+          },
+        },
+      );
+      return { result, progressNote: latestProgress };
+    } finally {
+      this.inFlightControllers.delete(pendingCall.callId);
+    }
+  }
 
   async handle(
     rawBody: unknown,
@@ -220,12 +252,15 @@ export class DispatchService {
 
             const t0 = performance.now();
             let toolResult: McpToolResult;
+            let progressNote = '';
             if (decision === 'reject') {
               toolResult = { ok: false, error: 'Rejected by user' };
             } else if (!this.deps.mcpRegistry) {
               toolResult = { ok: false, error: 'No MCP registry configured' };
             } else {
-              toolResult = await this.deps.mcpRegistry.callTool(pendingCall.qualifiedName, pendingCall.args);
+              const executed = await this.executeToolCall(pendingCall, sse);
+              toolResult = executed.result;
+              progressNote = executed.progressNote;
             }
             const durationMs = Math.round(performance.now() - t0);
 
@@ -245,6 +280,7 @@ export class DispatchService {
                 result: toolResult.ok ? toolResult.output : undefined,
                 error: toolResult.ok ? undefined : toolResult.error,
                 durationMs,
+                progressNote: progressNote || undefined,
               },
             });
 
