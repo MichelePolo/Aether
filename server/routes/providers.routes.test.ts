@@ -22,11 +22,10 @@ async function makeApp() {
     ollamaBuilder: () => makeFake('o'),
   });
   await reg.refresh();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return { app: createApp({ providers: reg } as any), reg };
+  return { app: createApp({ providers: reg }), reg };
 }
 
-describe.skip('providers routes (un-skip after Task H1 wires AppDeps)', () => {
+describe('providers routes', () => {
   let app: Awaited<ReturnType<typeof makeApp>>['app'];
   beforeEach(async () => {
     ({ app } = await makeApp());

@@ -13,6 +13,8 @@ import { FakeProvider } from './domain/dispatch/providers/fake.provider';
 import { GeminiProvider } from './domain/dispatch/providers/gemini.provider';
 import type { AIProvider } from './domain/dispatch/providers/provider.types';
 import { McpRegistry } from './domain/mcp/registry';
+import { ProviderRegistry } from './domain/providers/registry';
+import { OllamaProvider } from './domain/dispatch/providers/ollama.provider';
 
 dotenv.config();
 
@@ -46,7 +48,30 @@ async function bootstrap() {
 
   const dispatcher = new DispatchService({ provider, historyStore, contextStore, subAgentsStore, mcpRegistry });
 
-  const app = createApp({ contextStore, historyStore, dispatcher, profilesStore, subAgentsStore, mcpRegistry });
+  // Build the new registry (used by /api/providers route; NOT by DispatchService yet — that happens in Task J1).
+  const fakeForRegistry = new FakeProvider({
+    chunks: ['pong'],
+    thoughtChunks: ['thinking about it…'],
+    chunkDelayMs: 50,
+    model: 'fake-1',
+  });
+
+  const providers = new ProviderRegistry({
+    ollamaHost: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
+    geminiApiKey: cfg.geminiApiKey || undefined,
+    fakeProvider: fakeForRegistry,
+    geminiBuilder: (model) => new GeminiProvider({ apiKey: cfg.geminiApiKey, model }),
+    ollamaBuilder: (model) =>
+      new OllamaProvider({
+        host: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
+        model,
+      }),
+    defaultOverride: process.env.AETHER_DEFAULT_PROVIDER || undefined,
+  });
+
+  await providers.refresh();
+
+  const app = createApp({ contextStore, historyStore, dispatcher, profilesStore, subAgentsStore, mcpRegistry, providers });
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
