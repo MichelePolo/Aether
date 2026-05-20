@@ -51,4 +51,12 @@ describe('MockMcpConnection', () => {
     await c.close();
     await c.close();
   });
+
+  it('returns cancelled when signal is already aborted', async () => {
+    const c = new MockMcpConnection();
+    const ctrl = new AbortController();
+    ctrl.abort();
+    const res = await c.callTool('echo', { message: 'hi' }, { signal: ctrl.signal });
+    expect(res).toEqual({ ok: false, error: 'Cancelled by user' });
+  });
 });
