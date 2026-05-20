@@ -25,7 +25,7 @@ describe('StdioMcpConnection', () => {
   it('initialize + listTools returns echo', async () => {
     await conn.initialize();
     const tools = await conn.listTools();
-    expect(tools.map((t) => t.name)).toEqual(['echo']);
+    expect(tools.map((t) => t.name)).toEqual(['echo', 'slow']);
   });
 
   it('callTool echo returns text content', async () => {
@@ -53,5 +53,34 @@ describe('StdioMcpConnection', () => {
     await conn.initialize();
     await conn.close();
     await conn.close();
+  });
+
+  it('callTool with aborted signal returns cancelled and writes notifications/cancelled', async () => {
+    await conn.initialize();
+    const ctrl = new AbortController();
+    const p = conn.callTool('slow', {}, { signal: ctrl.signal });
+    queueMicrotask(() => ctrl.abort());
+    const res = await p;
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/cancel/i);
+  });
+
+  it('callTool with onProgress receives notifications/progress', async () => {
+    await conn.initialize();
+    const notes: string[] = [];
+    const res = await conn.callTool('slow', {}, { onProgress: (n) => notes.push(n) });
+    expect(res.ok).toBe(true);
+    expect(notes.length).toBeGreaterThanOrEqual(2);
+    expect(notes[0]).toMatch(/1\/2/);
+    expect(notes[1]).toMatch(/2\/2/);
+  });
+
+  it('onUnexpectedClose fires when subprocess exits unexpectedly', async () => {
+    await conn.initialize();
+    let closed = false;
+    conn.onUnexpectedClose?.(() => { closed = true; });
+    (conn as unknown as { __killForTest(): void }).__killForTest();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(closed).toBe(true);
   });
 });
