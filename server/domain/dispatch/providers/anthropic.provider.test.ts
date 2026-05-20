@@ -95,7 +95,7 @@ describe('AnthropicProvider', () => {
     ]);
   });
 
-  it('forwards systemPrompt, history, userMessage, and tools to the SDK', async () => {
+  it('forwards systemPrompt, history, userMessage to the SDK as an AsyncIterable<SDKUserMessage>', async () => {
     querySpy.mockReturnValue(asyncIterableFrom([
       { type: 'result', usage: { input_tokens: 0, output_tokens: 0 } },
     ]));
@@ -107,22 +107,29 @@ describe('AnthropicProvider', () => {
         { role: 'model', text: 'a1' },
       ],
       userMessage: 'q2',
-      mcpTools: [{ qualifiedName: 'mock.echo', description: 'd', schema: { type: 'object' } }],
     }), new AbortController().signal));
 
     expect(querySpy).toHaveBeenCalledTimes(1);
     const arg = querySpy.mock.calls[0][0] as {
-      prompt: unknown;
-      options: { systemPrompt: string; model: string; maxTurns: number };
+      prompt: AsyncIterable<unknown>;
+      options: { systemPrompt: string; model: string; maxTurns: number; tools?: unknown };
     };
     expect(arg.options.systemPrompt).toBe('sys');
     expect(arg.options.model).toBe('claude-sonnet-4-6');
     expect(arg.options.maxTurns).toBe(1);
-    const serialized = JSON.stringify(arg);
+    // No custom tool declarations in options (SDK only accepts string[] or preset; we'll
+    // expose Aether's tools via an in-process MCP server in a follow-up task).
+    expect(arg.options.tools).toBeUndefined();
+
+    // Consume the prompt iterable and inspect the messages.
+    const messages: unknown[] = [];
+    for await (const m of arg.prompt) messages.push(m);
+    const serialized = JSON.stringify(messages);
+    expect(serialized).toContain('"role":"user"');
+    expect(serialized).toContain('"role":"assistant"');
     expect(serialized).toContain('q1');
     expect(serialized).toContain('a1');
     expect(serialized).toContain('q2');
-    expect(serialized).toContain('mock.echo');
   });
 
   it('threads toolResults back into the SDK prompt on continuation', async () => {
@@ -137,10 +144,33 @@ describe('AnthropicProvider', () => {
       ],
     }), new AbortController().signal));
 
-    const arg = querySpy.mock.calls[0][0] as Record<string, unknown>;
-    const serialized = JSON.stringify(arg);
+    const arg = querySpy.mock.calls[0][0] as { prompt: AsyncIterable<unknown> };
+    const messages: unknown[] = [];
+    for await (const m of arg.prompt) messages.push(m);
+    const serialized = JSON.stringify(messages);
     expect(serialized).toContain('TC1');
     expect(serialized).toContain('thinking out loud');
+    expect(serialized).toContain('"type":"tool_result"');
+  });
+
+  it('uses budgetTokens (camelCase) when thinking is enabled', async () => {
+    querySpy.mockReturnValue(asyncIterableFrom([
+      { type: 'result', usage: { input_tokens: 0, output_tokens: 0 } },
+    ]));
+    const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
+    await collect(p.stream(baseReq({ thinking: true }), new AbortController().signal));
+    const arg = querySpy.mock.calls[0][0] as { options: { thinking?: Record<string, unknown> } };
+    expect(arg.options.thinking).toEqual({ type: 'enabled', budgetTokens: 8000 });
+  });
+
+  it('omits the thinking option entirely when req.thinking is falsy', async () => {
+    querySpy.mockReturnValue(asyncIterableFrom([
+      { type: 'result', usage: { input_tokens: 0, output_tokens: 0 } },
+    ]));
+    const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
+    await collect(p.stream(baseReq(), new AbortController().signal));
+    const arg = querySpy.mock.calls[0][0] as { options: { thinking?: unknown } };
+    expect(arg.options.thinking).toBeUndefined();
   });
 
   it('forwards the abort signal as an AbortController to the SDK', async () => {
