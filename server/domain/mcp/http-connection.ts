@@ -178,7 +178,7 @@ export class HttpMcpConnection implements McpConnection {
             }
           }
           if (dataLines.length === 0) continue;
-          const joined = dataLines.join('');
+          const joined = dataLines.join('\n');
           let parsed: unknown;
           try {
             parsed = JSON.parse(joined);
@@ -207,6 +207,9 @@ export class HttpMcpConnection implements McpConnection {
     if (this.pending.has(id)) {
       const p = this.cleanupPending(id);
       if (p) p.reject(new Error(`stream closed without response (${method})`));
+      if (!this.closeRequested && this.unexpectedCloseHandler) {
+        this.unexpectedCloseHandler();
+      }
     }
   }
 
@@ -252,7 +255,6 @@ export class HttpMcpConnection implements McpConnection {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          accept: 'text/event-stream',
           ...(this.opts.headers ?? {}),
         },
         body: JSON.stringify({

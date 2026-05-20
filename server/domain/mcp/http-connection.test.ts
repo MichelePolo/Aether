@@ -115,4 +115,15 @@ describe('HttpMcpConnection', () => {
     const c = new HttpMcpConnection({ url: 'http://localhost:8000' });
     await expect(c.initialize()).rejects.toThrow();
   });
+
+  it('fires onUnexpectedClose on fetch network error', async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('network down'));
+    const c = new HttpMcpConnection({ url: 'http://localhost:8000' });
+    let fired = false;
+    c.onUnexpectedClose(() => {
+      fired = true;
+    });
+    await expect(c.initialize()).rejects.toThrow();
+    expect(fired).toBe(true);
+  });
 });
