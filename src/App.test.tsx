@@ -8,6 +8,7 @@ import { useUiStore } from '@/src/stores/ui.store';
 import { useProfilesStore } from '@/src/stores/profiles.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
 import { useMcpStore } from '@/src/stores/mcp.store';
+import { useProvidersStore } from '@/src/stores/providers.store';
 
 beforeEach(() => {
   useChatStore.getState()._reset();
@@ -17,6 +18,7 @@ beforeEach(() => {
   useProfilesStore.getState()._reset();
   useSubAgentsStore.getState()._reset();
   useMcpStore.getState()._reset();
+  useProvidersStore.getState()._reset();
   localStorage.clear();
 });
 

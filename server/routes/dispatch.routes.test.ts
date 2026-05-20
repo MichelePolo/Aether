@@ -12,6 +12,7 @@ import { FakeProvider } from '@/server/domain/dispatch/providers/fake.provider';
 import { SubAgentsStore } from '@/server/domain/subagents/subagents.store';
 import { McpRegistry } from '@/server/domain/mcp/registry';
 import { collectSseEvents } from '@/server/test/sse-collector';
+import { buildSingleProviderRegistry } from '@/server/test/registry.test-helper';
 
 let dir: string;
 let contextStore: ContextStore;
@@ -29,7 +30,8 @@ afterEach(async () => {
 
 async function appWith(chunks: string[]) {
   const provider = new FakeProvider({ chunks });
-  const dispatcher = new DispatchService({ provider, historyStore, contextStore });
+  const providers = await buildSingleProviderRegistry(provider);
+  const dispatcher = new DispatchService({ providers, historyStore, contextStore });
   const app = createApp({ contextStore, historyStore, dispatcher });
   const session = await historyStore.createEmpty();
   return { app, sessionId: session.id };
@@ -82,7 +84,8 @@ describe('/api/ai/dispatch', () => {
 
   it('forwards thinking=true through to the service (emits thinking chunks)', async () => {
     const provider = new FakeProvider({ chunks: ['pong'], thoughtChunks: ['ponder'] });
-    const dispatcher = new DispatchService({ provider, historyStore, contextStore });
+    const providers = await buildSingleProviderRegistry(provider);
+    const dispatcher = new DispatchService({ providers, historyStore, contextStore });
     const app = createApp({ contextStore, historyStore, dispatcher });
     const session = await historyStore.createEmpty();
 
@@ -117,7 +120,8 @@ describe('dispatch with @subagent', () => {
     await subAgentsStore.create({ name: 'designer', systemInstruction: 'Design.' });
 
     const provider = new FakeProvider({ chunks: ['ok'] });
-    const dispatcher = new DispatchService({ provider, historyStore, contextStore, subAgentsStore });
+    const providers = await buildSingleProviderRegistry(provider);
+    const dispatcher = new DispatchService({ providers, historyStore, contextStore, subAgentsStore });
     const app = createApp({ contextStore, historyStore, dispatcher });
     const session = await historyStore.createEmpty();
 
@@ -155,7 +159,8 @@ describe('dispatch with @subagent', () => {
     // No subagent named 'unknown' is created.
 
     const provider = new FakeProvider({ chunks: ['ok'] });
-    const dispatcher = new DispatchService({ provider, historyStore, contextStore, subAgentsStore });
+    const providers = await buildSingleProviderRegistry(provider);
+    const dispatcher = new DispatchService({ providers, historyStore, contextStore, subAgentsStore });
     const app = createApp({ contextStore, historyStore, dispatcher });
     const session = await historyStore.createEmpty();
 
@@ -206,8 +211,9 @@ describe('dispatch with MCP tool call (slice 7)', () => {
       ],
     });
 
+    const providers = await buildSingleProviderRegistry(provider);
     const dispatcher = new DispatchService({
-      provider,
+      providers,
       historyStore,
       contextStore: mcpContextStore,
       mcpRegistry,

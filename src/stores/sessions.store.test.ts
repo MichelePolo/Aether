@@ -260,6 +260,42 @@ describe('useSessionsStore.setActive clears error', () => {
   });
 });
 
+describe('useSessionsStore.setProviderName', () => {
+  it('setProviderName updates the session optimistically and PATCHes', async () => {
+    useSessionsStore.setState({
+      sessions: [{ id: 'S1', title: 't', createdAt: 0, updatedAt: 0 }],
+      activeSessionId: 'S1',
+      hydrated: true,
+    });
+    let posted: unknown = null;
+    server.use(
+      http.patch('http://localhost/api/sessions/S1', async ({ request }) => {
+        posted = await request.json();
+        return HttpResponse.json({ id: 'S1', title: 't', createdAt: 0, updatedAt: 1 });
+      }),
+    );
+    await useSessionsStore.getState().setProviderName('S1', 'ollama:llama3');
+    expect(posted).toEqual({ providerName: 'ollama:llama3' });
+    const after = useSessionsStore.getState().sessions.find((s) => s.id === 'S1');
+    expect((after as { providerName?: string })?.providerName).toBe('ollama:llama3');
+  });
+
+  it('setProviderName rolls back on error', async () => {
+    useSessionsStore.setState({
+      sessions: [{ id: 'S1', title: 't', createdAt: 0, updatedAt: 0 }],
+      activeSessionId: 'S1',
+      hydrated: true,
+    });
+    server.use(
+      http.patch('http://localhost/api/sessions/S1', () =>
+        HttpResponse.json({ error: { message: 'Boom' } }, { status: 500 }),
+      ),
+    );
+    await expect(useSessionsStore.getState().setProviderName('S1', 'ollama:llama3')).rejects.toThrow();
+    expect(useSessionsStore.getState().error).toBeTruthy();
+  });
+});
+
 describe('useSessionsStore edge cases', () => {
   it('init: falls back to "Operation failed" when API throws a non-Error', async () => {
     // Force fetch to reject with a non-Error value so errMsg returns the default string.

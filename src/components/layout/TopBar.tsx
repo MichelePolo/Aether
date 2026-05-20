@@ -1,5 +1,6 @@
 import { IconButton } from '@/src/components/ui/IconButton';
 import { ProfilesButton } from '@/src/components/profiles/ProfilesButton';
+import { ProviderSelector } from '@/src/components/providers/ProviderSelector';
 
 export interface TopBarProps {
   title: string;
@@ -23,6 +24,7 @@ export function TopBar({ title, sidebarOpen, onToggleSidebar }: TopBarProps) {
       </IconButton>
       <span className="ml-3 font-mono text-sm tracking-tight text-white font-bold">{title}</span>
       <ProfilesButton />
+      <ProviderSelector />
     </header>
   );
 }

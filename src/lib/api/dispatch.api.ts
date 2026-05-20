@@ -4,6 +4,7 @@ export interface DispatchRequestBody {
   sessionId: string;
   message: string;
   thinking?: boolean;
+  providerName?: string;
 }
 
 export async function* createStreamingDispatch(

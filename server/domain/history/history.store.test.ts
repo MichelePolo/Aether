@@ -160,3 +160,28 @@ describe('HistoryStore', () => {
     expect(model.reasoningSteps![1]).toMatchObject({ type: 'dispatch', tokens: 42 });
   });
 });
+
+describe('providerName persistence (slice-8)', () => {
+  it('createEmpty accepts an optional providerName and persists it', async () => {
+    const meta = await store.createEmpty({ providerName: 'ollama:llama3' });
+    const rec = await store.readRecord(meta.id);
+    expect(rec?.providerName).toBe('ollama:llama3');
+  });
+
+  it('createEmpty without providerName leaves the field undefined', async () => {
+    const meta = await store.createEmpty();
+    const rec = await store.readRecord(meta.id);
+    expect(rec?.providerName).toBeUndefined();
+  });
+
+  it('setProviderName updates an existing session', async () => {
+    const meta = await store.createEmpty();
+    await store.setProviderName(meta.id, 'gemini:gemini-2.0-flash-exp');
+    const rec = await store.readRecord(meta.id);
+    expect(rec?.providerName).toBe('gemini:gemini-2.0-flash-exp');
+  });
+
+  it('setProviderName on unknown id throws NotFoundError', async () => {
+    await expect(store.setProviderName('bogus', 'fake:default')).rejects.toThrow();
+  });
+});

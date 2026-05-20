@@ -15,6 +15,7 @@ interface SessionsState {
   init: () => Promise<void>;
   create: () => Promise<SessionMeta>;
   rename: (id: string, title: string) => Promise<void>;
+  setProviderName: (id: string, providerName: string) => Promise<void>;
   delete: (id: string) => Promise<void>;
   setActive: (id: string) => void;
   setLocalTitle: (id: string, title: string) => void;
@@ -119,6 +120,20 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     set({ sessions: optimistic, error: null });
     try {
       await sessionsApi.rename(id, title);
+    } catch (e) {
+      set({ sessions: prev, error: errMsg(e) });
+      throw e;
+    }
+  },
+
+  setProviderName: async (id, providerName) => {
+    const prev = get().sessions;
+    const optimistic = prev.map((s) =>
+      s.id === id ? { ...s, providerName } : s,
+    );
+    set({ sessions: optimistic, error: null });
+    try {
+      await sessionsApi.setProviderName(id, providerName);
     } catch (e) {
       set({ sessions: prev, error: errMsg(e) });
       throw e;

@@ -39,4 +39,8 @@ export const sessionsApi = {
     const res = await fetch(`${BASE}/${id}`, { method: 'DELETE' });
     await asJson<void>(res);
   },
+  setProviderName: async (id: string, providerName: string): Promise<void> => {
+    const res = await fetch(`${BASE}/${id}`, json('PATCH', { providerName }));
+    await asJson<void>(res);
+  },
 };

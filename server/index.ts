@@ -11,8 +11,9 @@ import { SubAgentsStore } from './domain/subagents/subagents.store';
 import { DispatchService } from './domain/dispatch/dispatch.service';
 import { FakeProvider } from './domain/dispatch/providers/fake.provider';
 import { GeminiProvider } from './domain/dispatch/providers/gemini.provider';
-import type { AIProvider } from './domain/dispatch/providers/provider.types';
 import { McpRegistry } from './domain/mcp/registry';
+import { ProviderRegistry } from './domain/providers/registry';
+import { OllamaProvider } from './domain/dispatch/providers/ollama.provider';
 
 dotenv.config();
 
@@ -24,29 +25,39 @@ async function bootstrap() {
   const profilesStore = new ProfilesStore(path.join(cfg.dataDir, 'profiles.json'));
   const subAgentsStore = new SubAgentsStore(path.join(cfg.dataDir, 'subagents.json'));
 
-  let provider: AIProvider;
-  if (cfg.fakeProvider) {
-    provider = new FakeProvider({
-      chunks: ['pong'],
-      thoughtChunks: ['thinking about it…'],
-      chunkDelayMs: 50,
-      model: 'fake-1',
-    });
-    console.log('[aether] Using FakeProvider (AETHER_FAKE_PROVIDER=1)');
-  } else {
-    if (!cfg.geminiApiKey) {
-      console.warn('[aether] GEMINI_API_KEY not set — falling back to FakeProvider');
-      provider = new FakeProvider({ chunks: ['pong'], thoughtChunks: ['thinking about it…'], chunkDelayMs: 50 });
-    } else {
-      provider = new GeminiProvider({ apiKey: cfg.geminiApiKey });
-    }
-  }
-
   const mcpRegistry = new McpRegistry(contextStore);
 
-  const dispatcher = new DispatchService({ provider, historyStore, contextStore, subAgentsStore, mcpRegistry });
+  const fakeProvider = new FakeProvider({
+    chunks: ['pong'],
+    thoughtChunks: ['thinking about it…'],
+    chunkDelayMs: 50,
+    model: 'fake-1',
+  });
 
-  const app = createApp({ contextStore, historyStore, dispatcher, profilesStore, subAgentsStore, mcpRegistry });
+  if (cfg.fakeProvider) {
+    console.log('[aether] Using FakeProvider (AETHER_FAKE_PROVIDER=1)');
+  }
+
+  const providers = new ProviderRegistry({
+    ollamaHost: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
+    geminiApiKey: cfg.geminiApiKey || undefined,
+    fakeProvider,
+    geminiBuilder: (model) => new GeminiProvider({ apiKey: cfg.geminiApiKey, model }),
+    ollamaBuilder: (model) =>
+      new OllamaProvider({
+        host: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
+        model,
+      }),
+    defaultOverride:
+      process.env.AETHER_DEFAULT_PROVIDER ||
+      (cfg.fakeProvider ? 'fake:default' : undefined),
+  });
+
+  await providers.refresh();
+
+  const dispatcher = new DispatchService({ providers, historyStore, contextStore, subAgentsStore, mcpRegistry });
+
+  const app = createApp({ contextStore, historyStore, dispatcher, profilesStore, subAgentsStore, mcpRegistry, providers });
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

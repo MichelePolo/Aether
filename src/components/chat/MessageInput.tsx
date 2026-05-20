@@ -2,6 +2,8 @@ import { useRef, useState, type KeyboardEvent, type ChangeEvent } from 'react';
 import { Send, Square, Brain } from 'lucide-react';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
+import { useProvidersStore } from '@/src/stores/providers.store';
+import { useSessionsStore } from '@/src/stores/sessions.store';
 import { cn } from '@/src/lib/cn';
 import { computeMentionState, type MentionState } from '@/src/hooks/useMentionAutocomplete';
 import { MentionPopover } from './MentionPopover';
@@ -19,6 +21,17 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   const thinkingEnabled = useUiStore((s) => s.thinkingEnabled);
   const setThinkingEnabled = useUiStore((s) => s.setThinkingEnabled);
   const subAgents = useSubAgentsStore((s) => s.list);
+
+  const activeId = useSessionsStore((s) => s.activeSessionId);
+  const sessions = useSessionsStore((s) => s.sessions);
+  const defaultProvider = useProvidersStore((s) => s.defaultProvider);
+  const capabilitiesOf = useProvidersStore((s) => s.capabilitiesOf);
+
+  const activeProviderName = activeId
+    ? ((sessions.find((s) => s.id === activeId) as { providerName?: string } | undefined)?.providerName ?? defaultProvider)
+    : defaultProvider;
+  const caps = capabilitiesOf(activeProviderName);
+  const thinkingSupported = caps?.thinking !== false;
 
   const onChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setValue(e.target.value);
@@ -75,17 +88,19 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
           type="button"
           aria-label="Toggle thinking mode"
           aria-pressed={thinkingEnabled}
+          disabled={!thinkingSupported}
           onClick={() => setThinkingEnabled(!thinkingEnabled)}
           title={
-            thinkingEnabled
-              ? 'Thinking enabled (slower, shows reasoning)'
-              : 'Thinking disabled'
+            thinkingSupported
+              ? (thinkingEnabled ? 'Thinking enabled (slower, shows reasoning)' : 'Thinking disabled')
+              : `Thinking not supported by ${activeProviderName ?? 'this provider'}`
           }
           className={cn(
             'p-2 rounded transition-colors',
             thinkingEnabled
               ? 'bg-accent/20 text-accent border border-accent/40'
               : 'bg-surface-1 text-zinc-500 border border-border-subtle hover:text-zinc-300',
+            'disabled:opacity-50 disabled:cursor-not-allowed',
           )}
         >
           <Brain size={16} />

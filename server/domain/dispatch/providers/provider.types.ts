@@ -47,7 +47,13 @@ export type ProviderChunk =
   | { type: 'function_call'; call: ProviderFunctionCall }
   | { type: 'done'; usage?: ProviderUsage };
 
+export interface ProviderCapabilities {
+  thinking: boolean;
+  toolCalling: boolean;
+}
+
 export interface AIProvider {
   readonly model: string;
+  readonly capabilities: ProviderCapabilities;
   stream(req: ProviderRequest, signal: AbortSignal): AsyncIterable<ProviderChunk>;
 }

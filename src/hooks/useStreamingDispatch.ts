@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useChatStore } from '@/src/stores/chat.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
+import { useProvidersStore } from '@/src/stores/providers.store';
 import { useUiStore } from '@/src/stores/ui.store';
 import { createStreamingDispatch } from '@/src/lib/api/dispatch.api';
 import { computeTitle } from '@/src/lib/title';
@@ -44,6 +45,12 @@ export function useStreamingDispatch() {
 
     const thinking = useUiStore.getState().thinkingEnabled;
 
+    const sessions = useSessionsStore.getState().sessions;
+    const defaultProvider = useProvidersStore.getState().defaultProvider;
+    const activeName =
+      ((sessions.find((s) => s.id === activeId) as { providerName?: string } | undefined)
+        ?.providerName ?? defaultProvider) ?? undefined;
+
     chat.appendUser(trimmed);
     const { id } = chat.startAssistant();
     const controller = new AbortController();
@@ -53,7 +60,7 @@ export function useStreamingDispatch() {
 
     try {
       for await (const ev of createStreamingDispatch(
-        { sessionId: activeId, message: trimmed, thinking },
+        { sessionId: activeId, message: trimmed, thinking, ...(activeName ? { providerName: activeName } : {}) },
         controller.signal,
       )) {
         if (ev.event === 'text') {

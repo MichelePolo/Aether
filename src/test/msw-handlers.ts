@@ -91,4 +91,23 @@ export const handlers = [
   }),
   http.post('http://localhost/api/mcp/decision', () => new HttpResponse(null, { status: 204 })),
   http.get('http://localhost/api/mcp/state', () => HttpResponse.json({ servers: [] })),
+  http.get('http://localhost/api/providers', () =>
+    HttpResponse.json({
+      providers: [
+        {
+          name: 'fake:default',
+          transport: 'fake',
+          model: 'default',
+          capabilities: { thinking: true, toolCalling: true },
+          displayName: 'Fake (default)',
+        },
+      ],
+    }),
+  ),
+  http.post('http://localhost/api/providers/refresh', () =>
+    HttpResponse.json({ providers: [] }),
+  ),
+  http.get('http://localhost/api/providers/default', () =>
+    HttpResponse.json({ name: 'fake:default' }),
+  ),
 ];
