@@ -139,6 +139,23 @@ describe('useMcpStore', () => {
     expect(live.find((t) => t.serverId === 'M2')?.tool.name).toBe('foo');
   });
 
+  it('applyServerStateEvent stores reconnectInfo when state is reconnecting', () => {
+    useMcpStore.getState().applyServerStateEvent('M1', 'reconnecting', undefined, 3, 5);
+    expect(useMcpStore.getState().reconnectInfo.M1).toEqual({ attempt: 3, max: 5 });
+  });
+
+  it('applyServerStateEvent clears reconnectInfo on transition to online', () => {
+    useMcpStore.setState({ reconnectInfo: { M1: { attempt: 2, max: 5 } } });
+    useMcpStore.getState().applyServerStateEvent('M1', 'online');
+    expect(useMcpStore.getState().reconnectInfo.M1).toBeUndefined();
+  });
+
+  it('applyServerStateEvent clears reconnectInfo on transition to offline', () => {
+    useMcpStore.setState({ reconnectInfo: { M1: { attempt: 2, max: 5 } } });
+    useMcpStore.getState().applyServerStateEvent('M1', 'offline');
+    expect(useMcpStore.getState().reconnectInfo.M1).toBeUndefined();
+  });
+
   it('refreshServer sets error on failure', async () => {
     server.use(
       http.post('http://localhost/api/mcp/M1/refresh-tools', () =>

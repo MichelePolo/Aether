@@ -14,7 +14,13 @@ interface TextData { chunk: string }
 interface ThinkingData { chunk: string }
 interface DoneData { model?: string; interrupted?: boolean; reasoningSteps?: ReasoningStep[] }
 interface ErrorData { message: string; retryable: boolean }
-interface McpStateChangeData { id: string; state: McpConnectionState; error?: string }
+interface McpStateChangeData {
+  id: string;
+  state: McpConnectionState;
+  error?: string;
+  reconnectAttempt?: number;
+  reconnectMaxAttempts?: number;
+}
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : 'Unknown error';
@@ -112,7 +118,13 @@ export function useStreamingDispatch() {
           if (callId) useMcpStore.getState().clearInFlightCall(callId);
         } else if (ev.event === 'mcp:state_change') {
           const d = ev.data as McpStateChangeData;
-          useMcpStore.getState().applyServerStateEvent(d.id, d.state, d.error);
+          useMcpStore.getState().applyServerStateEvent(
+            d.id,
+            d.state,
+            d.error,
+            d.reconnectAttempt,
+            d.reconnectMaxAttempts,
+          );
         }
       }
       useChatStore.getState().finishAssistant(id, { interrupted: controller.signal.aborted });

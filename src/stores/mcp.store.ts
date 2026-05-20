@@ -14,13 +14,20 @@ interface McpState {
   connectStates: Record<string, McpConnectionState>;
   errors: Record<string, string>;
   inFlightCalls: Record<string, InFlightCall>;
+  reconnectInfo: Record<string, { attempt: number; max: number }>;
 
   connect: (id: string) => Promise<void>;
   disconnect: (id: string) => Promise<void>;
   togglePolicy: (serverId: string, name: string, autoApprove: boolean) => Promise<void>;
   refresh: () => Promise<void>;
   refreshServer: (id: string) => Promise<void>;
-  applyServerStateEvent: (id: string, state: McpConnectionState, error?: string) => void;
+  applyServerStateEvent: (
+    id: string,
+    state: McpConnectionState,
+    error?: string,
+    reconnectAttempt?: number,
+    reconnectMaxAttempts?: number,
+  ) => void;
   clearError: (id: string) => void;
   registerInFlightCall: (call: InFlightCall) => void;
   updateInFlightProgress: (callId: string, note: string) => void;
@@ -33,6 +40,7 @@ const initial = {
   connectStates: {} as Record<string, McpConnectionState>,
   errors: {} as Record<string, string>,
   inFlightCalls: {} as Record<string, InFlightCall>,
+  reconnectInfo: {} as Record<string, { attempt: number; max: number }>,
 };
 
 function errMsg(e: unknown): string {
@@ -103,11 +111,24 @@ export const useMcpStore = create<McpState>((set) => ({
     }
   },
 
-  applyServerStateEvent: (id, state, error) =>
-    set((s) => ({
-      connectStates: { ...s.connectStates, [id]: state },
-      errors: error ? { ...s.errors, [id]: error } : s.errors,
-    })),
+  applyServerStateEvent: (id, state, error, reconnectAttempt, reconnectMaxAttempts) =>
+    set((s) => {
+      let reconnectInfo = s.reconnectInfo;
+      if (state === 'reconnecting' && reconnectAttempt !== undefined && reconnectMaxAttempts !== undefined) {
+        reconnectInfo = { ...s.reconnectInfo, [id]: { attempt: reconnectAttempt, max: reconnectMaxAttempts } };
+      } else if (state === 'online' || state === 'offline') {
+        if (s.reconnectInfo[id]) {
+          const next = { ...s.reconnectInfo };
+          delete next[id];
+          reconnectInfo = next;
+        }
+      }
+      return {
+        connectStates: { ...s.connectStates, [id]: state },
+        errors: error ? { ...s.errors, [id]: error } : s.errors,
+        reconnectInfo,
+      };
+    }),
 
   clearError: (id) =>
     set((s) => {

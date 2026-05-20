@@ -1,3 +1,4 @@
+import { RefreshCw } from 'lucide-react';
 import { addMcpFlow } from '@/src/lib/context/addFlows';
 import { useContextStore } from '@/src/stores/context.store';
 import { useMcpStore } from '@/src/stores/mcp.store';
@@ -16,8 +17,10 @@ export function McpServersSection() {
   const liveTools = useMcpStore((s) => s.liveTools);
   const connectStates = useMcpStore((s) => s.connectStates);
   const errors = useMcpStore((s) => s.errors);
+  const reconnectInfo = useMcpStore((s) => s.reconnectInfo);
   const connect = useMcpStore((s) => s.connect);
   const disconnect = useMcpStore((s) => s.disconnect);
+  const refreshServer = useMcpStore((s) => s.refreshServer);
   const togglePolicy = useMcpStore((s) => s.togglePolicy);
   const clearError = useMcpStore((s) => s.clearError);
 
@@ -48,6 +51,8 @@ export function McpServersSection() {
             const err = errors[server.id];
             const tools = liveTools.filter((t) => t.serverId === server.id);
             const isOnline = state === 'online';
+            const isReconnecting = state === 'reconnecting';
+            const recon = reconnectInfo[server.id];
             return (
               <div
                 key={server.id}
@@ -56,15 +61,29 @@ export function McpServersSection() {
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono text-zinc-500">{server.name}</span>
                   <div className="flex items-center gap-2">
-                    {isOnline ? (
-                      <button
-                        type="button"
-                        onClick={() => disconnect(server.id).catch(() => {})}
-                        aria-label={`Disconnect ${server.name}`}
-                        className="text-[10px] text-zinc-400 hover:text-white"
-                      >
-                        Disconnect
-                      </button>
+                    {isReconnecting ? (
+                      <span className="text-[10px] font-mono text-zinc-400">
+                        reconnecting{recon ? ` (${recon.attempt}/${recon.max})` : ''}
+                      </span>
+                    ) : isOnline ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => disconnect(server.id).catch(() => {})}
+                          aria-label={`Disconnect ${server.name}`}
+                          className="text-[10px] text-zinc-400 hover:text-white"
+                        >
+                          Disconnect
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => refreshServer(server.id).catch(() => {})}
+                          aria-label={`Refresh ${server.name}`}
+                          className="text-zinc-400 hover:text-white"
+                        >
+                          <RefreshCw size={10} />
+                        </button>
+                      </>
                     ) : (
                       <button
                         type="button"
