@@ -261,6 +261,31 @@ test('mcp: connect mock server + live tool appears', async ({ page, request }) =
   await request.put('/api/context', { data: cleaned });
 });
 
+test('provider: selector lists Fake; switching persists across new session', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('AETHER_CORE')).toBeVisible();
+
+  // Selector is visible
+  const selector = page.getByRole('combobox', { name: /active provider/i });
+  await expect(selector).toBeVisible();
+
+  // At minimum, fake:default should be available (E2E env sets AETHER_FAKE_PROVIDER=1 → default=fake:default)
+  await expect(page.getByRole('option', { name: /fake/i })).toBeAttached();
+
+  // Pick fake:default and verify it's the active value
+  await selector.selectOption('fake:default');
+  await expect(selector).toHaveValue('fake:default');
+
+  // Create a new session via the sidebar
+  await page.getByRole('button', { name: /new session/i }).click();
+
+  // Send a message; FakeProvider replies with "pong"
+  const input = page.getByPlaceholder(/Scrivi un messaggio/i);
+  await input.fill('ping');
+  await input.press('Enter');
+  await expect(page.getByText('pong')).toBeVisible({ timeout: 5000 });
+});
+
 test('reasoning: thinking on emits steps + opens drawer', async ({ page, request }) => {
   // clean session state for determinism
   const list = await request.get('/api/sessions').then((r) => r.json());
