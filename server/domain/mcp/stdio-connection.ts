@@ -15,6 +15,8 @@ interface PendingCall {
   reject: (err: Error) => void;
   timer: NodeJS.Timeout;
   onProgress?: (note: string) => void;
+  signal?: AbortSignal;
+  onAbort?: () => void;
 }
 
 const INITIALIZE_TIMEOUT_MS = 5_000;
@@ -125,17 +127,16 @@ export class StdioMcpConnection implements McpConnection {
     const payload = JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n';
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new Error(`rpc timeout: ${method}`));
+        if (this.cleanupPending(id)) {
+          reject(new Error(`rpc timeout: ${method}`));
+        }
       }, timeoutMs);
       const entry: PendingCall = { resolve, reject, timer, onProgress: opts?.onProgress };
       this.pending.set(id, entry);
 
       const onAbort = (): void => {
-        const p = this.pending.get(id);
+        const p = this.cleanupPending(id);
         if (!p) return;
-        clearTimeout(p.timer);
-        this.pending.delete(id);
         // Best-effort: notify the server.
         try {
           const note =
@@ -156,17 +157,28 @@ export class StdioMcpConnection implements McpConnection {
           onAbort();
           return;
         }
+        entry.signal = opts.signal;
+        entry.onAbort = onAbort;
         opts.signal.addEventListener('abort', onAbort, { once: true });
       }
 
       this.proc!.stdin.write(payload, (err) => {
         if (err) {
-          this.pending.delete(id);
-          clearTimeout(timer);
-          reject(err);
+          if (this.cleanupPending(id)) reject(err);
         }
       });
     });
+  }
+
+  private cleanupPending(id: number): PendingCall | undefined {
+    const p = this.pending.get(id);
+    if (!p) return undefined;
+    clearTimeout(p.timer);
+    this.pending.delete(id);
+    if (p.signal && p.onAbort) {
+      p.signal.removeEventListener('abort', p.onAbort);
+    }
+    return p;
   }
 
   private onStdout(chunk: string): void {
@@ -197,17 +209,15 @@ export class StdioMcpConnection implements McpConnection {
           const progress = params.progress;
           const total = params.total;
           const message = params.message ?? '';
-          p.onProgress(`${progress}/${total} — ${message}`);
+          p.onProgress(`${progress}/${total ?? '?'} — ${message}`);
         }
         continue;
       }
       const resp = JsonRpcResponseSchema.safeParse(parsed);
       if (!resp.success) continue;
       const id = typeof resp.data.id === 'string' ? Number(resp.data.id) : resp.data.id;
-      const p = this.pending.get(id);
+      const p = this.cleanupPending(id);
       if (!p) continue;
-      clearTimeout(p.timer);
-      this.pending.delete(id);
       if (resp.data.error) {
         p.reject(new Error(resp.data.error.message));
       } else {
@@ -219,6 +229,9 @@ export class StdioMcpConnection implements McpConnection {
   private failAllPending(err: Error): void {
     for (const p of this.pending.values()) {
       clearTimeout(p.timer);
+      if (p.signal && p.onAbort) {
+        p.signal.removeEventListener('abort', p.onAbort);
+      }
       p.reject(err);
     }
     this.pending.clear();
