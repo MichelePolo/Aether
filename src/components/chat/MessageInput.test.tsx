@@ -4,11 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { MessageInput } from './MessageInput';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
+import { useProvidersStore } from '@/src/stores/providers.store';
 
 describe('MessageInput', () => {
   beforeEach(() => {
     useUiStore.getState()._reset();
     useSubAgentsStore.getState()._reset();
+    useProvidersStore.getState()._reset();
     localStorage.clear();
   });
 
@@ -121,5 +123,33 @@ describe('MessageInput', () => {
     await user.keyboard('@des');
     await user.keyboard('{Enter}');
     expect(ta.value).toBe('@designer ');
+  });
+
+  it('disables Brain button when active provider lacks thinking capability', () => {
+    useProvidersStore.setState({
+      list: [{
+        name: 'ollama:llama3', transport: 'ollama', model: 'llama3',
+        capabilities: { thinking: false, toolCalling: true }, displayName: 'Ollama / llama3',
+      }],
+      defaultProvider: 'ollama:llama3',
+      hydrated: true,
+      error: null,
+    });
+    render(<MessageInput onSend={() => {}} onStop={() => {}} isStreaming={false} />);
+    expect(screen.getByRole('button', { name: /toggle thinking/i })).toBeDisabled();
+  });
+
+  it('enables Brain button when active provider supports thinking', () => {
+    useProvidersStore.setState({
+      list: [{
+        name: 'fake:default', transport: 'fake', model: 'default',
+        capabilities: { thinking: true, toolCalling: true }, displayName: 'Fake',
+      }],
+      defaultProvider: 'fake:default',
+      hydrated: true,
+      error: null,
+    });
+    render(<MessageInput onSend={() => {}} onStop={() => {}} isStreaming={false} />);
+    expect(screen.getByRole('button', { name: /toggle thinking/i })).not.toBeDisabled();
   });
 });
