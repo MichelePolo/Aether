@@ -41,6 +41,7 @@ async function bootstrap() {
   const providers = new ProviderRegistry({
     ollamaHost: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
     geminiApiKey: cfg.geminiApiKey || undefined,
+    anthropicAuth: 'none',
     fakeProvider,
     geminiBuilder: (model) => new GeminiProvider({ apiKey: cfg.geminiApiKey, model }),
     ollamaBuilder: (model) =>
@@ -48,6 +49,9 @@ async function bootstrap() {
         host: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
         model,
       }),
+    anthropicBuilder: () => {
+      throw new Error('Anthropic builder not wired yet (slice 11 E2+)');
+    },
     defaultOverride:
       process.env.AETHER_DEFAULT_PROVIDER ||
       (cfg.fakeProvider ? 'fake:default' : undefined),

@@ -17,9 +17,11 @@ async function makeApp() {
   const reg = new ProviderRegistry({
     ollamaHost: 'http://localhost:11434',
     geminiApiKey: undefined,
+    anthropicAuth: 'none',
     fakeProvider: makeFake('fake-1'),
     geminiBuilder: () => makeFake('g'),
     ollamaBuilder: () => makeFake('o'),
+    anthropicBuilder: (model) => makeFake(model),
   });
   await reg.refresh();
   return { app: createApp({ providers: reg }), reg };
