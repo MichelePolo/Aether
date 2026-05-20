@@ -1,7 +1,7 @@
 import type { AIProvider, ProviderCapabilities } from '@/server/domain/dispatch/providers/provider.types';
-import { discoverOllama, geminiHardcodedModels, anthropicHardcodedModels } from './discovery';
+import { discoverOllama, geminiHardcodedModels, anthropicHardcodedModels, openAIHardcodedModels } from './discovery';
 
-export type ProviderTransport = 'fake' | 'gemini' | 'ollama' | 'anthropic';
+export type ProviderTransport = 'fake' | 'gemini' | 'ollama' | 'anthropic' | 'openai';
 
 export interface ProviderDescriptor {
   name: string;
@@ -15,10 +15,12 @@ export interface ProviderRegistryDeps {
   ollamaHost: string;
   geminiApiKey: string | undefined;
   anthropicAuth: 'oauth' | 'apikey' | 'none';
+  openAIApiKey: string | undefined;
   fakeProvider: AIProvider;
   geminiBuilder: (model: string) => AIProvider;
   ollamaBuilder: (model: string) => AIProvider;
   anthropicBuilder: (model: string) => AIProvider;
+  openAIBuilder: (model: string) => AIProvider;
   defaultOverride?: string;
 }
 
@@ -26,6 +28,7 @@ function displayNameFor(transport: ProviderTransport, model: string): string {
   if (transport === 'fake') return 'Fake (default)';
   if (transport === 'gemini') return `Gemini / ${model}`;
   if (transport === 'anthropic') return `Anthropic / ${model}`;
+  if (transport === 'openai') return `OpenAI / ${model}`;
   return `Ollama / ${model}`;
 }
 
@@ -86,6 +89,23 @@ export class ProviderRegistry {
       }
     }
 
+    // OpenAI
+    if (this.deps.openAIApiKey) {
+      for (const model of openAIHardcodedModels()) {
+        const provider = this.deps.openAIBuilder(model);
+        next.set(`openai:${model}`, {
+          provider,
+          descriptor: {
+            name: `openai:${model}`,
+            transport: 'openai',
+            model,
+            capabilities: provider.capabilities,
+            displayName: displayNameFor('openai', model),
+          },
+        });
+      }
+    }
+
     // Ollama (discovery)
     const tags = await discoverOllama(this.deps.ollamaHost);
     for (const tag of tags) {
@@ -123,6 +143,9 @@ export class ProviderRegistry {
     }
     for (const e of this.entries.values()) {
       if (e.descriptor.transport === 'gemini') return e.descriptor.name;
+    }
+    for (const e of this.entries.values()) {
+      if (e.descriptor.transport === 'openai') return e.descriptor.name;
     }
     for (const e of this.entries.values()) {
       if (e.descriptor.transport === 'anthropic') return e.descriptor.name;

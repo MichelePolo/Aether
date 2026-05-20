@@ -47,6 +47,7 @@ async function bootstrap() {
     ollamaHost: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
     geminiApiKey: cfg.geminiApiKey || undefined,
     anthropicAuth,
+    openAIApiKey: undefined,
     fakeProvider,
     geminiBuilder: (model) => new GeminiProvider({ apiKey: cfg.geminiApiKey, model }),
     ollamaBuilder: (model) =>
@@ -58,6 +59,7 @@ async function bootstrap() {
       new AnthropicProvider({
         model: model as 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5',
       }),
+    openAIBuilder: () => fakeProvider,
     defaultOverride:
       process.env.AETHER_DEFAULT_PROVIDER ||
       (cfg.fakeProvider ? 'fake:default' : undefined),

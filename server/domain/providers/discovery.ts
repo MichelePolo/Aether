@@ -28,3 +28,7 @@ export function geminiHardcodedModels(): string[] {
 export function anthropicHardcodedModels(): string[] {
   return ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5'];
 }
+
+export function openAIHardcodedModels(): string[] {
+  return ['gpt-5', 'gpt-5-mini', 'gpt-4.1', 'o3'];
+}
