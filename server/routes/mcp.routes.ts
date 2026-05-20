@@ -42,8 +42,11 @@ export function createMcpRoutes(registry: McpRegistry, dispatcher?: DispatchServ
         const tools = await registry.refreshTools(req.params.id);
         res.json({ tools });
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'refresh failed';
-        res.status(409).json({ error: { code: 'NOT_ONLINE', message: msg } });
+        if (e instanceof Error && /is not connected/.test(e.message)) {
+          res.status(409).json({ error: { code: 'NOT_ONLINE', message: e.message } });
+          return;
+        }
+        throw e;
       }
     }),
   );

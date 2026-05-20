@@ -101,11 +101,11 @@ describe('mcp routes — refresh + cancel (slice 10)', () => {
     expect(res.body.tools.length).toBeGreaterThan(0);
   });
 
-  it('POST /api/mcp/:id/refresh-tools on disconnected server returns 4xx', async () => {
+  it('POST /api/mcp/:id/refresh-tools on disconnected server returns 409 NOT_ONLINE', async () => {
     const { app } = await makeApp();
     const res = await request(app).post('/api/mcp/M1/refresh-tools');
-    expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(res.status).toBeLessThan(500);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('NOT_ONLINE');
   });
 
   it('POST /api/mcp/cancel-call returns 204 even when controller missing', async () => {
