@@ -24,6 +24,7 @@ export interface SessionMeta {
   title: string;
   createdAt: number;
   updatedAt: number;
+  providerName?: string;
 }
 
 export type SessionsFile = Record<string, SessionRecord>;

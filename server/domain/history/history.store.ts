@@ -51,6 +51,7 @@ export class HistoryStore {
       title: rec.title,
       createdAt: rec.createdAt,
       updatedAt: rec.messages.at(-1)?.timestamp ?? rec.createdAt,
+      providerName: rec.providerName,
     }));
     metas.sort((a, b) => b.updatedAt - a.updatedAt);
     return metas;
