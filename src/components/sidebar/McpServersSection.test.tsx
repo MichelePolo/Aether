@@ -106,6 +106,54 @@ describe('McpServersSection', () => {
     expect(spy).toHaveBeenCalledWith('M1');
   });
 
+  it('shows ↻ Refresh button when state=online', () => {
+    useContextStore.setState({
+      context: {
+        systemInstruction: '', skills: [], tools: [],
+        mcpServers: [{ id: 'M1', name: 'mock', transport: 'mock', status: 'offline' }],
+      },
+    });
+    useMcpStore.setState({
+      liveTools: [], connectStates: { M1: 'online' }, errors: {}, inFlightCalls: {}, reconnectInfo: {},
+    });
+    render(<McpServersSection />);
+    expect(screen.getByRole('button', { name: /refresh mock/i })).toBeInTheDocument();
+  });
+
+  it('shows reconnecting badge when state=reconnecting', () => {
+    useContextStore.setState({
+      context: {
+        systemInstruction: '', skills: [], tools: [],
+        mcpServers: [{ id: 'M1', name: 'mock', transport: 'mock', status: 'offline' }],
+      },
+    });
+    useMcpStore.setState({
+      liveTools: [], connectStates: { M1: 'reconnecting' }, errors: {}, inFlightCalls: {},
+      reconnectInfo: { M1: { attempt: 2, max: 5 } },
+    });
+    render(<McpServersSection />);
+    expect(screen.getByText(/reconnecting/i)).toBeInTheDocument();
+    expect(screen.getByText(/2\/5/)).toBeInTheDocument();
+  });
+
+  it('Refresh button triggers refreshServer', async () => {
+    useContextStore.setState({
+      context: {
+        systemInstruction: '', skills: [], tools: [],
+        mcpServers: [{ id: 'M1', name: 'mock', transport: 'mock', status: 'offline' }],
+      },
+    });
+    useMcpStore.setState({
+      liveTools: [], connectStates: { M1: 'online' }, errors: {}, inFlightCalls: {}, reconnectInfo: {},
+    });
+    const refreshSpy = vi.fn().mockResolvedValue(undefined);
+    useMcpStore.setState({ refreshServer: refreshSpy });
+    const user = userEvent.setup();
+    render(<McpServersSection />);
+    await user.click(screen.getByRole('button', { name: /refresh mock/i }));
+    expect(refreshSpy).toHaveBeenCalledWith('M1');
+  });
+
   it('when online, lists live tools and a Disconnect button', () => {
     useContextStore.setState({
       context: {

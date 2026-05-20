@@ -85,4 +85,26 @@ describe('McpServerConfig schema (slice-7)', () => {
       toolPolicies: { echo: { autoApprove: true } },
     }).success).toBe(true);
   });
+
+  it('accepts http transport with url', () => {
+    expect(McpServerConfigSchema.safeParse({
+      id: 'h', name: 'remote', transport: 'http', url: 'https://api.example.com/mcp',
+      status: 'offline',
+    }).success).toBe(true);
+  });
+
+  it('rejects http transport without url', () => {
+    expect(McpServerConfigSchema.safeParse({
+      id: 'h', name: 'remote', transport: 'http', status: 'offline',
+    }).success).toBe(false);
+  });
+});
+
+describe('McpServerSchema (loose stored shape)', () => {
+  it('accepts http transport entry', () => {
+    expect(McpServerSchema.safeParse({
+      id: 'h', name: 'remote', transport: 'http', url: 'https://api.example.com/mcp',
+      status: 'offline',
+    }).success).toBe(true);
+  });
 });

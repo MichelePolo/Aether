@@ -86,6 +86,29 @@ describe('ReasoningStepCard', () => {
     expect(screen.getAllByText(/"message":\s*"hi"/)[0]).toBeInTheDocument();
   });
 
+  it('renders progressNote when present on a tool_call step', () => {
+    render(
+      <ReasoningStepCard
+        step={{
+          id: 'X',
+          type: 'tool_call',
+          title: 'Tool: mock.slow',
+          content: 'executed mock.slow',
+          toolCall: {
+            id: 'C1',
+            qualifiedName: 'mock.slow',
+            args: {},
+            result: { ok: true },
+            durationMs: 100,
+            progressNote: '2/2 — done',
+          },
+          timestamp: 0,
+        }}
+      />,
+    );
+    expect(screen.getByText(/2\/2 — done/)).toBeInTheDocument();
+  });
+
   it('renders tool_call error state in red', () => {
     render(
       <ReasoningStepCard

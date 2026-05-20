@@ -14,7 +14,13 @@ interface TextData { chunk: string }
 interface ThinkingData { chunk: string }
 interface DoneData { model?: string; interrupted?: boolean; reasoningSteps?: ReasoningStep[] }
 interface ErrorData { message: string; retryable: boolean }
-interface McpStateChangeData { id: string; state: McpConnectionState; error?: string }
+interface McpStateChangeData {
+  id: string;
+  state: McpConnectionState;
+  error?: string;
+  reconnectAttempt?: number;
+  reconnectMaxAttempts?: number;
+}
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : 'Unknown error';
@@ -88,13 +94,37 @@ export function useStreamingDispatch() {
         } else if (ev.event === 'tool_call_request') {
           // payload shape from backend N1: { id, qualifiedName, args }
           emitToolCallRequest(ev.data as ToolCallRequestEvent);
+        } else if (ev.event === 'tool_call_started') {
+          const p = ev.data as {
+            callId?: string;
+            id?: string;
+            qualifiedName: string;
+            args: Record<string, unknown>;
+          };
+          const callId = p.callId ?? p.id ?? '';
+          if (callId) {
+            useMcpStore.getState().registerInFlightCall({
+              callId,
+              qualifiedName: p.qualifiedName,
+              args: p.args,
+            });
+          }
+        } else if (ev.event === 'tool_call_progress') {
+          const p = ev.data as { id: string; note: string };
+          useMcpStore.getState().updateInFlightProgress(p.id, p.note);
         } else if (ev.event === 'tool_call_result') {
-          // No client-side action in slice 7 — the reasoning_step event that follows
-          // includes the structured tool result for the drawer. This branch exists
-          // so we don't fall through to "unknown event" logging.
+          const p = ev.data as { id?: string; callId?: string };
+          const callId = p.id ?? p.callId;
+          if (callId) useMcpStore.getState().clearInFlightCall(callId);
         } else if (ev.event === 'mcp:state_change') {
           const d = ev.data as McpStateChangeData;
-          useMcpStore.getState().applyServerStateEvent(d.id, d.state, d.error);
+          useMcpStore.getState().applyServerStateEvent(
+            d.id,
+            d.state,
+            d.error,
+            d.reconnectAttempt,
+            d.reconnectMaxAttempts,
+          );
         }
       }
       useChatStore.getState().finishAssistant(id, { interrupted: controller.signal.aborted });

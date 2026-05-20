@@ -45,4 +45,31 @@ describe('mcpApi', () => {
     );
     await expect(mcpApi.decide('CID', 'approve')).resolves.toBeUndefined();
   });
+
+  it('refreshTools POSTs and returns the new tools list', async () => {
+    server.use(
+      http.post('http://localhost/api/mcp/M1/refresh-tools', () =>
+        HttpResponse.json({
+          tools: [{
+            qualifiedName: 'mock.echo', serverId: 'M1', serverName: 'mock',
+            tool: { name: 'echo', inputSchema: {} }, autoApprove: true,
+          }],
+        }),
+      ),
+    );
+    const tools = await mcpApi.refreshTools('M1');
+    expect(tools[0].qualifiedName).toBe('mock.echo');
+  });
+
+  it('cancelCall POSTs to /cancel-call with callId', async () => {
+    let posted: unknown = null;
+    server.use(
+      http.post('http://localhost/api/mcp/cancel-call', async ({ request }) => {
+        posted = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await mcpApi.cancelCall('CALL-1');
+    expect(posted).toEqual({ callId: 'CALL-1' });
+  });
 });

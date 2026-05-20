@@ -43,4 +43,18 @@ export const mcpApi = {
     fetch('/api/mcp/state')
       .then(jsonRes<{ servers: Array<{ id: string; state: string; error?: string }> }>)
       .then((b) => b.servers),
+
+  refreshTools: (id: string): Promise<LiveTool[]> =>
+    fetch(`/api/mcp/${id}/refresh-tools`, { method: 'POST' })
+      .then(jsonRes<{ tools: LiveTool[] }>)
+      .then((b) => b.tools),
+
+  cancelCall: async (callId: string): Promise<void> => {
+    const res = await fetch('/api/mcp/cancel-call', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ callId }),
+    });
+    if (!res.ok) throw new Error(res.statusText);
+  },
 };

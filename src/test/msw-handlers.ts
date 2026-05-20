@@ -91,6 +91,12 @@ export const handlers = [
   }),
   http.post('http://localhost/api/mcp/decision', () => new HttpResponse(null, { status: 204 })),
   http.get('http://localhost/api/mcp/state', () => HttpResponse.json({ servers: [] })),
+  http.post('http://localhost/api/mcp/:id/refresh-tools', () =>
+    HttpResponse.json({ tools: [] }),
+  ),
+  http.post('http://localhost/api/mcp/cancel-call', () =>
+    new HttpResponse(null, { status: 204 }),
+  ),
   http.get('http://localhost/api/providers', () =>
     HttpResponse.json({
       providers: [

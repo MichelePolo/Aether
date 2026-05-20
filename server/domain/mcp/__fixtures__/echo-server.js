@@ -27,8 +27,14 @@ function respond(req) {
   if (method === 'tools/list') {
     return send({
       jsonrpc: '2.0', id,
-      result: { tools: [{ name: 'echo', description: 'echo', inputSchema: { type: 'object' } }] },
+      result: { tools: [
+        { name: 'echo', description: 'echo', inputSchema: { type: 'object' } },
+        { name: 'slow', description: 'two-progress slow', inputSchema: { type: 'object' } },
+      ] },
     });
+  }
+  if (method === 'notifications/cancelled') {
+    return; // JSON-RPC notifications have no id; accept and ignore
   }
   if (method === 'tools/call') {
     const name = params?.name;
@@ -41,6 +47,11 @@ function respond(req) {
         jsonrpc: '2.0', id,
         result: { content: [{ type: 'text', text: String(args.message ?? '') }] },
       });
+    }
+    if (name === 'slow') {
+      send({ jsonrpc: '2.0', method: 'notifications/progress', params: { progressToken: id, progress: 1, total: 2, message: 'step 1' } });
+      send({ jsonrpc: '2.0', method: 'notifications/progress', params: { progressToken: id, progress: 2, total: 2, message: 'step 2' } });
+      return send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: 'done' }] } });
     }
     return send({ jsonrpc: '2.0', id, error: { code: -32601, message: 'unknown tool' } });
   }

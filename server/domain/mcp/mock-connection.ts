@@ -1,4 +1,4 @@
-import type { McpConnection } from './connection.types';
+import type { CallToolOpts, McpConnection } from './connection.types';
 import type { McpTool, McpToolResult } from './mcp.types';
 
 const MOCK_TOOLS: McpTool[] = [
@@ -38,7 +38,12 @@ export class MockMcpConnection implements McpConnection {
     return MOCK_TOOLS;
   }
 
-  async callTool(name: string, args: Record<string, unknown>): Promise<McpToolResult> {
+  async callTool(
+    name: string,
+    args: Record<string, unknown>,
+    opts?: CallToolOpts,
+  ): Promise<McpToolResult> {
+    if (opts?.signal?.aborted) return { ok: false, error: 'Cancelled by user' };
     switch (name) {
       case 'echo':
         return { ok: true, output: { message: String(args.message ?? '') } };

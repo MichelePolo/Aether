@@ -5,8 +5,13 @@ export interface Tool {
   status: 'online' | 'offline';
 }
 
-export type McpTransport = 'stdio' | 'mock';
-export type McpConnectionState = 'offline' | 'connecting' | 'online' | 'error';
+export type McpTransport = 'stdio' | 'mock' | 'http';
+export type McpConnectionState =
+  | 'offline'
+  | 'connecting'
+  | 'online'
+  | 'reconnecting'
+  | 'error';
 
 export interface McpToolPolicy {
   autoApprove: boolean;
