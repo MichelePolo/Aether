@@ -105,6 +105,7 @@ describe('DispatchService', () => {
   it('persists partial reasoningSteps on provider error', async () => {
     class FailingProvider {
       readonly model = 'broken';
+      readonly capabilities = { thinking: true, toolCalling: true };
       async *stream(): AsyncGenerator<never> {
         throw new Error('Auth failed');
       }

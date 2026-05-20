@@ -11,6 +11,7 @@ export interface FakeProviderOptions {
 
 export class FakeProvider implements AIProvider {
   readonly model: string;
+  readonly capabilities = { thinking: true, toolCalling: true };
   lastRequest: ProviderRequest | undefined;
   private functionCallQueue: ProviderFunctionCall[];
 

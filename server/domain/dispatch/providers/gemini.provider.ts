@@ -25,6 +25,7 @@ interface GeminiChunk {
 
 export class GeminiProvider implements AIProvider {
   readonly model: string;
+  readonly capabilities = { thinking: true, toolCalling: true };
   private ai: GoogleGenAI;
 
   constructor(opts: GeminiProviderOptions) {
