@@ -27,4 +27,6 @@ export type McpToolResult =
 export interface McpConnectionStateSnapshot {
   state: McpConnectionState;
   error?: string;
+  reconnectAttempt?: number;
+  reconnectMaxAttempts?: number;
 }
