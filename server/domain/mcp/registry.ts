@@ -9,6 +9,7 @@ import type {
 } from './mcp.types';
 import { MockMcpConnection } from './mock-connection';
 import { StdioMcpConnection } from './stdio-connection';
+import { HttpMcpConnection } from './http-connection';
 
 const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 16000];
 const MAX_RECONNECT_ATTEMPTS = RECONNECT_DELAYS_MS.length;
@@ -185,6 +186,10 @@ export class McpRegistry {
 
   private makeConnection(cfg: McpServerConfig): McpConnection {
     if (cfg.transport === 'mock') return new MockMcpConnection();
+    if (cfg.transport === 'http') {
+      if (!cfg.url) throw new Error('http transport requires url');
+      return new HttpMcpConnection({ url: cfg.url });
+    }
     return new StdioMcpConnection({
       command: cfg.command ?? '',
       args: cfg.args ?? [],

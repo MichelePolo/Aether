@@ -16,7 +16,7 @@ export const McpServerSchema = z.object({
   name: z.string(),
   url: z.string().optional(),
   status: z.enum(['online', 'offline', 'connecting', 'error']),
-  transport: z.enum(['stdio', 'mock']).optional(),
+  transport: z.enum(['stdio', 'mock', 'http']).optional(),
   command: z.string().optional(),
   args: z.array(z.string()).optional(),
   env: z.record(z.string(), z.string()).optional(),
@@ -32,6 +32,11 @@ const StdioMcpSchema = z.object({
 
 const MockMcpSchema = z.object({
   transport: z.literal('mock'),
+});
+
+const HttpMcpSchema = z.object({
+  transport: z.literal('http'),
+  url: z.string().min(1),
 });
 
 const BaseMcpSchema = z.object({
@@ -52,6 +57,7 @@ export const McpServerConfigSchema = z.preprocess(
   z.discriminatedUnion('transport', [
     BaseMcpSchema.merge(StdioMcpSchema),
     BaseMcpSchema.merge(MockMcpSchema),
+    BaseMcpSchema.merge(HttpMcpSchema),
   ]),
 );
 

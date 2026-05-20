@@ -5,7 +5,7 @@ export interface Tool {
   status: 'online' | 'offline';
 }
 
-export type McpTransport = 'stdio' | 'mock';
+export type McpTransport = 'stdio' | 'mock' | 'http';
 export type McpConnectionState =
   | 'offline'
   | 'connecting'
