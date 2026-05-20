@@ -56,6 +56,9 @@ export function ReasoningStepCard({ step }: ReasoningStepCardProps) {
       <div className="text-[11px] text-zinc-400 whitespace-pre-wrap mb-2">{step.content}</div>
       {step.toolCall && (
         <div className="mt-1 space-y-1 text-[10px] font-mono">
+          {step.toolCall.progressNote && (
+            <div className="italic text-zinc-500">{step.toolCall.progressNote}</div>
+          )}
           <details>
             <summary className="cursor-pointer text-zinc-500">args</summary>
             <pre className="mt-1 p-1.5 rounded bg-zinc-900/60 text-zinc-300 overflow-x-auto">
