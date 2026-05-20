@@ -13,6 +13,7 @@ import { ConnectionFooter } from '@/src/components/sidebar/ConnectionFooter';
 import { ChatView } from '@/src/components/chat/ChatView';
 import { ReasoningDrawer } from '@/src/components/reasoning/ReasoningDrawer';
 import { ProfilesModal } from '@/src/components/profiles/ProfilesModal';
+import { SubAgentEditModal } from '@/src/components/subagents/SubAgentEditModal';
 import { CommandPalette } from '@/src/components/palette/CommandPalette';
 import { useContextStore } from '@/src/stores/context.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
@@ -76,6 +77,7 @@ export default function App() {
       </AppShell>
       <ReasoningDrawer />
       <ProfilesModal />
+      <SubAgentEditModal />
       <CommandPalette />
       <DialogHost />
     </>
