@@ -19,6 +19,7 @@ import { useSessionsStore } from '@/src/stores/sessions.store';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useProfilesStore } from '@/src/stores/profiles.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
+import { useProvidersStore } from '@/src/stores/providers.store';
 import { useGlobalShortcuts } from '@/src/hooks/useGlobalShortcuts';
 import { useToolCallDecisions } from '@/src/hooks/useToolCallDecisions';
 
@@ -30,6 +31,7 @@ export default function App() {
   const initUi = useUiStore((s) => s.initFromStorage);
   const initProfiles = useProfilesStore((s) => s.init);
   const initSubAgents = useSubAgentsStore((s) => s.init);
+  const initProviders = useProvidersStore((s) => s.init);
 
   useEffect(() => {
     initContext();
@@ -37,7 +39,8 @@ export default function App() {
     initUi();
     initProfiles();
     initSubAgents();
-  }, [initContext, initSessions, initUi, initProfiles, initSubAgents]);
+    initProviders();
+  }, [initContext, initSessions, initUi, initProfiles, initSubAgents, initProviders]);
 
   useGlobalShortcuts();
   useToolCallDecisions();
