@@ -16,6 +16,7 @@ export const MessageSchema = z.object({
 export const SessionRecordSchema = z.object({
   title: z.string(),
   createdAt: z.number(),
+  providerName: z.string().optional(),
   messages: z.array(MessageSchema),
 });
 

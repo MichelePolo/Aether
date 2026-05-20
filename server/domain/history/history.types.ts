@@ -15,6 +15,7 @@ export interface Message {
 export interface SessionRecord {
   title: string;
   createdAt: number;
+  providerName?: string;
   messages: Message[];
 }
 

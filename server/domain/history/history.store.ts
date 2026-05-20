@@ -62,13 +62,28 @@ export class HistoryStore {
     return file[sessionId]?.messages ?? null;
   }
 
-  async createEmpty(): Promise<SessionMeta> {
+  async createEmpty(opts?: { providerName?: string }): Promise<SessionMeta> {
     await this.ensureMigrated();
     const id = randomUUID();
     const now = Date.now();
-    const rec: SessionRecord = { title: '', createdAt: now, messages: [] };
+    const rec: SessionRecord = { title: '', createdAt: now, providerName: opts?.providerName, messages: [] };
     await this.json.update((cur) => ({ ...cur, [id]: rec }));
     return { id, title: '', createdAt: now, updatedAt: now };
+  }
+
+  async readRecord(id: string): Promise<SessionRecord | null> {
+    await this.ensureMigrated();
+    const file = await this.json.read();
+    return file[id] ?? null;
+  }
+
+  async setProviderName(id: string, providerName: string): Promise<void> {
+    await this.ensureMigrated();
+    await this.json.update((cur) => {
+      const r = cur[id];
+      if (!r) throw new NotFoundError(`session ${id}`);
+      return { ...cur, [id]: { ...r, providerName } };
+    });
   }
 
   async append(sessionId: string, message: Message): Promise<void> {
