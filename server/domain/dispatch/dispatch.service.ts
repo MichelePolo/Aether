@@ -5,7 +5,6 @@ import type { SseEmitter } from '@/server/lib/sse';
 import type { ContextStore } from '@/server/domain/context/context.store';
 import type { HistoryStore } from '@/server/domain/history/history.store';
 import type {
-  AIProvider,
   ProviderFunctionCall,
   ProviderToolResultMessage,
   ProviderUsage,
@@ -17,16 +16,18 @@ import { parseLeadingMention } from './subagent-parser';
 import { assemble } from './prompt-assembler';
 import type { McpRegistry } from '@/server/domain/mcp/registry';
 import type { McpToolResult } from '@/server/domain/mcp/mcp.types';
+import type { ProviderRegistry } from '@/server/domain/providers/registry';
 
 export const DispatchRequestSchema = z.object({
   sessionId: z.string().min(1),
   message: z.string().min(1),
   thinking: z.boolean().optional(),
+  providerName: z.string().optional(),
 });
 export type DispatchRequest = z.infer<typeof DispatchRequestSchema>;
 
 export interface DispatchServiceDeps {
-  provider: AIProvider;
+  providers: ProviderRegistry;
   historyStore: HistoryStore;
   contextStore: ContextStore;
   subAgentsStore?: SubAgentsStore;
@@ -47,7 +48,24 @@ export class DispatchService {
       return;
     }
     const { sessionId, message, thinking } = parsed.data;
-    const { provider, historyStore, contextStore } = this.deps;
+    const { historyStore, contextStore } = this.deps;
+
+    const sessionRecord = await this.deps.historyStore.readRecord(sessionId);
+    const requestedName = parsed.data.providerName;
+    const sessionName = sessionRecord?.providerName;
+    const fallbackName = this.deps.providers.defaultName();
+    const providerName = requestedName ?? sessionName ?? fallbackName;
+    if (!providerName) {
+      sse.event('error', { message: 'No provider available', retryable: false });
+      sse.end();
+      return;
+    }
+    const provider = this.deps.providers.get(providerName);
+    if (!provider) {
+      sse.event('error', { message: `Provider '${providerName}' not available`, retryable: false });
+      sse.end();
+      return;
+    }
 
     const prior = await historyStore.read(sessionId);
     if (prior === null) {

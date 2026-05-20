@@ -7,6 +7,7 @@ import { FakeProvider } from './providers/fake.provider';
 import { HistoryStore } from '@/server/domain/history/history.store';
 import { ContextStore } from '@/server/domain/context/context.store';
 import { createCollectorEmitter } from '@/server/test/sse-collector';
+import { buildSingleProviderRegistry } from '@/server/test/registry.test-helper';
 
 let dir: string;
 
@@ -34,7 +35,8 @@ describe('DispatchService', () => {
     });
     const historyStore = new HistoryStore(path.join(dir, 'sessions.json'));
     const contextStore = new ContextStore(path.join(dir, 'context.json'));
-    const service = new DispatchService({ provider, historyStore, contextStore });
+    const providers = await buildSingleProviderRegistry(provider);
+    const service = new DispatchService({ providers, historyStore, contextStore });
     const session = await historyStore.createEmpty();
     return { service, historyStore, contextStore, sessionId: session.id };
   }
@@ -112,8 +114,9 @@ describe('DispatchService', () => {
     }
     const historyStore = new HistoryStore(path.join(dir, 'sessions.json'));
     const contextStore = new ContextStore(path.join(dir, 'context.json'));
+    const providers = await buildSingleProviderRegistry(new FailingProvider() as unknown as import('./providers/provider.types').AIProvider);
     const service = new DispatchService({
-      provider: new FailingProvider(),
+      providers,
       historyStore,
       contextStore,
     });
