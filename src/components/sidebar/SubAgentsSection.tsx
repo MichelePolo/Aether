@@ -1,5 +1,6 @@
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
 import { useDialog } from '@/src/hooks/useDialog';
+import { useUiStore } from '@/src/stores/ui.store';
 
 export function SubAgentsSection() {
   const list = useSubAgentsStore((s) => s.list);
@@ -8,6 +9,7 @@ export function SubAgentsSection() {
   const remove = useSubAgentsStore((s) => s.delete);
   const clearError = useSubAgentsStore((s) => s.clearError);
   const dialog = useDialog();
+  const openSubAgentEditor = useUiStore((s) => s.openSubAgentEditor);
 
   const handleAdd = async () => {
     const name = await dialog.prompt({
@@ -64,13 +66,17 @@ export function SubAgentsSection() {
           list.map((sa) => (
             <div
               key={sa.id}
-              className="group flex items-center justify-between p-1.5 rounded bg-zinc-900 border border-border-subtle text-[10px] font-mono text-zinc-400"
+              onClick={() => openSubAgentEditor(sa.id)}
+              className="group flex items-center justify-between p-1.5 rounded bg-zinc-900 border border-border-subtle text-[10px] font-mono text-zinc-400 cursor-pointer hover:border-accent/40"
             >
               <span className="truncate">{sa.name}</span>
               <div className="hidden group-hover:flex gap-1">
                 <button
                   type="button"
-                  onClick={() => handleDelete(sa.id, sa.name)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(sa.id, sa.name);
+                  }}
                   aria-label={`Delete ${sa.name}`}
                   className="hover:text-red-400"
                 >

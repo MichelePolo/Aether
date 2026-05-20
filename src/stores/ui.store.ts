@@ -10,6 +10,10 @@ interface UiState {
   profilesModalOpen: boolean;
   paletteOpen: boolean;
   sidebarOpen: boolean;
+  editingSubAgentId: string | null;
+
+  openSubAgentEditor: (id: string) => void;
+  closeSubAgentEditor: () => void;
 
   toggleReasoningDrawer: () => void;
   openReasoningDrawer: () => void;
@@ -35,6 +39,7 @@ const initial = {
   profilesModalOpen: false,
   paletteOpen: false,
   sidebarOpen: true,
+  editingSubAgentId: null as string | null,
 };
 
 function readBool(key: string, fallback: boolean): boolean {
@@ -80,6 +85,9 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   openProfilesModal: () => set({ profilesModalOpen: true }),
   closeProfilesModal: () => set({ profilesModalOpen: false }),
+
+  openSubAgentEditor: (id) => set({ editingSubAgentId: id }),
+  closeSubAgentEditor: () => set({ editingSubAgentId: null }),
 
   openPalette: () => set({ paletteOpen: true }),
   closePalette: () => set({ paletteOpen: false }),

@@ -143,3 +143,16 @@ describe('useUiStore.toggleThinking', () => {
     expect(localStorage.getItem('aether.thinkingEnabled')).toBe('0');
   });
 });
+
+describe('useUiStore.subAgentEditor', () => {
+  it('editingSubAgentId defaults to null', () => {
+    expect(useUiStore.getState().editingSubAgentId).toBeNull();
+  });
+
+  it('openSubAgentEditor sets the id; closeSubAgentEditor clears it', () => {
+    useUiStore.getState().openSubAgentEditor('SA1');
+    expect(useUiStore.getState().editingSubAgentId).toBe('SA1');
+    useUiStore.getState().closeSubAgentEditor();
+    expect(useUiStore.getState().editingSubAgentId).toBeNull();
+  });
+});

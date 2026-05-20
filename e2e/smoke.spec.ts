@@ -197,16 +197,19 @@ test('subagent: create + invoke + reasoning badge', async ({ page, request }) =>
   await sidebar.getByRole('button', { name: /new sub-agent/i }).click();
 
   // First prompt: name (single-line input). Use exact label to avoid sidebar "Rename" buttons.
-  const nameInput = page.getByLabel('Name', { exact: true });
+  const namePrompt = page.getByRole('dialog').last();
+  const nameInput = namePrompt.getByLabel('Name', { exact: true });
   await expect(nameInput).toBeVisible({ timeout: 5000 });
   await nameInput.fill('designer');
-  await page.getByRole('button', { name: /confirm/i }).click();
+  await namePrompt.getByRole('button', { name: /confirm/i }).click();
 
-  // Second prompt: system instruction (multiline textarea)
-  const sysInput = page.getByLabel('System instruction', { exact: true });
+  // Second prompt: system instruction (multiline textarea). Scope to the dialog to avoid
+  // colliding with the edit-modal textarea added in Slice 9.
+  const sysPrompt = page.getByRole('dialog').last();
+  const sysInput = sysPrompt.getByLabel('System instruction', { exact: true });
   await expect(sysInput).toBeVisible({ timeout: 5000 });
   await sysInput.fill('You are a designer.');
-  await page.getByRole('button', { name: /confirm/i }).click();
+  await sysPrompt.getByRole('button', { name: /confirm/i }).click();
 
   // The sidebar should now show the new sub-agent
   await expect(sidebar.getByText('designer')).toBeVisible({ timeout: 5000 });
@@ -308,4 +311,52 @@ test('reasoning: thinking on emits steps + opens drawer', async ({ page, request
   await expect(page.getByRole('complementary', { name: /reasoning/i })).toBeVisible({ timeout: 5000 });
   // at least one reasoning step card appears (any of context/dispatch/validation badges)
   await expect(page.getByText(/context|dispatch|validation/i).first()).toBeVisible({ timeout: 5000 });
+});
+
+test('subagent edit: open modal, rename + add skill', async ({ page, request }) => {
+  // Wipe all existing sub-agents so name collisions from prior tests don't cause strict-mode errors
+  const existing = await request.get('/api/subagents').then((r) => r.json());
+  for (const s of (existing.subAgents ?? []) as { id: string }[]) {
+    await request.delete(`/api/subagents/${s.id}`);
+  }
+
+  // Seed a sub-agent via the API
+  const created = await request.post('/api/subagents', {
+    data: { name: 'designer' },
+  }).then((r) => r.json()) as { id: string };
+
+  await page.goto('/');
+  await expect(page.getByText('AETHER_CORE')).toBeVisible();
+
+  // Sidebar shows the sub-agent
+  const sidebar = page.getByRole('complementary', { name: /sidebar/i });
+  await expect(sidebar.getByText('designer', { exact: true })).toBeVisible();
+
+  // Click the row → modal opens
+  await sidebar.getByText('designer', { exact: true }).click();
+  const modal = page.getByRole('dialog');
+  await expect(modal).toBeVisible();
+
+  // Rename
+  await modal.getByRole('button', { name: /rename/i }).click();
+  const promptDialog = page.getByRole('dialog').last();
+  const nameInput = promptDialog.getByLabel('Name', { exact: true });
+  await nameInput.fill('sculptor');
+  await promptDialog.getByRole('button', { name: /confirm/i }).click();
+
+  // Modal title updates
+  await expect(modal.getByText('sculptor')).toBeVisible({ timeout: 5000 });
+
+  // Add skill
+  await modal.getByRole('button', { name: /add skill/i }).click();
+  const skillPromptDialog = page.getByRole('dialog').last();
+  const skillInput = skillPromptDialog.getByLabel('Skill name', { exact: true });
+  await skillInput.fill('clay');
+  await skillPromptDialog.getByRole('button', { name: /confirm/i }).click();
+
+  // Skill row appears in the modal
+  await expect(modal.getByText('clay')).toBeVisible({ timeout: 5000 });
+
+  // Cleanup
+  await request.delete(`/api/subagents/${created.id}`).catch(() => {});
 });

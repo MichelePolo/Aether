@@ -6,9 +6,11 @@ import { server } from '@/src/test/msw-server';
 import { SubAgentsSection } from './SubAgentsSection';
 import { DialogHost } from '@/src/components/layout/DialogHost';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
+import { useUiStore } from '@/src/stores/ui.store';
 
 beforeEach(() => {
   useSubAgentsStore.getState()._reset();
+  useUiStore.getState()._reset();
 });
 
 function renderSection() {
@@ -81,5 +83,30 @@ describe('SubAgentsSection', () => {
     useSubAgentsStore.setState({ list: [], hydrated: true, error: 'Boom' });
     renderSection();
     expect(screen.getByText(/Boom/)).toBeInTheDocument();
+  });
+
+  it('clicking on a row opens the editor for that sub-agent', async () => {
+    useSubAgentsStore.setState({
+      list: [{ id: 's1', name: 'designer', createdAt: 1, updatedAt: 1 }],
+      hydrated: true,
+    });
+    const user = userEvent.setup();
+    renderSection();
+    await user.click(screen.getByText('designer'));
+    expect(useUiStore.getState().editingSubAgentId).toBe('s1');
+  });
+
+  it('clicking on the × button does NOT open the editor', async () => {
+    useSubAgentsStore.setState({
+      list: [{ id: 's1', name: 'designer', createdAt: 1, updatedAt: 1 }],
+      hydrated: true,
+    });
+    const user = userEvent.setup();
+    renderSection();
+    await user.hover(screen.getByText('designer'));
+    await user.click(screen.getByRole('button', { name: /delete designer/i }));
+    // The confirm dialog appears; cancel it to avoid bleeding state
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(useUiStore.getState().editingSubAgentId).toBeNull();
   });
 });
