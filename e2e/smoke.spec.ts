@@ -360,3 +360,45 @@ test('subagent edit: open modal, rename + add skill', async ({ page, request }) 
   // Cleanup
   await request.delete(`/api/subagents/${created.id}`).catch(() => {});
 });
+
+test('mcp advanced: refresh button against mock MCP', async ({ page, request }) => {
+  // Seed a mock server entry
+  const cur = (await request.get('/api/context').then((r) => r.json())) as {
+    mcpServers?: Array<{ id: string }>;
+  };
+  const seeded = {
+    ...cur,
+    mcpServers: [
+      ...(cur.mcpServers ?? []).filter((s) => s.id !== 'E2E_ADV'),
+      { id: 'E2E_ADV', name: 'mock', transport: 'mock', status: 'offline' },
+    ],
+  };
+  await request.put('/api/context', { data: seeded });
+
+  await page.goto('/');
+  await expect(page.getByText('AETHER_CORE')).toBeVisible();
+
+  const sidebar = page.getByRole('complementary', { name: /sidebar/i });
+
+  // Connect the mock server
+  await sidebar.getByRole('button', { name: /connect mock/i }).click();
+  await expect(sidebar.getByText('mock.echo')).toBeVisible({ timeout: 5000 });
+
+  // Click Refresh — mock returns the same tools so mock.echo stays visible.
+  await sidebar.getByRole('button', { name: /refresh mock/i }).click();
+  await expect(sidebar.getByText('mock.echo')).toBeVisible();
+
+  // Disconnect cleanup
+  await sidebar.getByRole('button', { name: /disconnect mock/i }).click();
+
+  // Cleanup seeded entry
+  const after = (await request.get('/api/context').then((r) => r.json())) as {
+    mcpServers?: Array<{ id: string }>;
+  };
+  const cleaned = {
+    ...after,
+    mcpServers: (after.mcpServers ?? []).filter((s) => s.id !== 'E2E_ADV'),
+  };
+  await request.put('/api/context', { data: cleaned });
+});
+
