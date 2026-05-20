@@ -3,10 +3,13 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import express from 'express';
 import request from 'supertest';
 import { createApp } from '@/server/app';
 import { ContextStore } from '@/server/domain/context/context.store';
 import { McpRegistry } from '@/server/domain/mcp/registry';
+import { createMcpRoutes } from '@/server/routes/mcp.routes';
+import type { DispatchService } from '@/server/domain/dispatch/dispatch.service';
 
 async function makeApp() {
   const dir = mkdtempSync(path.join(tmpdir(), 'aether-mcp-routes-'));
@@ -85,5 +88,62 @@ describe('mcp routes', () => {
     const res = await request(app).get('/api/mcp/state');
     expect(res.status).toBe(200);
     expect(res.body.servers).toEqual(expect.arrayContaining([{ id: 'M1', state: 'online' }]));
+  });
+});
+
+describe('mcp routes — refresh + cancel (slice 10)', () => {
+  it('POST /api/mcp/:id/refresh-tools returns updated tools', async () => {
+    const { app } = await makeApp();
+    await request(app).post('/api/mcp/M1/connect');
+    const res = await request(app).post('/api/mcp/M1/refresh-tools');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.tools)).toBe(true);
+    expect(res.body.tools.length).toBeGreaterThan(0);
+  });
+
+  it('POST /api/mcp/:id/refresh-tools on disconnected server returns 4xx', async () => {
+    const { app } = await makeApp();
+    const res = await request(app).post('/api/mcp/M1/refresh-tools');
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBeLessThan(500);
+  });
+
+  it('POST /api/mcp/cancel-call returns 204 even when controller missing', async () => {
+    const { app } = await makeApp();
+    const res = await request(app)
+      .post('/api/mcp/cancel-call')
+      .send({ callId: 'nonexistent' });
+    expect(res.status).toBe(204);
+  });
+
+  it('POST /api/mcp/cancel-call aborts the matching in-flight controller', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'aether-mcp-cancel-'));
+    const contextStore = new ContextStore(path.join(dir, 'context.json'));
+    await contextStore.bulkOverwrite({
+      systemInstruction: '',
+      skills: [],
+      tools: [],
+      mcpServers: [{ id: 'M1', name: 'mock', transport: 'mock', status: 'offline' }],
+    });
+    const mcpRegistry = new McpRegistry(contextStore);
+    const controller = new AbortController();
+    const fakeDispatcher = {
+      getInFlightController: (id: string) =>
+        id === 'CID-X' ? controller : undefined,
+    } as unknown as DispatchService;
+
+    const app = express();
+    app.use(express.json());
+    app.use('/api/mcp', createMcpRoutes(mcpRegistry, fakeDispatcher));
+
+    const res = await request(app).post('/api/mcp/cancel-call').send({ callId: 'CID-X' });
+    expect(res.status).toBe(204);
+    expect(controller.signal.aborted).toBe(true);
+  });
+
+  it('POST /api/mcp/cancel-call without callId returns 400', async () => {
+    const { app } = await makeApp();
+    const res = await request(app).post('/api/mcp/cancel-call').send({});
+    expect(res.status).toBe(400);
   });
 });

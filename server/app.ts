@@ -65,7 +65,7 @@ export function createApp(
   }
 
   if (deps.mcpRegistry) {
-    app.use('/api/mcp', createMcpRoutes(deps.mcpRegistry));
+    app.use('/api/mcp', createMcpRoutes(deps.mcpRegistry, deps.dispatcher));
   }
 
   if (deps.providers) {

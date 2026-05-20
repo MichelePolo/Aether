@@ -2,6 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { z } from 'zod';
 import { ValidationError } from '@/server/lib/errors';
 import type { McpRegistry } from '@/server/domain/mcp/registry';
+import type { DispatchService } from '@/server/domain/dispatch/dispatch.service';
 
 function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -15,7 +16,7 @@ const DecisionBody = z.object({
   action: z.enum(['approve', 'reject']),
 });
 
-export function createMcpRoutes(registry: McpRegistry): Router {
+export function createMcpRoutes(registry: McpRegistry, dispatcher?: DispatchService): Router {
   const router = Router();
 
   router.post(
@@ -31,6 +32,34 @@ export function createMcpRoutes(registry: McpRegistry): Router {
         }
         throw e;
       }
+    }),
+  );
+
+  router.post(
+    '/:id/refresh-tools',
+    asyncHandler(async (req, res) => {
+      try {
+        const tools = await registry.refreshTools(req.params.id);
+        res.json({ tools });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'refresh failed';
+        res.status(409).json({ error: { code: 'NOT_ONLINE', message: msg } });
+      }
+    }),
+  );
+
+  router.post(
+    '/cancel-call',
+    asyncHandler(async (req, res) => {
+      const callId = (req.body as { callId?: string })?.callId;
+      if (typeof callId !== 'string' || callId.length === 0) {
+        throw new ValidationError('callId required', null);
+      }
+      if (dispatcher) {
+        const ctrl = dispatcher.getInFlightController(callId);
+        if (ctrl) ctrl.abort();
+      }
+      res.status(204).end();
     }),
   );
 
