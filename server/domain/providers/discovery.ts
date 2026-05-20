@@ -24,3 +24,7 @@ export function geminiHardcodedModels(): string[] {
     'gemini-1.5-flash',
   ];
 }
+
+export function anthropicHardcodedModels(): string[] {
+  return ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5'];
+}

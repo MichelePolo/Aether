@@ -14,6 +14,8 @@ import { GeminiProvider } from './domain/dispatch/providers/gemini.provider';
 import { McpRegistry } from './domain/mcp/registry';
 import { ProviderRegistry } from './domain/providers/registry';
 import { OllamaProvider } from './domain/dispatch/providers/ollama.provider';
+import { AnthropicProvider } from './domain/dispatch/providers/anthropic.provider';
+import { detectAnthropicAuth } from './lib/anthropic-auth';
 
 dotenv.config();
 
@@ -38,15 +40,23 @@ async function bootstrap() {
     console.log('[aether] Using FakeProvider (AETHER_FAKE_PROVIDER=1)');
   }
 
+  const anthropicAuth = await detectAnthropicAuth();
+  console.log(`[providers] anthropic: ${anthropicAuth}`);
+
   const providers = new ProviderRegistry({
     ollamaHost: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
     geminiApiKey: cfg.geminiApiKey || undefined,
+    anthropicAuth,
     fakeProvider,
     geminiBuilder: (model) => new GeminiProvider({ apiKey: cfg.geminiApiKey, model }),
     ollamaBuilder: (model) =>
       new OllamaProvider({
         host: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
         model,
+      }),
+    anthropicBuilder: (model) =>
+      new AnthropicProvider({
+        model: model as 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5',
       }),
     defaultOverride:
       process.env.AETHER_DEFAULT_PROVIDER ||

@@ -1,7 +1,7 @@
 import type { AIProvider, ProviderCapabilities } from '@/server/domain/dispatch/providers/provider.types';
-import { discoverOllama, geminiHardcodedModels } from './discovery';
+import { discoverOllama, geminiHardcodedModels, anthropicHardcodedModels } from './discovery';
 
-export type ProviderTransport = 'fake' | 'gemini' | 'ollama';
+export type ProviderTransport = 'fake' | 'gemini' | 'ollama' | 'anthropic';
 
 export interface ProviderDescriptor {
   name: string;
@@ -14,15 +14,18 @@ export interface ProviderDescriptor {
 export interface ProviderRegistryDeps {
   ollamaHost: string;
   geminiApiKey: string | undefined;
+  anthropicAuth: 'oauth' | 'apikey' | 'none';
   fakeProvider: AIProvider;
   geminiBuilder: (model: string) => AIProvider;
   ollamaBuilder: (model: string) => AIProvider;
+  anthropicBuilder: (model: string) => AIProvider;
   defaultOverride?: string;
 }
 
 function displayNameFor(transport: ProviderTransport, model: string): string {
   if (transport === 'fake') return 'Fake (default)';
   if (transport === 'gemini') return `Gemini / ${model}`;
+  if (transport === 'anthropic') return `Anthropic / ${model}`;
   return `Ollama / ${model}`;
 }
 
@@ -66,6 +69,23 @@ export class ProviderRegistry {
       }
     }
 
+    // Anthropic
+    if (this.deps.anthropicAuth !== 'none') {
+      for (const model of anthropicHardcodedModels()) {
+        const provider = this.deps.anthropicBuilder(model);
+        next.set(`anthropic:${model}`, {
+          provider,
+          descriptor: {
+            name: `anthropic:${model}`,
+            transport: 'anthropic',
+            model,
+            capabilities: provider.capabilities,
+            displayName: displayNameFor('anthropic', model),
+          },
+        });
+      }
+    }
+
     // Ollama (discovery)
     const tags = await discoverOllama(this.deps.ollamaHost);
     for (const tag of tags) {
@@ -103,6 +123,9 @@ export class ProviderRegistry {
     }
     for (const e of this.entries.values()) {
       if (e.descriptor.transport === 'gemini') return e.descriptor.name;
+    }
+    for (const e of this.entries.values()) {
+      if (e.descriptor.transport === 'anthropic') return e.descriptor.name;
     }
     for (const e of this.entries.values()) {
       if (e.descriptor.transport === 'ollama') return e.descriptor.name;

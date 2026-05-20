@@ -64,4 +64,59 @@ describe('provider switch integration', () => {
     });
     expect(localStorage.getItem('aether.defaultProvider')).toBe('ollama:llama3');
   });
+
+  it('Anthropic entries appear in the selector when the server publishes them', async () => {
+    server.use(
+      http.get('http://localhost/api/providers', () =>
+        HttpResponse.json({
+          providers: [
+            {
+              name: 'fake:default',
+              transport: 'fake',
+              model: 'default',
+              capabilities: { thinking: true, toolCalling: true },
+              displayName: 'Fake (default)',
+            },
+            {
+              name: 'anthropic:claude-sonnet-4-6',
+              transport: 'anthropic',
+              model: 'claude-sonnet-4-6',
+              capabilities: { thinking: true, toolCalling: true },
+              displayName: 'Anthropic / claude-sonnet-4-6',
+            },
+            {
+              name: 'anthropic:claude-opus-4-7',
+              transport: 'anthropic',
+              model: 'claude-opus-4-7',
+              capabilities: { thinking: true, toolCalling: true },
+              displayName: 'Anthropic / claude-opus-4-7',
+            },
+          ],
+        }),
+      ),
+      http.get('http://localhost/api/providers/default', () =>
+        HttpResponse.json({ name: 'fake:default' }),
+      ),
+      http.patch('http://localhost/api/sessions/:id', () =>
+        HttpResponse.json({ id: '1', title: 't', createdAt: 0, updatedAt: 1 }),
+      ),
+    );
+
+    const user = userEvent.setup();
+    render(<App />);
+
+    await waitFor(() => expect(useProvidersStore.getState().hydrated).toBe(true));
+    await waitFor(() => expect(useSessionsStore.getState().activeSessionId).toBeTruthy());
+
+    const selector = screen.getByRole('combobox', { name: /active provider/i });
+    expect(
+      await screen.findByRole('option', { name: /anthropic.*claude-sonnet-4-6/i }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole('option', { name: /anthropic.*claude-opus-4-7/i }),
+    ).toBeInTheDocument();
+
+    await user.selectOptions(selector, 'anthropic:claude-sonnet-4-6');
+    expect(selector).toHaveValue('anthropic:claude-sonnet-4-6');
+  });
 });
