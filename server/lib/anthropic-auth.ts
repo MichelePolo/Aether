@@ -66,11 +66,14 @@ async function probeOAuth(): Promise<boolean> {
           model: 'claude-haiku-4-5',
           maxTurns: 1,
           allowedTools: [],
-          abortSignal: aborter.signal,
+          abortController: aborter,
         },
       } as Parameters<typeof query>[0]);
       for await (const ev of iter) {
-        void ev;
+        const msg = ev as { type?: string; error?: string };
+        if (msg.type === 'assistant' && typeof msg.error === 'string') {
+          return false;
+        }
         return true;
       }
       return false;

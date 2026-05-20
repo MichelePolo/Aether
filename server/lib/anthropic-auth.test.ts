@@ -73,6 +73,26 @@ describe('detectAnthropicAuth', () => {
     expect(result).toBe('none');
   });
 
+  it("returns 'none' when SDK yields an assistant message with error field", async () => {
+    spawnSpy.mockImplementation(() => fakeChild({ exitCode: 0 }));
+    querySpy.mockImplementation(() => (async function* () {
+      yield { type: 'assistant', error: 'authentication_failed', message: { content: [] } };
+    })());
+    const result = await detectAnthropicAuth();
+    expect(result).toBe('none');
+  });
+
+  it("passes abortController (not abortSignal) to the SDK so cancellation actually fires", async () => {
+    spawnSpy.mockImplementation(() => fakeChild({ exitCode: 0 }));
+    querySpy.mockImplementation(() => (async function* () {
+      yield { type: 'assistant', message: { content: [{ type: 'text', text: 'pong' }] } };
+    })());
+    await detectAnthropicAuth();
+    const arg = querySpy.mock.calls[0][0] as { options: Record<string, unknown> };
+    expect(arg.options.abortController).toBeInstanceOf(AbortController);
+    expect(arg.options.abortSignal).toBeUndefined();
+  });
+
   it("returns 'none' when claude --version hangs past 2s timeout", async () => {
     spawnSpy.mockImplementation(() => fakeChild({ exitCode: 0, delayMs: 3000 }));
     const result = await detectAnthropicAuth();
