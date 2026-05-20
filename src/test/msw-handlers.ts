@@ -80,4 +80,15 @@ export const handlers = [
     }),
   ),
   http.delete('http://localhost/api/subagents/:id', () => new HttpResponse(null, { status: 204 })),
+  http.post('http://localhost/api/mcp/:id/connect', () =>
+    HttpResponse.json({ state: 'online', tools: [] }),
+  ),
+  http.post('http://localhost/api/mcp/:id/disconnect', () => new HttpResponse(null, { status: 204 })),
+  http.get('http://localhost/api/mcp/tools', () => HttpResponse.json({ tools: [] })),
+  http.patch('http://localhost/api/mcp/:id/tools/:name', async ({ request }) => {
+    const body = (await request.json()) as { autoApprove: boolean };
+    return HttpResponse.json(body);
+  }),
+  http.post('http://localhost/api/mcp/decision', () => new HttpResponse(null, { status: 204 })),
+  http.get('http://localhost/api/mcp/state', () => HttpResponse.json({ servers: [] })),
 ];

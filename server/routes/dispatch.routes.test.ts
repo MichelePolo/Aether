@@ -10,6 +10,7 @@ import { HistoryStore } from '@/server/domain/history/history.store';
 import { DispatchService } from '@/server/domain/dispatch/dispatch.service';
 import { FakeProvider } from '@/server/domain/dispatch/providers/fake.provider';
 import { SubAgentsStore } from '@/server/domain/subagents/subagents.store';
+import { McpRegistry } from '@/server/domain/mcp/registry';
 import { collectSseEvents } from '@/server/test/sse-collector';
 
 let dir: string;
@@ -172,5 +173,89 @@ describe('dispatch with @subagent', () => {
 
     expect(reasoningSteps.find((s) => s.type === 'resolve_subagent')).toBeUndefined();
     expect(provider.lastRequest?.userMessage).toBe('@unknown hello');
+  });
+});
+
+describe('dispatch with MCP tool call (slice 7)', () => {
+  let mcpDir: string;
+
+  afterEach(async () => {
+    if (mcpDir) await rm(mcpDir, { recursive: true, force: true });
+  });
+
+  it('emits tool_call_request, tool_call_result, and tracer tool_call step (auto-approve path)', async () => {
+    mcpDir = mkdtempSync(path.join(tmpdir(), 'aether-dispatch-mcp-'));
+    const mcpContextStore = new ContextStore(path.join(mcpDir, 'context.json'));
+
+    // Add a mock MCP server config to the context store
+    const srv = await mcpContextStore.addMcpServer({
+      name: 'mock',
+      transport: 'mock',
+      status: 'offline',
+    });
+
+    // Create the registry and connect so listLiveTools() returns tools
+    const mcpRegistry = new McpRegistry(mcpContextStore);
+    await mcpRegistry.connect(srv.id);
+
+    // FakeProvider emits one function_call then 'final-text' on continuation
+    const provider = new FakeProvider({
+      chunks: ['final-text'],
+      functionCallSequence: [
+        { callId: 'call-1', qualifiedName: 'mock.echo', args: { message: 'pong' } },
+      ],
+    });
+
+    const dispatcher = new DispatchService({
+      provider,
+      historyStore,
+      contextStore: mcpContextStore,
+      mcpRegistry,
+    });
+    const app = createApp({ contextStore: mcpContextStore, historyStore, dispatcher });
+    const session = await historyStore.createEmpty();
+
+    const res = await request(app)
+      .post('/api/ai/dispatch')
+      .set('Accept', 'text/event-stream')
+      .send({ sessionId: session.id, message: 'test tool call' });
+
+    expect(res.status).toBe(200);
+    const events = await collectSseEvents(res);
+
+    // Check for tool_call_request event
+    const toolCallRequestEvent = events.find((e) => e.event === 'tool_call_request');
+    expect(toolCallRequestEvent).toBeDefined();
+    expect((toolCallRequestEvent!.data as { qualifiedName: string }).qualifiedName).toBe('mock.echo');
+    const callId = (toolCallRequestEvent!.data as { callId: string }).callId;
+    expect(callId).toBe('call-1');
+
+    // Check for tool_call_result event
+    const toolCallResultEvent = events.find((e) => e.event === 'tool_call_result');
+    expect(toolCallResultEvent).toBeDefined();
+    expect((toolCallResultEvent!.data as { ok: boolean }).ok).toBe(true);
+    expect((toolCallResultEvent!.data as { id: string }).id).toBe('call-1');
+
+    // Check for reasoning_step of type 'tool_call'
+    const reasoningSteps = events
+      .filter((e) => e.event === 'reasoning_step')
+      .map((e) => e.data as { type: string; toolCall?: { qualifiedName: string } });
+
+    const toolCallStep = reasoningSteps.find((s) => s.type === 'tool_call');
+    expect(toolCallStep).toBeDefined();
+    expect(toolCallStep?.toolCall?.qualifiedName).toBe('mock.echo');
+
+    // Check final text event contains 'final-text'
+    const textEvents = events.filter((e) => e.event === 'text');
+    const allText = textEvents.map((e) => (e.data as { chunk: string }).chunk).join('');
+    expect(allText).toContain('final-text');
+
+    // Check history: assistant message should have tool_call reasoning step
+    const msgs = await historyStore.read(session.id);
+    const modelMsg = msgs?.find((m) => m.role === 'model');
+    expect(modelMsg).toBeDefined();
+    const toolCallInHistory = modelMsg?.reasoningSteps?.find((s) => s.type === 'tool_call');
+    expect(toolCallInHistory).toBeDefined();
+    expect((toolCallInHistory as { toolCall?: { qualifiedName: string } } | undefined)?.toolCall?.qualifiedName).toBe('mock.echo');
   });
 });

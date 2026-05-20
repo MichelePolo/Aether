@@ -10,6 +10,8 @@ import { createDispatchRoutes } from './routes/dispatch.routes';
 import { createHistoryRoutes } from './routes/history.routes';
 import { createProfilesRoutes } from './routes/profiles.routes';
 import { createSubAgentsRoutes } from './routes/subagents.routes';
+import { createMcpRoutes } from '@/server/routes/mcp.routes';
+import type { McpRegistry } from '@/server/domain/mcp/registry';
 
 export interface AppDeps {
   contextStore?: ContextStore;
@@ -17,6 +19,7 @@ export interface AppDeps {
   dispatcher?: DispatchService;
   profilesStore?: ProfilesStore;
   subAgentsStore?: SubAgentsStore;
+  mcpRegistry?: McpRegistry;
 }
 
 // In Express l'error middleware DEVE essere registrato dopo le route per
@@ -56,6 +59,10 @@ export function createApp(
 
   if (deps.subAgentsStore) {
     app.use('/api/subagents', createSubAgentsRoutes(deps.subAgentsStore));
+  }
+
+  if (deps.mcpRegistry) {
+    app.use('/api/mcp', createMcpRoutes(deps.mcpRegistry));
   }
 
   extraRoutes?.(app);

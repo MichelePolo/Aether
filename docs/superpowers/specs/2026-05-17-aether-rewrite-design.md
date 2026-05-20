@@ -311,6 +311,7 @@ Ogni slice = 1 PR/commit dedicato su branch `feat/slice-N-<name>`. Definition of
 | 7 | MCP mock conforme | `feat/slice-7-mcp` | `mcp.mock`, `mcp.registry`, `mcp.routes`, integrazione in `prompt-assembler` (tool listing), `McpView` reale, `McpToolCard`, `ToolCallDialog`. |
 | 8 | Ollama provider | `feat/slice-8-ollama` | `ollama.provider`, model selector aggiornato in `TopBar`, parsing NDJSON, integration test con `FakeProvider` + un test E2E con flag skip se Ollama non running. |
 | 9 | Sub-agent skills/tools editor | `feat/slice-9-subagent-editor` | Espone editing di `skills`/`tools` per ogni `SubAgentRecord` (il data-model li supporta già da slice 6, ma la `SubAgentsSection` lascia gli array vuoti). Modal o pannello inline con riuso degli `addFlows` di slice 5, `PUT /api/subagents/:id` esistente. Piccolo, opzionale, non bloccante per slice 7/8. |
+| 10 | MCP advanced (transports + hardening) | `feat/slice-10-mcp-advanced` | Estende slice 7 con i non-goals esclusi per scope: trasporto HTTP/SSE oltre a stdio; auto-reconnect su crash subprocess (con backoff); refresh discovery senza disconnect; streaming partial results da `tool-call`; cancellazione user mid-call. Tutto in cima al `McpRegistry` + dispatch loop esistente. |
 
 ## TDD pattern per slice
 

@@ -1,12 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import type { SseEmitter } from '@/server/lib/sse';
-import type { ReasoningStep, ReasoningStepType } from './reasoning.types';
+import type { ReasoningStep, ReasoningStepType, ToolCallTrace } from './reasoning.types';
 
 export interface TracerStepOpts<T> {
   type: ReasoningStepType;
   title: string;
-  run: () => Promise<{ content: string; tokens?: number; subAgent?: string; result: T }>;
+  run: () => Promise<{
+    content: string;
+    tokens?: number;
+    subAgent?: string;
+    toolCall?: ToolCallTrace;
+    result: T;
+  }>;
 }
 
 export class ReasoningTracer {
@@ -16,7 +22,7 @@ export class ReasoningTracer {
 
   async step<T>(opts: TracerStepOpts<T>): Promise<T> {
     const t0 = performance.now();
-    const { content, tokens, subAgent, result } = await opts.run();
+    const { content, tokens, subAgent, toolCall, result } = await opts.run();
     const t1 = performance.now();
     const step: ReasoningStep = {
       id: randomUUID(),
@@ -25,6 +31,7 @@ export class ReasoningTracer {
       content,
       tokens,
       subAgent,
+      toolCall,
       durationMs: Math.round(t1 - t0),
       timestamp: Date.now(),
     };

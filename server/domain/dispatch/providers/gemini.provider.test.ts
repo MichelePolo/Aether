@@ -177,3 +177,94 @@ describe('GeminiProvider (with thinking)', () => {
     ).rejects.toMatchObject({ message: 'Auth failed', status: 401 });
   });
 });
+
+describe('GeminiProvider function calling (slice 7)', () => {
+  it('passes mcpTools as functionDeclarations in config.tools', async () => {
+    async function* fake() { yield { text: 'ok' }; }
+    generateContentStream.mockResolvedValue(fake());
+    const { GeminiProvider } = await import('./gemini.provider');
+    const p = new GeminiProvider({ apiKey: 'k', model: 'm' });
+    await collect(
+      p.stream(
+        {
+          systemInstruction: '',
+          history: [],
+          userMessage: 'call me',
+          mcpTools: [
+            {
+              qualifiedName: 'mock.echo',
+              description: 'Echoes a message',
+              schema: { type: 'object', properties: { message: { type: 'string' } }, required: ['message'] },
+            },
+          ],
+        },
+        new AbortController().signal,
+      ),
+    );
+    const call = generateContentStream.mock.calls[0][0];
+    expect(call.config.tools).toHaveLength(1);
+    expect(call.config.tools[0].functionDeclarations[0].name).toBe('mock__echo');
+    expect(call.config.tools[0].functionDeclarations[0].description).toBe('Echoes a message');
+  });
+
+  it('emits function_call chunk when SDK response contains functionCall', async () => {
+    async function* fake() {
+      yield {
+        candidates: [{
+          content: {
+            parts: [{ functionCall: { name: 'mock__echo', args: { message: 'hi' } } }],
+          },
+        }],
+      };
+    }
+    generateContentStream.mockResolvedValue(fake());
+    const { GeminiProvider } = await import('./gemini.provider');
+    const p = new GeminiProvider({ apiKey: 'k', model: 'm' });
+    const events = await collect(
+      p.stream(
+        { systemInstruction: '', history: [], userMessage: 'call me' },
+        new AbortController().signal,
+      ),
+    );
+    const fcChunk = events.find((e) => e.type === 'function_call');
+    expect(fcChunk).toBeDefined();
+    expect(fcChunk!.type).toBe('function_call');
+    if (fcChunk!.type === 'function_call') {
+      expect(fcChunk!.call.qualifiedName).toBe('mock.echo');
+      expect(fcChunk!.call.args).toEqual({ message: 'hi' });
+      expect(typeof fcChunk!.call.callId).toBe('string');
+      expect(fcChunk!.call.callId.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('on continuation call (toolResults present), sends them as functionResponse parts', async () => {
+    async function* fake() { yield { text: 'done' }; }
+    generateContentStream.mockResolvedValue(fake());
+    const { GeminiProvider } = await import('./gemini.provider');
+    const p = new GeminiProvider({ apiKey: 'k', model: 'm' });
+    await collect(
+      p.stream(
+        {
+          systemInstruction: '',
+          history: [],
+          userMessage: 'continue',
+          toolResults: [
+            { callId: 'C1', qualifiedName: 'mock.echo', ok: true, output: { x: 1 } },
+          ],
+        },
+        new AbortController().signal,
+      ),
+    );
+    const call = generateContentStream.mock.calls[0][0];
+    const allParts: unknown[] = (call.contents as Array<{ parts: unknown[] }>).flatMap((c) => c.parts);
+    const frPart = allParts.find(
+      (p: unknown) =>
+        typeof p === 'object' &&
+        p !== null &&
+        'functionResponse' in p &&
+        (p as { functionResponse: { name: string } }).functionResponse.name === 'mock__echo',
+    );
+    expect(frPart).toBeDefined();
+    expect((frPart as { functionResponse: { name: string; response: unknown } }).functionResponse.response).toEqual({ x: 1 });
+  });
+});

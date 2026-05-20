@@ -99,3 +99,56 @@ describe('FakeProvider', () => {
     expect(done).toEqual({ type: 'done', usage: { totalTokens: 42 } });
   });
 });
+
+import type { ProviderFunctionCall } from './provider.types';
+
+describe('FakeProvider function_call (slice 7)', () => {
+  it('emits programmed function_call before text chunks (no toolResults in request)', async () => {
+    const call: ProviderFunctionCall = {
+      callId: 'C1',
+      qualifiedName: 'mock.echo',
+      args: { message: 'hi' },
+    };
+    const p = new FakeProvider({
+      chunks: ['after-tool'],
+      functionCallSequence: [call],
+      model: 'fake-1',
+    });
+    const chunks: unknown[] = [];
+    for await (const c of p.stream(
+      { systemInstruction: '', history: [], userMessage: 'x' },
+      new AbortController().signal,
+    )) {
+      chunks.push(c);
+    }
+    expect(chunks[0]).toEqual({ type: 'function_call', call });
+    expect(chunks.find((c) => (c as { type: string }).type === 'done')).toBeTruthy();
+  });
+
+  it('on continuation call (toolResults present), skips queue and emits remaining text chunks', async () => {
+    const p = new FakeProvider({
+      chunks: ['after-tool'],
+      functionCallSequence: [{ callId: 'C1', qualifiedName: 'mock.echo', args: {} }],
+      model: 'fake-1',
+    });
+    const sig = new AbortController().signal;
+    // First call: emits function_call + done
+    for await (const _ of p.stream({ systemInstruction: '', history: [], userMessage: 'x' }, sig)) {
+      /* drain */
+    }
+    // Continuation: toolResults present → text chunk emitted
+    const chunks2: unknown[] = [];
+    for await (const c of p.stream(
+      {
+        systemInstruction: '',
+        history: [],
+        userMessage: 'x',
+        toolResults: [{ callId: 'C1', qualifiedName: 'mock.echo', ok: true, output: { message: 'hi' } }],
+      },
+      sig,
+    )) {
+      chunks2.push(c);
+    }
+    expect(chunks2[0]).toEqual({ type: 'text', text: 'after-tool' });
+  });
+});

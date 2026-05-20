@@ -225,6 +225,42 @@ test('subagent: create + invoke + reasoning badge', async ({ page, request }) =>
   await expect(drawer.getByText(/sub-agent: designer/i)).toBeVisible({ timeout: 5000 });
 });
 
+test('mcp: connect mock server + live tool appears', async ({ page, request }) => {
+  // Seed context with a mock MCP server entry. The existing context API exposes
+  // bulkOverwrite (PUT /api/context); use it to add the mcpServer.
+  const cur = await request.get('/api/context').then((r) => r.json());
+  const seeded = {
+    ...cur,
+    mcpServers: [
+      ...(cur.mcpServers ?? []).filter((s: { id: string }) => s.id !== 'E2E_MCP'),
+      { id: 'E2E_MCP', name: 'mock', transport: 'mock', status: 'offline' },
+    ],
+  };
+  await request.put('/api/context', { data: seeded });
+
+  await page.goto('/');
+  await expect(page.getByText('AETHER_CORE')).toBeVisible();
+
+  const sidebar = page.getByRole('complementary', { name: /sidebar/i });
+
+  // Click the Connect button for the mock server
+  await sidebar.getByRole('button', { name: /connect mock/i }).click();
+
+  // The live tool 'mock.echo' should now appear in the sidebar
+  await expect(sidebar.getByText('mock.echo')).toBeVisible({ timeout: 5000 });
+
+  // Cleanup: disconnect so the test doesn't leak across runs
+  await sidebar.getByRole('button', { name: /disconnect mock/i }).click();
+
+  // Also remove the seeded entry from context (best-effort cleanup)
+  const after = await request.get('/api/context').then((r) => r.json());
+  const cleaned = {
+    ...after,
+    mcpServers: (after.mcpServers ?? []).filter((s: { id: string }) => s.id !== 'E2E_MCP'),
+  };
+  await request.put('/api/context', { data: cleaned });
+});
+
 test('reasoning: thinking on emits steps + opens drawer', async ({ page, request }) => {
   // clean session state for determinism
   const list = await request.get('/api/sessions').then((r) => r.json());

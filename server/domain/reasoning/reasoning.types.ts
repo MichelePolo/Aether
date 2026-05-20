@@ -5,7 +5,17 @@ export type ReasoningStepType =
   | 'thinking'
   | 'validation'
   | 'logic'
-  | 'resolve_subagent';
+  | 'resolve_subagent'
+  | 'tool_call';
+
+export interface ToolCallTrace {
+  id: string;
+  qualifiedName: string;
+  args: Record<string, unknown>;
+  result?: unknown;
+  error?: string;
+  durationMs: number;
+}
 
 export interface ReasoningStep {
   id: string;
@@ -15,5 +25,6 @@ export interface ReasoningStep {
   tokens?: number;
   durationMs?: number;
   subAgent?: string;
+  toolCall?: ToolCallTrace;
   timestamp: number;
 }

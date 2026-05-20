@@ -62,4 +62,49 @@ describe('ReasoningStepCard', () => {
     expect(screen.getByText('designer')).toBeInTheDocument();
     expect(screen.getByText('Sub-agent: designer')).toBeInTheDocument();
   });
+
+  it('renders tool_call step with structured args and result', () => {
+    render(
+      <ReasoningStepCard
+        step={{
+          id: '1',
+          type: 'tool_call',
+          title: 'Tool: mock.echo',
+          content: 'executed mock.echo',
+          toolCall: {
+            id: 'C1',
+            qualifiedName: 'mock.echo',
+            args: { message: 'hi' },
+            result: { message: 'hi' },
+            durationMs: 12,
+          },
+          timestamp: 0,
+        }}
+      />,
+    );
+    expect(screen.getByText('Tool: mock.echo')).toBeInTheDocument();
+    expect(screen.getAllByText(/"message":\s*"hi"/)[0]).toBeInTheDocument();
+  });
+
+  it('renders tool_call error state in red', () => {
+    render(
+      <ReasoningStepCard
+        step={{
+          id: '2',
+          type: 'tool_call',
+          title: 'Tool: mock.fail',
+          content: 'tool failed: nope',
+          toolCall: {
+            id: 'C2',
+            qualifiedName: 'mock.fail',
+            args: {},
+            error: 'nope',
+            durationMs: 5,
+          },
+          timestamp: 0,
+        }}
+      />,
+    );
+    expect(screen.getAllByText(/nope/)[0]).toBeInTheDocument();
+  });
 });

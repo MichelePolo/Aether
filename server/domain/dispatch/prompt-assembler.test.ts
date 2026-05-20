@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { assemble } from './prompt-assembler';
 import type { AetherContext } from '@/server/domain/context/context.types';
 import type { SubAgentRecord } from '@/server/domain/subagents/subagents.types';
+import type { ProviderToolDecl } from './providers/provider.types';
 
 const ctx: AetherContext = {
   systemInstruction: 'Base.',
@@ -31,6 +32,7 @@ describe('assemble', () => {
       tools: ctx.tools,
       message: 'hello',
       subAgent: null,
+      mcpTools: [],
     });
   });
 
@@ -60,5 +62,22 @@ describe('assemble', () => {
     const out = assemble(ctx, sub, 'parsed-msg', 'designer');
     expect(out.message).toBe('parsed-msg');
     expect(out.subAgent).toBe('designer');
+  });
+});
+
+describe('assemble mcpTools (slice 7)', () => {
+  it('forwards mcpTools unchanged when present', () => {
+    const tools: ProviderToolDecl[] = [{
+      qualifiedName: 'mock.echo',
+      description: 'echo',
+      schema: { type: 'object' as const },
+    }];
+    const out = assemble(ctx, null, 'hello', null, tools);
+    expect(out.mcpTools).toEqual(tools);
+  });
+
+  it('mcpTools default to [] when omitted', () => {
+    const out = assemble(ctx, null, 'hello', null);
+    expect(out.mcpTools).toEqual([]);
   });
 });
