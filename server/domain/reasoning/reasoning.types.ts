@@ -15,6 +15,7 @@ export interface ToolCallTrace {
   result?: unknown;
   error?: string;
   durationMs: number;
+  progressNote?: string;
 }
 
 export interface ReasoningStep {

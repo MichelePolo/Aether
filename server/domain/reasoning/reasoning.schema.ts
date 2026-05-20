@@ -18,6 +18,7 @@ export const ToolCallTraceSchema = z.object({
   result: z.unknown().optional(),
   error: z.string().optional(),
   durationMs: z.number(),
+  progressNote: z.string().optional(),
 });
 
 export const ReasoningStepSchema = z.object({
