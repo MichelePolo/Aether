@@ -147,4 +147,9 @@ describe('DispatchService', () => {
     expect(model.reasoningSteps?.length).toBeGreaterThanOrEqual(2); // context_fetch + dispatch
     expect(model.interrupted).toBe(true);
   });
+
+  it('getInFlightController returns undefined for unknown callId', async () => {
+    const { service } = await makeService({ chunks: ['pong'] });
+    expect(service.getInFlightController('nonexistent')).toBeUndefined();
+  });
 });
