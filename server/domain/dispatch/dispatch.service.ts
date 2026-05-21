@@ -5,7 +5,9 @@ import type { SseEmitter } from '@/server/lib/sse';
 import type { ContextStore } from '@/server/domain/context/context.store';
 import type { HistoryStore } from '@/server/domain/history/history.store';
 import type {
+  AIProvider,
   ProviderFunctionCall,
+  ProviderToolDecl,
   ProviderToolResultMessage,
   ProviderUsage,
 } from './providers/provider.types';
@@ -26,12 +28,39 @@ export const DispatchRequestSchema = z.object({
 });
 export type DispatchRequest = z.infer<typeof DispatchRequestSchema>;
 
+export const ResumeRequestSchema = z.object({
+  sessionId: z.string().min(1),
+  messageId: z.string().min(1),
+  providerName: z.string().optional(),
+});
+export type ResumeRequest = z.infer<typeof ResumeRequestSchema>;
+
 export interface DispatchServiceDeps {
   providers: ProviderRegistry;
   historyStore: HistoryStore;
   contextStore: ContextStore;
   subAgentsStore?: SubAgentsStore;
   mcpRegistry?: McpRegistry;
+}
+
+interface RunDispatchLoopOpts {
+  provider: AIProvider;
+  systemInstruction: string;
+  history: Array<{ role: 'user' | 'model'; text: string }>;
+  userMessage: string;
+  pendingAssistantText?: string;
+  thinking: boolean | undefined;
+  mcpTools: ProviderToolDecl[];
+  subAgent?: string;
+}
+
+interface RunDispatchLoopResult {
+  accumText: string;
+  accumThought: string;
+  thinkingStart: number | undefined;
+  dispatchUsage: ProviderUsage | undefined;
+  toolCallsCount: number;
+  error?: { message: string; retryable: boolean };
 }
 
 export class DispatchService {
@@ -67,6 +96,158 @@ export class DispatchService {
     } finally {
       this.inFlightControllers.delete(pendingCall.callId);
     }
+  }
+
+  private async runDispatchLoop(
+    opts: RunDispatchLoopOpts,
+    tracer: ReasoningTracer,
+    sse: SseEmitter,
+    signal: AbortSignal,
+  ): Promise<RunDispatchLoopResult> {
+    let accumText = '';
+    let accumThought = '';
+    let thinkingStart: number | undefined;
+    let dispatchUsage: ProviderUsage | undefined;
+
+    const MAX_TOOL_CALLS_PER_DISPATCH = 10;
+    let pendingToolResults: ProviderToolResultMessage[] = [];
+    let toolCallsCount = 0;
+    let firstIter = true;
+
+    let capturedError: { message: string; retryable: boolean } | undefined;
+
+    try {
+      await tracer.step({
+        type: 'dispatch',
+        title: `Dispatch to ${opts.provider.model}${opts.thinking ? ' (thinking)' : ''}`,
+        run: async () => {
+          while (true) {
+            const providerPendingText = firstIter
+              ? opts.pendingAssistantText
+              : (accumText || undefined);
+            firstIter = false;
+
+            const it = opts.provider.stream(
+              {
+                systemInstruction: opts.systemInstruction,
+                history: opts.history,
+                userMessage: opts.userMessage,
+                thinking: opts.thinking,
+                mcpTools: opts.mcpTools,
+                toolResults: pendingToolResults.length > 0 ? pendingToolResults : undefined,
+                pendingAssistantText: providerPendingText,
+              },
+              signal,
+            );
+            pendingToolResults = [];
+
+            let pendingCall: ProviderFunctionCall | null = null;
+
+            for await (const chunk of it) {
+              if (signal.aborted) break;
+              if (chunk.type === 'text') {
+                accumText += chunk.text;
+                sse.event('text', { chunk: chunk.text });
+              } else if (chunk.type === 'thinking') {
+                if (thinkingStart === undefined) thinkingStart = performance.now();
+                accumThought += chunk.text;
+                sse.event('thinking', { chunk: chunk.text });
+              } else if (chunk.type === 'function_call') {
+                pendingCall = chunk.call;
+                break;
+              } else if (chunk.type === 'done') {
+                dispatchUsage = chunk.usage;
+                break;
+              }
+            }
+
+            if (!pendingCall) break;
+
+            if (toolCallsCount >= MAX_TOOL_CALLS_PER_DISPATCH) {
+              pendingToolResults = [{
+                callId: pendingCall.callId,
+                qualifiedName: pendingCall.qualifiedName,
+                ok: false,
+                error: 'Max tool calls per dispatch exceeded',
+              }];
+              pendingCall = null;
+              continue;
+            }
+            toolCallsCount += 1;
+
+            sse.event('tool_call_request', pendingCall);
+            const policy = this.deps.mcpRegistry?.policy(pendingCall.qualifiedName) ?? { autoApprove: false };
+            const decision: 'approve' | 'reject' = policy.autoApprove
+              ? 'approve'
+              : await (this.deps.mcpRegistry?.awaitDecision(pendingCall.callId, 60_000) ?? Promise.resolve('reject' as const))
+                  .catch(() => 'reject' as const);
+
+            const t0 = performance.now();
+            let toolResult: McpToolResult;
+            let progressNote = '';
+            if (decision === 'reject') {
+              toolResult = { ok: false, error: 'Rejected by user' };
+            } else if (!this.deps.mcpRegistry) {
+              toolResult = { ok: false, error: 'No MCP registry configured' };
+            } else {
+              const executed = await this.executeToolCall(pendingCall, sse);
+              toolResult = executed.result;
+              progressNote = executed.progressNote;
+            }
+            const durationMs = Math.round(performance.now() - t0);
+
+            sse.event('tool_call_result', { id: pendingCall.callId, ...toolResult });
+
+            tracer.pushExternal({
+              type: 'tool_call',
+              title: `Tool: ${pendingCall.qualifiedName}`,
+              content: toolResult.ok
+                ? `executed ${pendingCall.qualifiedName}`
+                : `tool failed: ${toolResult.error}`,
+              durationMs,
+              toolCall: {
+                id: pendingCall.callId,
+                qualifiedName: pendingCall.qualifiedName,
+                args: pendingCall.args,
+                result: toolResult.ok ? toolResult.output : undefined,
+                error: toolResult.ok ? undefined : toolResult.error,
+                durationMs,
+                progressNote: progressNote || undefined,
+              },
+            });
+
+            pendingToolResults = [{
+              callId: pendingCall.callId,
+              qualifiedName: pendingCall.qualifiedName,
+              ok: toolResult.ok,
+              output: toolResult.ok ? toolResult.output : undefined,
+              error: toolResult.ok ? undefined : toolResult.error,
+            }];
+            pendingCall = null;
+          }
+
+          return {
+            content: `${accumText.length} chars streamed${
+              accumThought.length > 0 ? `, ${accumThought.length} chars thinking` : ''
+            }${toolCallsCount > 0 ? `, ${toolCallsCount} tool calls` : ''}`,
+            tokens: dispatchUsage?.totalTokens,
+            subAgent: opts.subAgent ?? undefined,
+            result: null,
+          };
+        },
+      });
+    } catch (e) {
+      capturedError = classifyError(e);
+    }
+
+    return {
+      accumText,
+      accumThought,
+      thinkingStart,
+      dispatchUsage,
+      toolCallsCount,
+      error: capturedError,
+    };
   }
 
   async handle(
@@ -180,132 +361,26 @@ export class DispatchService {
       timestamp: Date.now(),
     });
 
-    let accumText = '';
-    let accumThought = '';
-    let thinkingStart: number | undefined;
-    let dispatchUsage: ProviderUsage | undefined;
+    const loopResult = await this.runDispatchLoop(
+      {
+        provider,
+        systemInstruction: assembled.systemInstruction,
+        history: prior.map((m) => ({ role: m.role, text: m.text })),
+        userMessage: assembled.message,
+        pendingAssistantText: undefined,
+        thinking,
+        mcpTools: assembled.mcpTools,
+        subAgent: assembled.subAgent ?? undefined,
+      },
+      tracer,
+      sse,
+      signal,
+    );
 
-    const MAX_TOOL_CALLS_PER_DISPATCH = 10;
-    let pendingToolResults: ProviderToolResultMessage[] = [];
-    let toolCallsCount = 0;
+    const { accumText, accumThought, thinkingStart, dispatchUsage } = loopResult;
 
-    try {
-      await tracer.step({
-        type: 'dispatch',
-        title: `Dispatch to ${provider.model}${thinking ? ' (thinking)' : ''}`,
-        run: async () => {
-          while (true) {
-            const it = provider.stream(
-              {
-                systemInstruction: assembled.systemInstruction,
-                history: prior.map((m) => ({ role: m.role, text: m.text })),
-                userMessage: assembled.message,
-                thinking,
-                mcpTools: assembled.mcpTools,
-                toolResults: pendingToolResults.length > 0 ? pendingToolResults : undefined,
-                pendingAssistantText: accumText || undefined,
-              },
-              signal,
-            );
-            pendingToolResults = [];
-
-            let pendingCall: ProviderFunctionCall | null = null;
-
-            for await (const chunk of it) {
-              if (signal.aborted) break;
-              if (chunk.type === 'text') {
-                accumText += chunk.text;
-                sse.event('text', { chunk: chunk.text });
-              } else if (chunk.type === 'thinking') {
-                if (thinkingStart === undefined) thinkingStart = performance.now();
-                accumThought += chunk.text;
-                sse.event('thinking', { chunk: chunk.text });
-              } else if (chunk.type === 'function_call') {
-                pendingCall = chunk.call;
-                break;
-              } else if (chunk.type === 'done') {
-                dispatchUsage = chunk.usage;
-                break;
-              }
-            }
-
-            if (!pendingCall) break;
-
-            if (toolCallsCount >= MAX_TOOL_CALLS_PER_DISPATCH) {
-              pendingToolResults = [{
-                callId: pendingCall.callId,
-                qualifiedName: pendingCall.qualifiedName,
-                ok: false,
-                error: 'Max tool calls per dispatch exceeded',
-              }];
-              pendingCall = null;
-              continue;
-            }
-            toolCallsCount += 1;
-
-            sse.event('tool_call_request', pendingCall);
-            const policy = this.deps.mcpRegistry?.policy(pendingCall.qualifiedName) ?? { autoApprove: false };
-            const decision: 'approve' | 'reject' = policy.autoApprove
-              ? 'approve'
-              : await (this.deps.mcpRegistry?.awaitDecision(pendingCall.callId, 60_000) ?? Promise.resolve('reject' as const))
-                  .catch(() => 'reject' as const);
-
-            const t0 = performance.now();
-            let toolResult: McpToolResult;
-            let progressNote = '';
-            if (decision === 'reject') {
-              toolResult = { ok: false, error: 'Rejected by user' };
-            } else if (!this.deps.mcpRegistry) {
-              toolResult = { ok: false, error: 'No MCP registry configured' };
-            } else {
-              const executed = await this.executeToolCall(pendingCall, sse);
-              toolResult = executed.result;
-              progressNote = executed.progressNote;
-            }
-            const durationMs = Math.round(performance.now() - t0);
-
-            sse.event('tool_call_result', { id: pendingCall.callId, ...toolResult });
-
-            tracer.pushExternal({
-              type: 'tool_call',
-              title: `Tool: ${pendingCall.qualifiedName}`,
-              content: toolResult.ok
-                ? `executed ${pendingCall.qualifiedName}`
-                : `tool failed: ${toolResult.error}`,
-              durationMs,
-              toolCall: {
-                id: pendingCall.callId,
-                qualifiedName: pendingCall.qualifiedName,
-                args: pendingCall.args,
-                result: toolResult.ok ? toolResult.output : undefined,
-                error: toolResult.ok ? undefined : toolResult.error,
-                durationMs,
-                progressNote: progressNote || undefined,
-              },
-            });
-
-            pendingToolResults = [{
-              callId: pendingCall.callId,
-              qualifiedName: pendingCall.qualifiedName,
-              ok: toolResult.ok,
-              output: toolResult.ok ? toolResult.output : undefined,
-              error: toolResult.ok ? undefined : toolResult.error,
-            }];
-            pendingCall = null;
-          }
-
-          return {
-            content: `${accumText.length} chars streamed${
-              accumThought.length > 0 ? `, ${accumThought.length} chars thinking` : ''
-            }${toolCallsCount > 0 ? `, ${toolCallsCount} tool calls` : ''}`,
-            tokens: dispatchUsage?.totalTokens,
-            subAgent: assembled.subAgent ?? undefined,
-            result: null,
-          };
-        },
-      });
-    } catch (e) {
-      const { message: msg, retryable } = classifyError(e);
+    if (loopResult.error) {
+      const { message: msg, retryable } = loopResult.error;
       sse.event('error', { message: msg, retryable });
       await historyStore.append(sessionId, {
         id: randomUUID(),
@@ -325,6 +400,168 @@ export class DispatchService {
       tracer.pushExternal({
         type: 'thinking',
         title: 'Gemini thoughts',
+        content: accumThought,
+        durationMs: Math.round(performance.now() - thinkingStart),
+      });
+    }
+
+    await tracer.step({
+      type: 'validation',
+      title: 'Validate response',
+      run: async () => {
+        const ok = accumText.length > 0;
+        const tokens = dispatchUsage?.totalTokens;
+        return {
+          content: `response length ${accumText.length}${
+            tokens !== undefined ? `, tokens ${tokens}` : ''
+          }${ok ? '' : ' (empty)'}`,
+          tokens,
+          result: null,
+        };
+      },
+    });
+
+    const interrupted = signal.aborted;
+    const reasoningSteps = tracer.finalSteps();
+
+    await historyStore.append(sessionId, {
+      id: randomUUID(),
+      role: 'model',
+      text: accumText,
+      timestamp: Date.now(),
+      model: provider.model,
+      interrupted,
+      reasoningSteps,
+    });
+
+    sse.event('done', { model: provider.model, interrupted, reasoningSteps });
+    sse.end();
+  }
+
+  async resume(
+    opts: { sessionId: string; messageId: string; providerName?: string },
+    sse: SseEmitter,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const { sessionId, messageId } = opts;
+    const { historyStore, contextStore } = this.deps;
+
+    const sessionRecord = await historyStore.readRecord(sessionId);
+    if (!sessionRecord) {
+      sse.event('error', { message: `Session ${sessionId} not found`, retryable: false });
+      sse.end();
+      return;
+    }
+
+    const idx = sessionRecord.messages.findIndex((m) => m.id === messageId);
+    if (idx === -1) {
+      sse.event('error', { message: `Message ${messageId} not found`, retryable: false });
+      sse.end();
+      return;
+    }
+
+    const target = sessionRecord.messages[idx];
+    if (target.role !== 'model') {
+      sse.event('error', { message: 'Cannot resume a user message', retryable: false });
+      sse.end();
+      return;
+    }
+    if (!target.interrupted) {
+      sse.event('error', { message: 'Message is not interrupted', retryable: false });
+      sse.end();
+      return;
+    }
+    if (target.text.length === 0) {
+      sse.event('error', { message: 'Cannot resume an empty interrupted message', retryable: false });
+      sse.end();
+      return;
+    }
+
+    const requestedName = opts.providerName;
+    const sessionName = sessionRecord.providerName;
+    const fallbackName = this.deps.providers.defaultName();
+    const providerName = requestedName ?? sessionName ?? fallbackName;
+    if (!providerName) {
+      sse.event('error', { message: 'No provider available', retryable: false });
+      sse.end();
+      return;
+    }
+    const provider = this.deps.providers.get(providerName);
+    if (!provider) {
+      sse.event('error', { message: `Provider '${providerName}' not available`, retryable: false });
+      sse.end();
+      return;
+    }
+
+    // History context: everything BEFORE the interrupted message.
+    const priorMessages = sessionRecord.messages.slice(0, idx);
+
+    const tracer = new ReasoningTracer(sse);
+
+    let context;
+    try {
+      context = await tracer.step({
+        type: 'context_fetch',
+        title: 'Read context',
+        run: async () => {
+          const ctx = await contextStore.read();
+          return {
+            content: `loaded systemInstruction (${ctx.systemInstruction.length} chars)`,
+            result: ctx,
+          };
+        },
+      });
+    } catch {
+      sse.event('error', { message: 'Context load failed', retryable: true });
+      sse.end();
+      return;
+    }
+
+    const liveTools = this.deps.mcpRegistry?.listLiveTools() ?? [];
+    const mcpToolDecls = liveTools.map((t) => ({
+      qualifiedName: t.qualifiedName,
+      description: t.tool.description,
+      schema: t.tool.inputSchema,
+    }));
+
+    const loopResult = await this.runDispatchLoop(
+      {
+        provider,
+        systemInstruction: context.systemInstruction,
+        history: priorMessages.map((m) => ({ role: m.role, text: m.text })),
+        userMessage: '',
+        pendingAssistantText: target.text,
+        thinking: false,
+        mcpTools: mcpToolDecls,
+      },
+      tracer,
+      sse,
+      signal,
+    );
+
+    const { accumText, accumThought, thinkingStart, dispatchUsage } = loopResult;
+
+    if (loopResult.error) {
+      const { message: msg, retryable } = loopResult.error;
+      sse.event('error', { message: msg, retryable });
+      await historyStore.append(sessionId, {
+        id: randomUUID(),
+        role: 'model',
+        text: accumText,
+        timestamp: Date.now(),
+        model: provider.model,
+        error: msg,
+        retryable,
+        reasoningSteps: tracer.finalSteps(),
+      });
+      sse.end();
+      return;
+    }
+
+    if (accumThought.length > 0 && thinkingStart !== undefined) {
+      tracer.pushExternal({
+        type: 'thinking',
+        title: 'Assistant thoughts',
         content: accumThought,
         durationMs: Math.round(performance.now() - thinkingStart),
       });
