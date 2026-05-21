@@ -1,7 +1,10 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { createApp } from './app';
 import { loadConfig } from './config';
 import { openDatabase } from './db/database';
