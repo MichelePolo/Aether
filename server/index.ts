@@ -33,7 +33,7 @@ async function bootstrap() {
 
   const contextStore = new ContextStore(db);
   const historyStore = new HistoryStore(db);
-  const profilesStore = new ProfilesStore(path.join(cfg.dataDir, 'profiles.json'));
+  const profilesStore = new ProfilesStore(db);
   const subAgentsStore = new SubAgentsStore(path.join(cfg.dataDir, 'subagents.json'));
 
   const mcpRegistry = new McpRegistry(contextStore);

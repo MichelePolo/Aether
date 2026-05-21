@@ -1,8 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import { createApp } from '@/server/app';
 import { ContextStore } from '@/server/domain/context/context.store';
 import { HistoryStore } from '@/server/domain/history/history.store';
@@ -17,25 +14,22 @@ const validContext = {
   mcpServers: [],
 };
 
-let dir: string;
 let db: DatabaseHandle;
 let contextStore: ContextStore;
 let historyStore: HistoryStore;
 let profilesStore: ProfilesStore;
 let app: ReturnType<typeof createApp>;
 
-beforeEach(async () => {
-  dir = await mkdtemp(path.join(tmpdir(), 'aether-prof-routes-'));
+beforeEach(() => {
   db = makeTestDb();
   contextStore = new ContextStore(db);
   historyStore = new HistoryStore(db);
-  profilesStore = new ProfilesStore(path.join(dir, 'profiles.json'));
+  profilesStore = new ProfilesStore(db);
   app = createApp({ contextStore, historyStore, profilesStore });
 });
 
-afterEach(async () => {
+afterEach(() => {
   db.close();
-  await rm(dir, { recursive: true, force: true });
 });
 
 describe('/api/profiles', () => {
