@@ -156,3 +156,44 @@ describe('useUiStore.subAgentEditor', () => {
     expect(useUiStore.getState().editingSubAgentId).toBeNull();
   });
 });
+
+describe('useUiStore.paletteSearch', () => {
+  it('starts in commands mode with empty search state', () => {
+    const s = useUiStore.getState();
+    expect(s.paletteMode).toBe('commands');
+    expect(s.searchQuery).toBe('');
+    expect(s.searchResults).toEqual([]);
+  });
+
+  it('enterSearchMode flips mode to search and clears search state', () => {
+    useUiStore.setState({
+      searchQuery: 'leftover',
+      searchResults: [{ sessionId: 'x', title: 't', updatedAt: 1, hits: [] }],
+    });
+    useUiStore.getState().enterSearchMode();
+    expect(useUiStore.getState().paletteMode).toBe('search');
+    expect(useUiStore.getState().searchQuery).toBe('');
+    expect(useUiStore.getState().searchResults).toEqual([]);
+  });
+
+  it('exitSearchMode flips back to commands and clears results', () => {
+    useUiStore.getState().enterSearchMode();
+    useUiStore.getState().setSearchResults([{ sessionId: 'x', title: 't', updatedAt: 1, hits: [] }]);
+    useUiStore.getState().exitSearchMode();
+    expect(useUiStore.getState().paletteMode).toBe('commands');
+    expect(useUiStore.getState().searchResults).toEqual([]);
+  });
+
+  it('closePalette resets search state', () => {
+    useUiStore.getState().enterSearchMode();
+    useUiStore.getState().setSearchResults([{ sessionId: 'x', title: 't', updatedAt: 1, hits: [] }]);
+    useUiStore.getState().closePalette();
+    expect(useUiStore.getState().paletteMode).toBe('commands');
+    expect(useUiStore.getState().searchResults).toEqual([]);
+  });
+
+  it('setSearchResults stores the array', () => {
+    useUiStore.getState().setSearchResults([{ sessionId: 'a', title: 't', updatedAt: 1, hits: [] }]);
+    expect(useUiStore.getState().searchResults).toHaveLength(1);
+  });
+});
