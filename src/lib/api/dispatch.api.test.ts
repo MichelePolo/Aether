@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/src/test/msw-server';
-import { createStreamingDispatch } from './dispatch.api';
+import { createStreamingDispatch, createResumingDispatch } from './dispatch.api';
 
 function sseChunks(...lines: string[]) {
   const enc = new TextEncoder();
@@ -90,5 +90,45 @@ describe('createStreamingDispatch', () => {
     await expect(
       collect(createStreamingDispatch({ sessionId: 'S', message: 'hi' }, new AbortController().signal)),
     ).rejects.toThrow();
+  });
+});
+
+describe('createResumingDispatch', () => {
+  it('posts to /api/ai/dispatch/resume with the right body', async () => {
+    let received: unknown;
+    server.use(
+      http.post('http://localhost/api/ai/dispatch/resume', async ({ request }) => {
+        received = await request.json();
+        return new HttpResponse(
+          sseChunks('event: done\ndata: {"model":"fake","interrupted":false}\n\n'),
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        );
+      }),
+    );
+    const events = await collect(
+      createResumingDispatch({ sessionId: 'S', messageId: 'M' }, new AbortController().signal),
+    );
+    expect(received).toEqual({ sessionId: 'S', messageId: 'M' });
+    expect(events.map((e) => e.event)).toEqual(['done']);
+  });
+
+  it('forwards providerName when provided', async () => {
+    let received: unknown;
+    server.use(
+      http.post('http://localhost/api/ai/dispatch/resume', async ({ request }) => {
+        received = await request.json();
+        return new HttpResponse(
+          sseChunks('event: done\ndata: {"model":"fake","interrupted":false}\n\n'),
+          { headers: { 'Content-Type': 'text/event-stream' } },
+        );
+      }),
+    );
+    await collect(
+      createResumingDispatch(
+        { sessionId: 'S', messageId: 'M', providerName: 'fake:default' },
+        new AbortController().signal,
+      ),
+    );
+    expect(received).toEqual({ sessionId: 'S', messageId: 'M', providerName: 'fake:default' });
   });
 });
