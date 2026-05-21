@@ -7,6 +7,8 @@ import { createApp } from '@/server/app';
 import { ContextStore } from '@/server/domain/context/context.store';
 import { HistoryStore } from '@/server/domain/history/history.store';
 import { ProfilesStore } from '@/server/domain/profiles/profiles.store';
+import { makeTestDb } from '@/server/test/test-db';
+import type { DatabaseHandle } from '@/server/db/database';
 
 const validContext = {
   systemInstruction: 'sys',
@@ -16,6 +18,7 @@ const validContext = {
 };
 
 let dir: string;
+let db: DatabaseHandle;
 let contextStore: ContextStore;
 let historyStore: HistoryStore;
 let profilesStore: ProfilesStore;
@@ -23,13 +26,15 @@ let app: ReturnType<typeof createApp>;
 
 beforeEach(async () => {
   dir = await mkdtemp(path.join(tmpdir(), 'aether-prof-routes-'));
-  contextStore = new ContextStore(path.join(dir, 'context.json'));
+  db = makeTestDb();
+  contextStore = new ContextStore(db);
   historyStore = new HistoryStore(path.join(dir, 'sessions.json'));
   profilesStore = new ProfilesStore(path.join(dir, 'profiles.json'));
   app = createApp({ contextStore, historyStore, profilesStore });
 });
 
 afterEach(async () => {
+  db.close();
   await rm(dir, { recursive: true, force: true });
 });
 

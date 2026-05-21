@@ -8,6 +8,7 @@ import { HistoryStore } from '@/server/domain/history/history.store';
 import { ContextStore } from '@/server/domain/context/context.store';
 import { createCollectorEmitter } from '@/server/test/sse-collector';
 import { buildSingleProviderRegistry } from '@/server/test/registry.test-helper';
+import { makeTestDb } from '@/server/test/test-db';
 
 let dir: string;
 
@@ -34,7 +35,7 @@ describe('DispatchService', () => {
       totalTokens: opts.totalTokens,
     });
     const historyStore = new HistoryStore(path.join(dir, 'sessions.json'));
-    const contextStore = new ContextStore(path.join(dir, 'context.json'));
+    const contextStore = new ContextStore(makeTestDb());
     const providers = await buildSingleProviderRegistry(provider);
     const service = new DispatchService({ providers, historyStore, contextStore });
     const session = await historyStore.createEmpty();
@@ -113,7 +114,7 @@ describe('DispatchService', () => {
       }
     }
     const historyStore = new HistoryStore(path.join(dir, 'sessions.json'));
-    const contextStore = new ContextStore(path.join(dir, 'context.json'));
+    const contextStore = new ContextStore(makeTestDb());
     const providers = await buildSingleProviderRegistry(new FailingProvider() as unknown as import('./providers/provider.types').AIProvider);
     const service = new DispatchService({
       providers,

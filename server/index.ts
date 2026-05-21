@@ -4,6 +4,8 @@ import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { createApp } from './app';
 import { loadConfig } from './config';
+import { openDatabase } from './db/database';
+import { applyMigrations } from './db/migrate';
 import { ContextStore } from './domain/context/context.store';
 import { HistoryStore } from './domain/history/history.store';
 import { ProfilesStore } from './domain/profiles/profiles.store';
@@ -23,7 +25,13 @@ dotenv.config();
 async function bootstrap() {
   const cfg = loadConfig();
 
-  const contextStore = new ContextStore(path.join(cfg.dataDir, 'context.json'));
+  const db = openDatabase(path.join(cfg.dataDir, 'aether.sqlite'));
+  const migrated = applyMigrations(db, path.join(__dirname, 'db', 'migrations'));
+  if (migrated.applied.length > 0) {
+    console.log(`[db] applied migrations: ${migrated.applied.join(', ')}`);
+  }
+
+  const contextStore = new ContextStore(db);
   const historyStore = new HistoryStore(path.join(cfg.dataDir, 'sessions.json'));
   const profilesStore = new ProfilesStore(path.join(cfg.dataDir, 'profiles.json'));
   const subAgentsStore = new SubAgentsStore(path.join(cfg.dataDir, 'subagents.json'));

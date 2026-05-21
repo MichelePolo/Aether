@@ -6,20 +6,25 @@ import path from 'node:path';
 import { createApp } from '@/server/app';
 import { ContextStore } from '@/server/domain/context/context.store';
 import { HistoryStore } from '@/server/domain/history/history.store';
+import { makeTestDb } from '@/server/test/test-db';
+import type { DatabaseHandle } from '@/server/db/database';
 
 let dir: string;
+let db: DatabaseHandle;
 let contextStore: ContextStore;
 let historyStore: HistoryStore;
 let app: ReturnType<typeof createApp>;
 
 beforeEach(async () => {
   dir = await mkdtemp(path.join(tmpdir(), 'aether-hist-routes-'));
-  contextStore = new ContextStore(path.join(dir, 'context.json'));
+  db = makeTestDb();
+  contextStore = new ContextStore(db);
   historyStore = new HistoryStore(path.join(dir, 'sessions.json'));
   app = createApp({ contextStore, historyStore });
 });
 
 afterEach(async () => {
+  db.close();
   await rm(dir, { recursive: true, force: true });
 });
 

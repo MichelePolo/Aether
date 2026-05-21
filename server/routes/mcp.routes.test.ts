@@ -1,19 +1,17 @@
 // server/routes/mcp.routes.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import express from 'express';
 import request from 'supertest';
 import { createApp } from '@/server/app';
 import { ContextStore } from '@/server/domain/context/context.store';
 import { McpRegistry } from '@/server/domain/mcp/registry';
 import { createMcpRoutes } from '@/server/routes/mcp.routes';
+import { makeTestDb } from '@/server/test/test-db';
 import type { DispatchService } from '@/server/domain/dispatch/dispatch.service';
 
 async function makeApp() {
-  const dir = mkdtempSync(path.join(tmpdir(), 'aether-mcp-routes-'));
-  const contextStore = new ContextStore(path.join(dir, 'context.json'));
+  const db = makeTestDb();
+  const contextStore = new ContextStore(db);
   await contextStore.bulkOverwrite({
     systemInstruction: '',
     skills: [],
@@ -117,8 +115,8 @@ describe('mcp routes — refresh + cancel (slice 10)', () => {
   });
 
   it('POST /api/mcp/cancel-call aborts the matching in-flight controller', async () => {
-    const dir = mkdtempSync(path.join(tmpdir(), 'aether-mcp-cancel-'));
-    const contextStore = new ContextStore(path.join(dir, 'context.json'));
+    const db = makeTestDb();
+    const contextStore = new ContextStore(db);
     await contextStore.bulkOverwrite({
       systemInstruction: '',
       skills: [],

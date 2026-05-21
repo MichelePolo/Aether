@@ -13,18 +13,23 @@ import { SubAgentsStore } from '@/server/domain/subagents/subagents.store';
 import { McpRegistry } from '@/server/domain/mcp/registry';
 import { collectSseEvents } from '@/server/test/sse-collector';
 import { buildSingleProviderRegistry } from '@/server/test/registry.test-helper';
+import { makeTestDb } from '@/server/test/test-db';
+import type { DatabaseHandle } from '@/server/db/database';
 
 let dir: string;
+let db: DatabaseHandle;
 let contextStore: ContextStore;
 let historyStore: HistoryStore;
 
 beforeEach(async () => {
   dir = await mkdtemp(path.join(tmpdir(), 'aether-disp-routes-'));
-  contextStore = new ContextStore(path.join(dir, 'context.json'));
+  db = makeTestDb();
+  contextStore = new ContextStore(db);
   historyStore = new HistoryStore(path.join(dir, 'sessions.json'));
 });
 
 afterEach(async () => {
+  db.close();
   await rm(dir, { recursive: true, force: true });
 });
 
@@ -190,7 +195,7 @@ describe('dispatch with MCP tool call (slice 7)', () => {
 
   it('emits tool_call_request, tool_call_result, and tracer tool_call step (auto-approve path)', async () => {
     mcpDir = mkdtempSync(path.join(tmpdir(), 'aether-dispatch-mcp-'));
-    const mcpContextStore = new ContextStore(path.join(mcpDir, 'context.json'));
+    const mcpContextStore = new ContextStore(makeTestDb());
 
     // Add a mock MCP server config to the context store
     const srv = await mcpContextStore.addMcpServer({
@@ -267,7 +272,7 @@ describe('dispatch with MCP tool call (slice 7)', () => {
 
   it('emits tool_call_started between tool_call_request and tool_call_result', async () => {
     mcpDir = mkdtempSync(path.join(tmpdir(), 'aether-dispatch-mcp-started-'));
-    const mcpContextStore = new ContextStore(path.join(mcpDir, 'context.json'));
+    const mcpContextStore = new ContextStore(makeTestDb());
 
     const srv = await mcpContextStore.addMcpServer({
       name: 'mock',
