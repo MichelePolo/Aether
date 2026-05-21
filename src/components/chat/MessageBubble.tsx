@@ -1,6 +1,7 @@
 import ReactMarkdown from 'react-markdown';
 import { useChatStore } from '@/src/stores/chat.store';
 import { useUiStore } from '@/src/stores/ui.store';
+import { useStreamingDispatch } from '@/src/hooks/useStreamingDispatch';
 import { StreamingIndicator } from './StreamingIndicator';
 import { cn } from '@/src/lib/cn';
 
@@ -12,9 +13,11 @@ export interface MessageBubbleProps {
 export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
   const message = useChatStore((s) => s.messages.find((m) => m.id === id));
   const isStreaming = useChatStore((s) => s.streamingId === id);
+  const isAnyStreaming = useChatStore((s) => s.streamingId !== null);
   const isThinkingNow = useChatStore(
     (s) => s.streamingId === id && s.currentReasoning.thinkingText.length > 0,
   );
+  const { resume } = useStreamingDispatch();
 
   if (!message) return null;
 
@@ -76,8 +79,23 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
         )}
 
         {!message.error && message.interrupted && (
-          <div className="mt-2 pt-2 border-t border-border-subtle text-zinc-500 text-xs">
-            ⏸ Interrotto dall&apos;utente
+          <div className="mt-2 pt-2 border-t border-border-subtle flex items-center justify-between gap-2 text-zinc-500 text-xs">
+            <span>
+              ⏸ Interrotto · ~{Math.ceil(message.text.length / 4)} token
+            </span>
+            {message.text.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  resume(message.id).catch(() => {});
+                }}
+                disabled={isAnyStreaming}
+                aria-label="Riprendi la risposta"
+                className="px-2 py-0.5 text-[10px] uppercase tracking-widest font-bold rounded bg-accent/20 hover:bg-accent/30 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Riprendi
+              </button>
+            )}
           </div>
         )}
       </div>
