@@ -28,7 +28,7 @@ beforeEach(async () => {
   dir = await mkdtemp(path.join(tmpdir(), 'aether-prof-routes-'));
   db = makeTestDb();
   contextStore = new ContextStore(db);
-  historyStore = new HistoryStore(path.join(dir, 'sessions.json'));
+  historyStore = new HistoryStore(db);
   profilesStore = new ProfilesStore(path.join(dir, 'profiles.json'));
   app = createApp({ contextStore, historyStore, profilesStore });
 });

@@ -1,31 +1,29 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import { HistoryStore } from './history.store';
+import { makeTestDb } from '@/server/test/test-db';
+import type { DatabaseHandle } from '@/server/db/database';
+import type { Message } from './history.types';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-let dir: string;
+let db: DatabaseHandle;
 let store: HistoryStore;
-let filePath: string;
 
-beforeEach(async () => {
-  dir = await mkdtemp(path.join(tmpdir(), 'aether-history-'));
-  filePath = path.join(dir, 'sessions.json');
-  store = new HistoryStore(filePath);
+beforeEach(() => {
+  db = makeTestDb();
+  store = new HistoryStore(db);
 });
 
-afterEach(async () => {
-  await rm(dir, { recursive: true, force: true });
+afterEach(() => {
+  db.close();
 });
 
 describe('HistoryStore', () => {
-  it('listSessions returns [] on empty file', async () => {
+  it('listSessions returns [] on a fresh DB', async () => {
     expect(await store.listSessions()).toEqual([]);
   });
 
-  it('createEmpty produces a meta with UUID + 0 messages', async () => {
+  it('createEmpty produces a meta with UUID + matching createdAt/updatedAt', async () => {
     const meta = await store.createEmpty();
     expect(meta.id).toMatch(UUID_RE);
     expect(meta.title).toBe('');
@@ -54,6 +52,15 @@ describe('HistoryStore', () => {
     expect(s.title).toBe('ciao mondo');
   });
 
+  it('append() infers title from the first user message (long text)', async () => {
+    const s = await store.createEmpty();
+    const msg: Message = { id: 'm1', role: 'user', text: 'Hello world this is the prompt', timestamp: Date.now() };
+    await store.append(s.id, msg);
+    const list = await store.listSessions();
+    expect(list[0].title).toBeTruthy();
+    expect(list[0].title).toContain('Hello');
+  });
+
   it('append does NOT re-title after first message', async () => {
     const meta = await store.createEmpty();
     await store.append(meta.id, { id: 'a', role: 'user', text: 'first', timestamp: 1 });
@@ -70,10 +77,121 @@ describe('HistoryStore', () => {
     expect(list.find((x) => x.id === meta.id)!.title).toBe('');
   });
 
+  it('append() preserves an explicitly-set title', async () => {
+    const s = await store.createEmpty();
+    await store.rename(s.id, 'My session');
+    await store.append(s.id, { id: 'm1', role: 'user', text: 'q', timestamp: Date.now() });
+    const list = await store.listSessions();
+    expect(list[0].title).toBe('My session');
+  });
+
   it('append throws NotFoundError for unknown sessionId', async () => {
     await expect(
       store.append('nope', { id: 'a', role: 'user', text: 'hi', timestamp: 1 }),
     ).rejects.toThrow();
+  });
+
+  it('append() updates updatedAt to the message timestamp', async () => {
+    const s = await store.createEmpty();
+    const later = s.createdAt + 5000;
+    await store.append(s.id, { id: 'm1', role: 'user', text: 'q', timestamp: later });
+    const list = await store.listSessions();
+    expect(list[0].updatedAt).toBe(later);
+  });
+
+  it('append() round-trips reasoningSteps + tool_call traces', async () => {
+    const s = await store.createEmpty();
+    const msg: Message = {
+      id: 'm1',
+      role: 'model',
+      text: 'reply',
+      timestamp: Date.now(),
+      reasoningSteps: [
+        {
+          id: 'r1',
+          type: 'context_fetch',
+          title: 'context',
+          content: 'loaded',
+          tokens: 100,
+          durationMs: 12,
+          timestamp: Date.now(),
+        },
+        {
+          id: 'r2',
+          type: 'tool_call',
+          title: 'Tool: mock.echo',
+          content: 'used mock.echo',
+          durationMs: 5,
+          timestamp: Date.now(),
+          toolCall: {
+            id: 'TC1',
+            qualifiedName: 'mock.echo',
+            args: { message: 'hi' },
+            result: { message: 'hi' },
+            durationMs: 5,
+            progressNote: '1/1',
+          },
+        },
+      ],
+    };
+    await store.append(s.id, msg);
+    const messages = await store.read(s.id);
+    expect(messages).toHaveLength(1);
+    const m = messages![0];
+    expect(m.reasoningSteps).toHaveLength(2);
+    expect(m.reasoningSteps![0].tokens).toBe(100);
+    expect(m.reasoningSteps![1].toolCall).toEqual({
+      id: 'TC1',
+      qualifiedName: 'mock.echo',
+      args: { message: 'hi' },
+      result: { message: 'hi' },
+      durationMs: 5,
+      progressNote: '1/1',
+    });
+  });
+
+  it('append+read preserves multiple reasoningSteps (no tool calls)', async () => {
+    const meta = await store.createEmpty();
+    await store.append(meta.id, {
+      id: 'u', role: 'user', text: 'hi', timestamp: 1,
+    });
+    await store.append(meta.id, {
+      id: 'm',
+      role: 'model',
+      text: 'pong',
+      timestamp: 2,
+      model: 'fake-1',
+      reasoningSteps: [
+        { id: 's1', type: 'context_fetch', title: 't', content: 'c', timestamp: 1, durationMs: 5 },
+        { id: 's2', type: 'dispatch', title: 't2', content: 'c2', timestamp: 2, tokens: 42, durationMs: 100 },
+      ],
+    });
+    const msgs = await store.read(meta.id);
+    const model = msgs!.find((m) => m.role === 'model')!;
+    expect(model.reasoningSteps).toHaveLength(2);
+    expect(model.reasoningSteps![0]).toMatchObject({ type: 'context_fetch', durationMs: 5 });
+    expect(model.reasoningSteps![1]).toMatchObject({ type: 'dispatch', tokens: 42 });
+  });
+
+  it('append() round-trips optional Message fields (model, interrupted, error, retryable)', async () => {
+    const s = await store.createEmpty();
+    await store.append(s.id, {
+      id: 'm1',
+      role: 'model',
+      text: '',
+      timestamp: Date.now(),
+      model: 'gpt-5',
+      interrupted: true,
+      error: 'boom',
+      retryable: false,
+    });
+    const messages = await store.read(s.id);
+    expect(messages![0]).toMatchObject({
+      model: 'gpt-5',
+      interrupted: true,
+      error: 'boom',
+      retryable: false,
+    });
   });
 
   it('rename updates title; throws NotFound for missing id', async () => {
@@ -101,6 +219,38 @@ describe('HistoryStore', () => {
     await expect(store.delete(meta.id)).rejects.toThrow();
   });
 
+  it('delete() cascades to messages, reasoning_steps, tool_call_traces', async () => {
+    const s = await store.createEmpty();
+    await store.append(s.id, {
+      id: 'm1',
+      role: 'user',
+      text: 'q',
+      timestamp: Date.now(),
+      reasoningSteps: [{
+        id: 'r1',
+        type: 'tool_call',
+        title: 'T',
+        content: '',
+        durationMs: 1,
+        timestamp: Date.now(),
+        toolCall: { id: 'TC1', qualifiedName: 'a.b', args: {}, durationMs: 1 },
+      }],
+    });
+    await store.delete(s.id);
+    expect((db.prepare('SELECT COUNT(*) AS n FROM messages').get() as { n: number }).n).toBe(0);
+    expect((db.prepare('SELECT COUNT(*) AS n FROM reasoning_steps').get() as { n: number }).n).toBe(0);
+    expect((db.prepare('SELECT COUNT(*) AS n FROM tool_call_traces').get() as { n: number }).n).toBe(0);
+  });
+
+  it('readRecord() returns the full record including messages', async () => {
+    const s = await store.createEmpty({ providerName: 'fake:default' });
+    await store.append(s.id, { id: 'm1', role: 'user', text: 'q', timestamp: Date.now() });
+    const rec = await store.readRecord(s.id);
+    expect(rec).not.toBeNull();
+    expect(rec!.providerName).toBe('fake:default');
+    expect(rec!.messages).toHaveLength(1);
+  });
+
   it('listSessions orders by updatedAt desc', async () => {
     const a = await store.createEmpty();
     await new Promise((r) => setTimeout(r, 5));
@@ -111,53 +261,6 @@ describe('HistoryStore', () => {
     const list = await store.listSessions();
     expect(list[0].id).toBe(a.id);   // updated last
     expect(list[1].id).toBe(b.id);
-  });
-
-  it('migrate-on-load idempotently converts legacy default key', async () => {
-    // Pre-populate disk with legacy V1 shape
-    await mkdir(path.dirname(filePath), { recursive: true });
-    await writeFile(
-      filePath,
-      JSON.stringify({ default: [{ id: 'a', role: 'user', text: 'legacy', timestamp: 1 }] }),
-    );
-    const list = await store.listSessions();
-    expect(list).toHaveLength(1);
-    expect(list[0].id).toMatch(UUID_RE);
-    expect(list[0].title).toBe('legacy');
-    // Second call should still return the same session (idempotent)
-    const list2 = await store.listSessions();
-    expect(list2).toEqual(list);
-  });
-
-  it('persists across instances (file-backed)', async () => {
-    const meta = await store.createEmpty();
-    await store.append(meta.id, { id: 'p', role: 'user', text: 'persist', timestamp: 1 });
-    const store2 = new HistoryStore(filePath);
-    const msgs = await store2.read(meta.id);
-    expect(msgs).toEqual([{ id: 'p', role: 'user', text: 'persist', timestamp: 1 }]);
-  });
-
-  it('append+read preserves reasoningSteps', async () => {
-    const meta = await store.createEmpty();
-    await store.append(meta.id, {
-      id: 'u', role: 'user', text: 'hi', timestamp: 1,
-    });
-    await store.append(meta.id, {
-      id: 'm',
-      role: 'model',
-      text: 'pong',
-      timestamp: 2,
-      model: 'fake-1',
-      reasoningSteps: [
-        { id: 's1', type: 'context_fetch', title: 't', content: 'c', timestamp: 1, durationMs: 5 },
-        { id: 's2', type: 'dispatch', title: 't2', content: 'c2', timestamp: 2, tokens: 42, durationMs: 100 },
-      ],
-    });
-    const msgs = await store.read(meta.id);
-    const model = msgs!.find((m) => m.role === 'model')!;
-    expect(model.reasoningSteps).toHaveLength(2);
-    expect(model.reasoningSteps![0]).toMatchObject({ type: 'context_fetch', durationMs: 5 });
-    expect(model.reasoningSteps![1]).toMatchObject({ type: 'dispatch', tokens: 42 });
   });
 });
 

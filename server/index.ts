@@ -32,7 +32,7 @@ async function bootstrap() {
   }
 
   const contextStore = new ContextStore(db);
-  const historyStore = new HistoryStore(path.join(cfg.dataDir, 'sessions.json'));
+  const historyStore = new HistoryStore(db);
   const profilesStore = new ProfilesStore(path.join(cfg.dataDir, 'profiles.json'));
   const subAgentsStore = new SubAgentsStore(path.join(cfg.dataDir, 'subagents.json'));
 
