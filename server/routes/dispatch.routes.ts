@@ -26,5 +26,35 @@ export function createDispatchRoutes(dispatcher: DispatchService): Router {
     }
   });
 
+  router.post('/resume', async (req: Request, res: Response) => {
+    const sse = createSseEmitter(res);
+    const controller = new AbortController();
+    res.on('close', () => {
+      if (!res.writableEnded) controller.abort();
+    });
+    const body = req.body as { sessionId?: unknown; messageId?: unknown; providerName?: unknown };
+    if (typeof body?.sessionId !== 'string' || typeof body?.messageId !== 'string') {
+      sse.event('error', { message: 'Invalid request body', retryable: false });
+      sse.end();
+      return;
+    }
+    try {
+      await dispatcher.resume(
+        {
+          sessionId: body.sessionId,
+          messageId: body.messageId,
+          providerName: typeof body.providerName === 'string' ? body.providerName : undefined,
+        },
+        sse,
+        controller.signal,
+      );
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Internal error';
+      // Route-level catch is for unexpected server bugs / config issues —
+      // not transient network errors. Default to retryable=false.
+      sse.error(message, false);
+    }
+  });
+
   return router;
 }

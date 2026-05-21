@@ -65,6 +65,42 @@ describe('MessageBubble', () => {
     expect(screen.getByText(/Interrotto/i)).toBeInTheDocument();
   });
 
+  it('shows Riprendi button + token estimate when interrupted and text non-empty', () => {
+    // 23 chars / 4 = 5.75 → ceil = 6
+    seed({ id: 'i1', role: 'model', text: 'partial text 0123456789', interrupted: true });
+    render(<MessageBubble id="i1" />);
+    expect(screen.getByText(/~6 token/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /riprendi la risposta/i })).toBeInTheDocument();
+  });
+
+  it('does NOT render Riprendi button when interrupted text is empty', () => {
+    seed({ id: 'i1', role: 'model', text: '', interrupted: true });
+    render(<MessageBubble id="i1" />);
+    expect(screen.getByText(/Interrotto/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /riprendi/i })).not.toBeInTheDocument();
+  });
+
+  it('does NOT render Riprendi when message has error (Retry takes precedence)', () => {
+    seed({
+      id: 'i1',
+      role: 'model',
+      text: 'partial',
+      interrupted: true,
+      error: 'boom',
+      retryable: true,
+    });
+    render(<MessageBubble id="i1" onRetry={() => {}} />);
+    expect(screen.queryByRole('button', { name: /riprendi/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+  });
+
+  it('Riprendi button is disabled while another stream is in progress', () => {
+    seed({ id: 'i1', role: 'model', text: 'partial', interrupted: true });
+    useChatStore.setState({ streamingId: 'someOtherId' });
+    render(<MessageBubble id="i1" />);
+    expect(screen.getByRole('button', { name: /riprendi/i })).toBeDisabled();
+  });
+
   it('shows StreamingIndicator only while streaming this message', () => {
     seed({ id: 'm2', role: 'model', text: '' });
     // simula streamingId == m2
