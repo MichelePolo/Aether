@@ -33,7 +33,7 @@ function sseFrame(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-function sseResponse(frames: string[]): HttpResponse {
+function sseResponse(frames: string[]) {
   const body = frames.join('');
   return new HttpResponse(
     new ReadableStream({
