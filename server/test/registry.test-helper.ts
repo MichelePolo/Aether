@@ -10,10 +10,12 @@ export async function buildSingleProviderRegistry(provider: AIProvider): Promise
     ollamaHost: 'http://localhost:11434',
     geminiApiKey: undefined,
     anthropicAuth: 'none',
+    openAIApiKey: undefined,
     fakeProvider: provider,
     geminiBuilder: () => provider,
     ollamaBuilder: () => provider,
     anthropicBuilder: () => provider,
+    openAIBuilder: () => provider,
   });
   await reg.refresh();
   return reg;

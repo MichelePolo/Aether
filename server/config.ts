@@ -5,6 +5,7 @@ export interface AppConfig {
   dataDir: string;
   fakeProvider: boolean;
   geminiApiKey: string;
+  openAIApiKey: string;
 }
 
 function parsePort(raw: string | undefined): number {
@@ -19,5 +20,6 @@ export function loadConfig(): AppConfig {
     dataDir: process.env.AETHER_DATA_DIR ?? path.resolve(process.cwd(), 'data'),
     fakeProvider: process.env.AETHER_FAKE_PROVIDER === '1',
     geminiApiKey: process.env.GEMINI_API_KEY ?? '',
+    openAIApiKey: process.env.OPENAI_API_KEY ?? '',
   };
 }

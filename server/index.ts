@@ -15,6 +15,7 @@ import { McpRegistry } from './domain/mcp/registry';
 import { ProviderRegistry } from './domain/providers/registry';
 import { OllamaProvider } from './domain/dispatch/providers/ollama.provider';
 import { AnthropicProvider } from './domain/dispatch/providers/anthropic.provider';
+import { OpenAIProvider } from './domain/dispatch/providers/openai.provider';
 import { detectAnthropicAuth } from './lib/anthropic-auth';
 
 dotenv.config();
@@ -47,6 +48,7 @@ async function bootstrap() {
     ollamaHost: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
     geminiApiKey: cfg.geminiApiKey || undefined,
     anthropicAuth,
+    openAIApiKey: cfg.openAIApiKey || undefined,
     fakeProvider,
     geminiBuilder: (model) => new GeminiProvider({ apiKey: cfg.geminiApiKey, model }),
     ollamaBuilder: (model) =>
@@ -57,6 +59,11 @@ async function bootstrap() {
     anthropicBuilder: (model) =>
       new AnthropicProvider({
         model: model as 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5',
+      }),
+    openAIBuilder: (model) =>
+      new OpenAIProvider({
+        apiKey: cfg.openAIApiKey,
+        model: model as 'gpt-5' | 'gpt-5-mini' | 'gpt-4.1' | 'o3',
       }),
     defaultOverride:
       process.env.AETHER_DEFAULT_PROVIDER ||

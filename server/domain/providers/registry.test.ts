@@ -17,10 +17,12 @@ function baseDeps(
     ollamaHost: 'http://localhost:11434',
     geminiApiKey: undefined,
     anthropicAuth: 'none',
+    openAIApiKey: undefined,
     fakeProvider: makeFake('fake-1'),
     geminiBuilder: () => makeFake('g'),
     ollamaBuilder: () => makeFake('o'),
     anthropicBuilder: (model: string) => makeFake(model),
+    openAIBuilder: (model: string) => makeFake(model),
     ...overrides,
   };
 }
@@ -96,5 +98,44 @@ describe('ProviderRegistry', () => {
     const d = reg.describe('anthropic:claude-opus-4-7');
     expect(d?.displayName).toMatch(/anthropic/i);
     expect(d?.displayName).toContain('claude-opus-4-7');
+  });
+
+  it("registers all four openai entries when API key is set", async () => {
+    const reg = new ProviderRegistry(baseDeps({ openAIApiKey: 'sk-test' }));
+    await reg.refresh();
+    expect(reg.get('openai:gpt-5')).not.toBeNull();
+    expect(reg.get('openai:gpt-5-mini')).not.toBeNull();
+    expect(reg.get('openai:gpt-4.1')).not.toBeNull();
+    expect(reg.get('openai:o3')).not.toBeNull();
+  });
+
+  it("skips openai entries when API key is absent", async () => {
+    const reg = new ProviderRegistry(baseDeps({ openAIApiKey: undefined }));
+    await reg.refresh();
+    expect(reg.list().find((d) => d.transport === 'openai')).toBeUndefined();
+  });
+
+  it("displayName for openai includes OpenAI and the model id", async () => {
+    const reg = new ProviderRegistry(baseDeps({ openAIApiKey: 'sk-test' }));
+    await reg.refresh();
+    const d = reg.describe('openai:o3');
+    expect(d?.displayName).toMatch(/openai/i);
+    expect(d?.displayName).toContain('o3');
+  });
+
+  it("capabilities flow from the builder's instance (o3 thinks, others don't)", async () => {
+    // The fake builder gives every model { thinking: true, toolCalling: true }.
+    // For this test, swap in an openAIBuilder that returns model-specific caps.
+    const reg = new ProviderRegistry(baseDeps({
+      openAIApiKey: 'sk-test',
+      openAIBuilder: (model: string) => ({
+        model,
+        capabilities: { thinking: model === 'o3', toolCalling: true },
+        async *stream() { yield { type: 'done' as const }; },
+      }),
+    }));
+    await reg.refresh();
+    expect(reg.describe('openai:gpt-5')?.capabilities).toEqual({ thinking: false, toolCalling: true });
+    expect(reg.describe('openai:o3')?.capabilities).toEqual({ thinking: true, toolCalling: true });
   });
 });

@@ -18,10 +18,12 @@ async function makeApp() {
     ollamaHost: 'http://localhost:11434',
     geminiApiKey: undefined,
     anthropicAuth: 'none',
+    openAIApiKey: undefined,
     fakeProvider: makeFake('fake-1'),
     geminiBuilder: () => makeFake('g'),
     ollamaBuilder: () => makeFake('o'),
     anthropicBuilder: (model) => makeFake(model),
+    openAIBuilder: (model) => makeFake(model),
   });
   await reg.refresh();
   return { app: createApp({ providers: reg }), reg };
