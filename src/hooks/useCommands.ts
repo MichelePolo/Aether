@@ -14,6 +14,7 @@ import {
   Wrench,
   Plug,
   FileText,
+  Search,
 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import type { Command } from '@/src/types/command.types';
@@ -79,6 +80,15 @@ export function useCommands(): Command[] {
       shortcut: `${MOD}N`,
       run: async () => {
         await sessions.create();
+      },
+    });
+    out.push({
+      id: 'sessions.search-history',
+      group: 'sessions',
+      label: 'Search history…',
+      icon: Search,
+      run: async () => {
+        useUiStore.getState().enterSearchMode();
       },
     });
     for (const s of sessions.list) {
