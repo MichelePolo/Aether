@@ -22,6 +22,7 @@ import { OllamaProvider } from './domain/dispatch/providers/ollama.provider';
 import { AnthropicProvider } from './domain/dispatch/providers/anthropic.provider';
 import { OpenAIProvider } from './domain/dispatch/providers/openai.provider';
 import { detectAnthropicAuth } from './lib/anthropic-auth';
+import { SearchService } from './domain/search/search.service';
 
 dotenv.config();
 
@@ -38,6 +39,7 @@ async function bootstrap() {
   const historyStore = new HistoryStore(db);
   const profilesStore = new ProfilesStore(db);
   const subAgentsStore = new SubAgentsStore(db);
+  const searchService = new SearchService(db);
 
   const mcpRegistry = new McpRegistry(contextStore);
 
@@ -85,7 +87,7 @@ async function bootstrap() {
 
   const dispatcher = new DispatchService({ providers, historyStore, contextStore, subAgentsStore, mcpRegistry });
 
-  const app = createApp({ contextStore, historyStore, dispatcher, profilesStore, subAgentsStore, mcpRegistry, providers });
+  const app = createApp({ contextStore, historyStore, dispatcher, profilesStore, subAgentsStore, mcpRegistry, providers, searchService });
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
