@@ -1,21 +1,26 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '@/server/app';
 import { SubAgentsStore } from '@/server/domain/subagents/subagents.store';
+import { makeTestDb } from '@/server/test/test-db';
+import type { DatabaseHandle } from '@/server/db/database';
+
+let db: DatabaseHandle;
 
 function makeApp() {
-  const dir = mkdtempSync(path.join(tmpdir(), 'aether-sa-routes-'));
-  const subAgentsStore = new SubAgentsStore(path.join(dir, 'subagents.json'));
+  const subAgentsStore = new SubAgentsStore(db);
   return createApp({ subAgentsStore });
 }
 
 describe('subagents routes', () => {
   let app: ReturnType<typeof makeApp>;
   beforeEach(() => {
+    db = makeTestDb();
     app = makeApp();
+  });
+
+  afterEach(() => {
+    db.close();
   });
 
   it('GET /api/subagents returns empty list initially', async () => {

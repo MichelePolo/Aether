@@ -1,13 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { JsonStore } from '@/server/lib/json-store';
 import { NotFoundError } from '@/server/lib/errors';
-import { SubAgentsFileSchema } from './subagents.schema';
-import type {
-  SubAgentMeta,
-  SubAgentRecord,
-  SubAgentsFile,
-} from './subagents.types';
+import type { SubAgentMeta, SubAgentRecord } from './subagents.types';
 import type { Tool } from '@/server/domain/context/context.types';
+import type { DatabaseHandle } from '@/server/db/database';
 
 interface CreateInput {
   name: string;
@@ -16,82 +11,182 @@ interface CreateInput {
   tools?: Tool[];
 }
 
-function findUniqueName(file: SubAgentsFile, desired: string): string {
-  const existing = new Set(Object.values(file).map((r) => r.name));
-  if (!existing.has(desired)) return desired;
-  let n = 2;
-  while (existing.has(`${desired} (${n})`)) n++;
-  return `${desired} (${n})`;
-}
+type SubAgentRow = {
+  id: string;
+  name: string;
+  system_instruction: string;
+  created_at: number;
+  updated_at: number;
+};
+
+type SubAgentToolRow = {
+  position: number;
+  name: string;
+  version: string;
+  status: string;
+};
 
 export class SubAgentsStore {
-  private json: JsonStore<SubAgentsFile>;
-
-  constructor(filePath: string) {
-    this.json = new JsonStore<SubAgentsFile>(filePath, SubAgentsFileSchema, {});
-  }
+  constructor(private readonly db: DatabaseHandle) {}
 
   async list(): Promise<SubAgentMeta[]> {
-    const file = await this.json.read();
-    const metas: SubAgentMeta[] = Object.entries(file).map(([id, rec]) => ({
-      id,
-      name: rec.name,
-      createdAt: rec.createdAt,
-      updatedAt: rec.updatedAt,
+    const rows = this.db
+      .prepare('SELECT id, name, created_at, updated_at FROM subagents ORDER BY updated_at DESC')
+      .all() as { id: string; name: string; created_at: number; updated_at: number }[];
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
     }));
-    metas.sort((a, b) => b.updatedAt - a.updatedAt);
-    return metas;
   }
 
   async read(id: string): Promise<SubAgentRecord | null> {
-    const file = await this.json.read();
-    return file[id] ?? null;
+    const row = this.db
+      .prepare(
+        'SELECT id, name, system_instruction, created_at, updated_at FROM subagents WHERE id = ?',
+      )
+      .get(id) as SubAgentRow | undefined;
+    if (!row) return null;
+
+    const skills = (
+      this.db
+        .prepare('SELECT name FROM subagent_skills WHERE subagent_id = ? ORDER BY position')
+        .all(id) as { name: string }[]
+    ).map((r) => r.name);
+
+    const tools = (
+      this.db
+        .prepare(
+          'SELECT position, name, version, status FROM subagent_tools WHERE subagent_id = ? ORDER BY position',
+        )
+        .all(id) as SubAgentToolRow[]
+    ).map(
+      (t, i): Tool => ({
+        id: `${id}-${i}`,
+        name: t.name,
+        version: t.version,
+        status: t.status as 'online' | 'offline',
+      }),
+    );
+
+    return {
+      name: row.name,
+      systemInstruction: row.system_instruction,
+      skills,
+      tools,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
   }
 
   async create(input: CreateInput): Promise<SubAgentMeta> {
     const id = randomUUID();
     const now = Date.now();
-    const updated = await this.json.update((cur) => {
-      const uniqueName = findUniqueName(cur, input.name);
-      const rec: SubAgentRecord = {
-        name: uniqueName,
-        systemInstruction: input.systemInstruction ?? '',
-        skills: input.skills ?? [],
-        tools: input.tools ?? [],
-        createdAt: now,
-        updatedAt: now,
-      };
-      return { ...cur, [id]: rec };
+    const tx = this.db.transaction(() => {
+      const uniqueName = this.findUniqueName(input.name);
+      this.db
+        .prepare(
+          'INSERT INTO subagents (id, name, system_instruction, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+        )
+        .run(id, uniqueName, input.systemInstruction ?? '', now, now);
+      this.writeChildren(id, input.skills ?? [], input.tools ?? []);
     });
-    const rec = updated[id];
-    return { id, name: rec.name, createdAt: rec.createdAt, updatedAt: rec.updatedAt };
+    tx();
+    return this.metaOf(id);
   }
 
   async update(
     id: string,
     patch: Partial<Omit<SubAgentRecord, 'createdAt'>>,
   ): Promise<SubAgentMeta> {
-    const updated = await this.json.update((cur) => {
-      const r = cur[id];
-      if (!r) throw new NotFoundError(`subagent ${id}`);
-      const next: SubAgentRecord = {
-        ...r,
-        ...patch,
-        createdAt: r.createdAt,
-        updatedAt: Date.now(),
-      };
-      return { ...cur, [id]: next };
+    const tx = this.db.transaction(() => {
+      const exists = this.db.prepare('SELECT id FROM subagents WHERE id = ?').get(id);
+      if (!exists) throw new NotFoundError(`subagent ${id}`);
+      const now = Date.now();
+
+      const cur = this.db
+        .prepare('SELECT name, system_instruction FROM subagents WHERE id = ?')
+        .get(id) as { name: string; system_instruction: string };
+
+      this.db
+        .prepare(
+          'UPDATE subagents SET name = ?, system_instruction = ?, updated_at = ? WHERE id = ?',
+        )
+        .run(
+          patch.name ?? cur.name,
+          patch.systemInstruction ?? cur.system_instruction,
+          now,
+          id,
+        );
+
+      if (patch.skills || patch.tools) {
+        const existingSkills = (
+          this.db
+            .prepare('SELECT name FROM subagent_skills WHERE subagent_id = ? ORDER BY position')
+            .all(id) as { name: string }[]
+        ).map((r) => r.name);
+        const existingTools = (
+          this.db
+            .prepare(
+              'SELECT name, version, status FROM subagent_tools WHERE subagent_id = ? ORDER BY position',
+            )
+            .all(id) as { name: string; version: string; status: string }[]
+        ).map((t, i): Tool => ({
+          id: `${id}-${i}`,
+          name: t.name,
+          version: t.version,
+          status: t.status as 'online' | 'offline',
+        }));
+        const nextSkills = patch.skills ?? existingSkills;
+        const nextTools = patch.tools ?? existingTools;
+        this.writeChildren(id, nextSkills, nextTools);
+      }
     });
-    const rec = updated[id];
-    return { id, name: rec.name, createdAt: rec.createdAt, updatedAt: rec.updatedAt };
+    tx();
+    return this.metaOf(id);
   }
 
   async delete(id: string): Promise<void> {
-    await this.json.update((cur) => {
-      if (!cur[id]) throw new NotFoundError(`subagent ${id}`);
-      const next: SubAgentsFile = { ...cur };
-      delete next[id];
-      return next;
-    });
+    const info = this.db.prepare('DELETE FROM subagents WHERE id = ?').run(id);
+    if (info.changes === 0) throw new NotFoundError(`subagent ${id}`);
+  }
+
+  // ---- private helpers ----
+
+  private metaOf(id: string): SubAgentMeta {
+    const row = this.db
+      .prepare('SELECT id, name, created_at, updated_at FROM subagents WHERE id = ?')
+      .get(id) as { id: string; name: string; created_at: number; updated_at: number };
+    return {
+      id: row.id,
+      name: row.name,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  private findUniqueName(desired: string): string {
+    const existing = new Set(
+      (this.db.prepare('SELECT name FROM subagents').all() as { name: string }[]).map((r) => r.name),
+    );
+    if (!existing.has(desired)) return desired;
+    let n = 2;
+    while (existing.has(`${desired} (${n})`)) n++;
+    return `${desired} (${n})`;
+  }
+
+  private writeChildren(id: string, skills: string[], tools: Tool[]): void {
+    this.db.prepare('DELETE FROM subagent_skills WHERE subagent_id = ?').run(id);
+    const insertSkill = this.db.prepare(
+      'INSERT INTO subagent_skills (subagent_id, position, name) VALUES (?, ?, ?)',
+    );
+    skills.forEach((s, i) => insertSkill.run(id, i, s));
+
+    this.db.prepare('DELETE FROM subagent_tools WHERE subagent_id = ?').run(id);
+    const insertTool = this.db.prepare(
+      'INSERT INTO subagent_tools (subagent_id, position, name, version, status) VALUES (?, ?, ?, ?, ?)',
+    );
+    tools.forEach((t, i) => insertTool.run(id, i, t.name, t.version, t.status));
   }
 }

@@ -121,7 +121,7 @@ describe('dispatch with @subagent', () => {
 
   it('emits resolve_subagent step and tags dispatch step', async () => {
     saDir = mkdtempSync(path.join(tmpdir(), 'aether-dispatch-sa-'));
-    const subAgentsStore = new SubAgentsStore(path.join(saDir, 'subagents.json'));
+    const subAgentsStore = new SubAgentsStore(db);
     await subAgentsStore.create({ name: 'designer', systemInstruction: 'Design.' });
 
     const provider = new FakeProvider({ chunks: ['ok'] });
@@ -160,7 +160,7 @@ describe('dispatch with @subagent', () => {
 
   it('with unknown @name: no resolve_subagent step; userMessage unstripped', async () => {
     saDir = mkdtempSync(path.join(tmpdir(), 'aether-dispatch-sa-2-'));
-    const subAgentsStore = new SubAgentsStore(path.join(saDir, 'subagents.json'));
+    const subAgentsStore = new SubAgentsStore(db);
     // No subagent named 'unknown' is created.
 
     const provider = new FakeProvider({ chunks: ['ok'] });
