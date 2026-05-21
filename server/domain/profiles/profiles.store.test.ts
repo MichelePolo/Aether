@@ -1,34 +1,47 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import { ProfilesStore } from './profiles.store';
+import { makeTestDb } from '@/server/test/test-db';
+import type { DatabaseHandle } from '@/server/db/database';
+import type { AetherContext } from '@/server/domain/context/context.types';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const validContext = {
+const validContext: AetherContext = {
   systemInstruction: 'sys',
   skills: [],
   tools: [],
   mcpServers: [],
 };
 
-let dir: string;
-let store: ProfilesStore;
-let filePath: string;
+const richContext: AetherContext = {
+  systemInstruction: 'You are Aether',
+  skills: ['s1', 's2'],
+  tools: [{ id: 't1', name: 'X', version: '1', status: 'online' }],
+  mcpServers: [
+    {
+      id: 'M1',
+      name: 'mock',
+      transport: 'mock',
+      status: 'offline',
+      toolPolicies: { echo: { autoApprove: true } },
+    },
+  ],
+};
 
-beforeEach(async () => {
-  dir = await mkdtemp(path.join(tmpdir(), 'aether-profiles-'));
-  filePath = path.join(dir, 'profiles.json');
-  store = new ProfilesStore(filePath);
+let db: DatabaseHandle;
+let store: ProfilesStore;
+
+beforeEach(() => {
+  db = makeTestDb();
+  store = new ProfilesStore(db);
 });
 
-afterEach(async () => {
-  await rm(dir, { recursive: true, force: true });
+afterEach(() => {
+  db.close();
 });
 
 describe('ProfilesStore', () => {
-  it('listProfiles returns [] on empty file', async () => {
+  it('listProfiles returns [] on a fresh DB', async () => {
     expect(await store.listProfiles()).toEqual([]);
   });
 
@@ -40,6 +53,12 @@ describe('ProfilesStore', () => {
     expect(meta.updatedAt).toBe(meta.createdAt);
   });
 
+  it('create() inserts a profile and returns its meta', async () => {
+    const meta = await store.create({ name: 'p1', context: richContext, thinkingEnabled: true });
+    expect(meta.name).toBe('p1');
+    expect(meta.id).toBeTruthy();
+  });
+
   it('read returns the full record', async () => {
     const meta = await store.create({ name: 'A', context: validContext, thinkingEnabled: true });
     const rec = await store.read(meta.id);
@@ -48,6 +67,16 @@ describe('ProfilesStore', () => {
 
   it('read returns null for unknown id', async () => {
     expect(await store.read('nope')).toBeNull();
+  });
+
+  it('read() round-trips the full context including skills, tools, mcp servers, policies', async () => {
+    const meta = await store.create({ name: 'p1', context: richContext, thinkingEnabled: true });
+    const rec = await store.read(meta.id);
+    expect(rec).not.toBeNull();
+    expect(rec!.thinkingEnabled).toBe(true);
+    expect(rec!.context.skills).toEqual(['s1', 's2']);
+    expect(rec!.context.tools).toEqual([{ id: 't1', name: 'X', version: '1', status: 'online' }]);
+    expect(rec!.context.mcpServers[0].toolPolicies).toEqual({ echo: { autoApprove: true } });
   });
 
   it('listProfiles orders by updatedAt desc', async () => {
@@ -62,6 +91,15 @@ describe('ProfilesStore', () => {
     expect(list[1].id).toBe(b.id);
   });
 
+  it('listProfiles() sorts by updated_at DESC for newly created profiles', async () => {
+    const a = await store.create({ name: 'A', context: validContext, thinkingEnabled: false });
+    await new Promise((r) => setTimeout(r, 5));
+    const b = await store.create({ name: 'B', context: validContext, thinkingEnabled: false });
+    const list = await store.listProfiles();
+    expect(list[0].id).toBe(b.id);
+    expect(list[1].id).toBe(a.id);
+  });
+
   it('create suffixes name on collision: (1), (2), ...', async () => {
     const a = await store.create({ name: 'X', context: validContext, thinkingEnabled: false });
     const b = await store.create({ name: 'X', context: validContext, thinkingEnabled: false });
@@ -71,6 +109,15 @@ describe('ProfilesStore', () => {
     expect(c.name).toBe('X (2)');
   });
 
+  it('create() rejects empty/oversized names', async () => {
+    await expect(
+      store.create({ name: '', context: validContext, thinkingEnabled: false }),
+    ).rejects.toThrow();
+    await expect(
+      store.create({ name: 'x'.repeat(101), context: validContext, thinkingEnabled: false }),
+    ).rejects.toThrow();
+  });
+
   it('update bumps updatedAt and patches fields', async () => {
     const meta = await store.create({ name: 'A', context: validContext, thinkingEnabled: false });
     await new Promise((r) => setTimeout(r, 5));
@@ -78,6 +125,32 @@ describe('ProfilesStore', () => {
     expect(updated.updatedAt).toBeGreaterThan(meta.updatedAt);
     const rec = await store.read(meta.id);
     expect(rec?.thinkingEnabled).toBe(true);
+  });
+
+  it('update() merges patch and bumps updatedAt (name + thinkingEnabled)', async () => {
+    const meta = await store.create({ name: 'p1', context: validContext, thinkingEnabled: false });
+    await new Promise((r) => setTimeout(r, 5));
+    const updated = await store.update(meta.id, { name: 'renamed', thinkingEnabled: true });
+    expect(updated.name).toBe('renamed');
+    expect(updated.updatedAt).toBeGreaterThan(meta.updatedAt);
+    const rec = await store.read(meta.id);
+    expect(rec!.thinkingEnabled).toBe(true);
+  });
+
+  it('update() with new context replaces all child rows atomically', async () => {
+    const meta = await store.create({ name: 'p1', context: richContext, thinkingEnabled: false });
+    const newCtx: AetherContext = {
+      systemInstruction: 'replaced',
+      skills: ['only'],
+      tools: [],
+      mcpServers: [],
+    };
+    await store.update(meta.id, { context: newCtx });
+    const rec = await store.read(meta.id);
+    expect(rec!.context.systemInstruction).toBe('replaced');
+    expect(rec!.context.skills).toEqual(['only']);
+    expect(rec!.context.tools).toEqual([]);
+    expect(rec!.context.mcpServers).toEqual([]);
   });
 
   it('update throws NotFound for missing id', async () => {
@@ -101,6 +174,10 @@ describe('ProfilesStore', () => {
     expect(renamed.name).toBe('B');
   });
 
+  it('rename() rejects unknown id', async () => {
+    await expect(store.rename('nope', 'x')).rejects.toThrow();
+  });
+
   it('delete removes the profile; throws NotFound on missing', async () => {
     const meta = await store.create({ name: 'A', context: validContext, thinkingEnabled: false });
     await store.delete(meta.id);
@@ -108,9 +185,26 @@ describe('ProfilesStore', () => {
     await expect(store.delete(meta.id)).rejects.toThrow();
   });
 
-  it('persists across instances (file-backed)', async () => {
+  it('delete() cascades to all child tables', async () => {
+    const meta = await store.create({ name: 'p1', context: richContext, thinkingEnabled: false });
+    await store.delete(meta.id);
+    expect(
+      (db.prepare('SELECT COUNT(*) AS n FROM profile_skills').get() as { n: number }).n,
+    ).toBe(0);
+    expect(
+      (db.prepare('SELECT COUNT(*) AS n FROM profile_tools').get() as { n: number }).n,
+    ).toBe(0);
+    expect(
+      (db.prepare('SELECT COUNT(*) AS n FROM profile_mcp_servers').get() as { n: number }).n,
+    ).toBe(0);
+    expect(
+      (db.prepare('SELECT COUNT(*) AS n FROM profile_mcp_tool_policies').get() as { n: number }).n,
+    ).toBe(0);
+  });
+
+  it('persists across store instances on the same DB handle', async () => {
     const meta = await store.create({ name: 'A', context: validContext, thinkingEnabled: true });
-    const store2 = new ProfilesStore(filePath);
+    const store2 = new ProfilesStore(db);
     const rec = await store2.read(meta.id);
     expect(rec).toMatchObject({ name: 'A', thinkingEnabled: true });
   });

@@ -1,9 +1,14 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { createApp } from './app';
 import { loadConfig } from './config';
+import { openDatabase } from './db/database';
+import { applyMigrations } from './db/migrate';
 import { ContextStore } from './domain/context/context.store';
 import { HistoryStore } from './domain/history/history.store';
 import { ProfilesStore } from './domain/profiles/profiles.store';
@@ -23,10 +28,16 @@ dotenv.config();
 async function bootstrap() {
   const cfg = loadConfig();
 
-  const contextStore = new ContextStore(path.join(cfg.dataDir, 'context.json'));
-  const historyStore = new HistoryStore(path.join(cfg.dataDir, 'sessions.json'));
-  const profilesStore = new ProfilesStore(path.join(cfg.dataDir, 'profiles.json'));
-  const subAgentsStore = new SubAgentsStore(path.join(cfg.dataDir, 'subagents.json'));
+  const db = openDatabase(path.join(cfg.dataDir, 'aether.sqlite'));
+  const migrated = applyMigrations(db, path.join(__dirname, 'db', 'migrations'));
+  if (migrated.applied.length > 0) {
+    console.log(`[db] applied migrations: ${migrated.applied.join(', ')}`);
+  }
+
+  const contextStore = new ContextStore(db);
+  const historyStore = new HistoryStore(db);
+  const profilesStore = new ProfilesStore(db);
+  const subAgentsStore = new SubAgentsStore(db);
 
   const mcpRegistry = new McpRegistry(contextStore);
 

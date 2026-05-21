@@ -1,13 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import { ContextStore } from '@/server/domain/context/context.store';
+import { makeTestDb } from '@/server/test/test-db';
 import { McpRegistry } from './registry';
 
 function newCtx(): ContextStore {
-  const dir = mkdtempSync(path.join(tmpdir(), 'aether-mcp-'));
-  return new ContextStore(path.join(dir, 'context.json'));
+  return new ContextStore(makeTestDb());
 }
 
 describe('McpRegistry', () => {

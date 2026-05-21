@@ -1,23 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
+import { describe, it, expect } from 'vitest';
 import { DispatchService } from './dispatch.service';
 import { FakeProvider } from './providers/fake.provider';
 import { HistoryStore } from '@/server/domain/history/history.store';
 import { ContextStore } from '@/server/domain/context/context.store';
 import { createCollectorEmitter } from '@/server/test/sse-collector';
 import { buildSingleProviderRegistry } from '@/server/test/registry.test-helper';
-
-let dir: string;
-
-beforeEach(async () => {
-  dir = await mkdtemp(path.join(tmpdir(), 'aether-dispatch-'));
-});
-
-afterEach(async () => {
-  await rm(dir, { recursive: true, force: true });
-});
+import { makeTestDb } from '@/server/test/test-db';
 
 describe('DispatchService', () => {
   async function makeService(opts: {
@@ -33,8 +21,9 @@ describe('DispatchService', () => {
       model: 'fake-1',
       totalTokens: opts.totalTokens,
     });
-    const historyStore = new HistoryStore(path.join(dir, 'sessions.json'));
-    const contextStore = new ContextStore(path.join(dir, 'context.json'));
+    const db = makeTestDb();
+    const historyStore = new HistoryStore(db);
+    const contextStore = new ContextStore(db);
     const providers = await buildSingleProviderRegistry(provider);
     const service = new DispatchService({ providers, historyStore, contextStore });
     const session = await historyStore.createEmpty();
@@ -112,8 +101,9 @@ describe('DispatchService', () => {
         throw new Error('Auth failed');
       }
     }
-    const historyStore = new HistoryStore(path.join(dir, 'sessions.json'));
-    const contextStore = new ContextStore(path.join(dir, 'context.json'));
+    const db = makeTestDb();
+    const historyStore = new HistoryStore(db);
+    const contextStore = new ContextStore(db);
     const providers = await buildSingleProviderRegistry(new FailingProvider() as unknown as import('./providers/provider.types').AIProvider);
     const service = new DispatchService({
       providers,

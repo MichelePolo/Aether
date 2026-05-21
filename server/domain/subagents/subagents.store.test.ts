@@ -1,21 +1,22 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { SubAgentsStore } from './subagents.store';
+import { makeTestDb } from '@/server/test/test-db';
+import type { DatabaseHandle } from '@/server/db/database';
 
-function newStore(): SubAgentsStore {
-  const dir = mkdtempSync(path.join(tmpdir(), 'aether-sa-'));
-  return new SubAgentsStore(path.join(dir, 'subagents.json'));
-}
+let db: DatabaseHandle;
+let store: SubAgentsStore;
+
+beforeEach(() => {
+  db = makeTestDb();
+  store = new SubAgentsStore(db);
+});
+
+afterEach(() => {
+  db.close();
+});
 
 describe('SubAgentsStore', () => {
-  let store: SubAgentsStore;
-  beforeEach(() => {
-    store = newStore();
-  });
-
-  it('list returns empty initially', async () => {
+  it('list() returns [] on a fresh DB', async () => {
     expect(await store.list()).toEqual([]);
   });
 
@@ -31,10 +32,38 @@ describe('SubAgentsStore', () => {
     expect(rec!.tools).toEqual([]);
   });
 
-  it('create with colliding name suffixes (2)', async () => {
+  it('create() inserts with defaults', async () => {
+    const meta = await store.create({ name: 'designer' });
+    expect(meta.name).toBe('designer');
+    const rec = await store.read(meta.id);
+    expect(rec).toEqual({
+      name: 'designer',
+      systemInstruction: '',
+      skills: [],
+      tools: [],
+      createdAt: meta.createdAt,
+      updatedAt: meta.updatedAt,
+    });
+  });
+
+  it('create() generates a unique name when colliding (starts at suffix 2)', async () => {
     await store.create({ name: 'designer' });
     const second = await store.create({ name: 'designer' });
     expect(second.name).toBe('designer (2)');
+  });
+
+  it('create() persists skills + tools', async () => {
+    const meta = await store.create({
+      name: 'sculptor',
+      skills: ['clay', 'kiln'],
+      tools: [{ id: 'ignored', name: 'X', version: '1', status: 'online' }],
+    });
+    const rec = await store.read(meta.id);
+    expect(rec!.skills).toEqual(['clay', 'kiln']);
+    expect(rec!.tools).toHaveLength(1);
+    expect(rec!.tools[0].name).toBe('X');
+    expect(rec!.tools[0].version).toBe('1');
+    expect(rec!.tools[0].status).toBe('online');
   });
 
   it('update changes value and bumps updatedAt', async () => {
@@ -47,18 +76,59 @@ describe('SubAgentsStore', () => {
     expect((await store.read(created.id))!.systemInstruction).toBe('new');
   });
 
+  it('update() merges name + systemInstruction without touching skills', async () => {
+    const meta = await store.create({ name: 'a', skills: ['s1'] });
+    await new Promise((r) => setTimeout(r, 5));
+    const updated = await store.update(meta.id, { name: 'b', systemInstruction: 'sys' });
+    expect(updated.name).toBe('b');
+    expect(updated.updatedAt).toBeGreaterThan(meta.updatedAt);
+    const rec = await store.read(meta.id);
+    expect(rec!.skills).toEqual(['s1']); // untouched
+    expect(rec!.systemInstruction).toBe('sys');
+  });
+
+  it('update() replaces skills atomically when provided', async () => {
+    const meta = await store.create({ name: 'a', skills: ['s1', 's2'] });
+    await store.update(meta.id, { skills: ['only'] });
+    const rec = await store.read(meta.id);
+    expect(rec!.skills).toEqual(['only']);
+  });
+
   it('delete removes the record', async () => {
     const meta = await store.create({ name: 'd' });
     await store.delete(meta.id);
     expect(await store.read(meta.id)).toBeNull();
   });
 
-  it('list sorts by updatedAt desc', async () => {
-    const a = await store.create({ name: 'a' });
+  it('delete() cascades to subagent_skills + subagent_tools', async () => {
+    const meta = await store.create({
+      name: 'a',
+      skills: ['s1'],
+      tools: [{ id: 'x', name: 'X', version: '1', status: 'online' }],
+    });
+    await store.delete(meta.id);
+    expect(
+      (db.prepare('SELECT COUNT(*) AS n FROM subagent_skills').get() as { n: number }).n,
+    ).toBe(0);
+    expect(
+      (db.prepare('SELECT COUNT(*) AS n FROM subagent_tools').get() as { n: number }).n,
+    ).toBe(0);
+  });
+
+  it('list() sorts by updated_at DESC', async () => {
+    const a = await store.create({ name: 'A' });
     await new Promise((r) => setTimeout(r, 5));
-    const b = await store.create({ name: 'b' });
+    const b = await store.create({ name: 'B' });
     const list = await store.list();
     expect(list[0].id).toBe(b.id);
     expect(list[1].id).toBe(a.id);
+  });
+
+  it('delete() throws on unknown id', async () => {
+    await expect(store.delete('nope')).rejects.toThrow();
+  });
+
+  it('read() returns null for unknown id', async () => {
+    expect(await store.read('nope')).toBeNull();
   });
 });

@@ -1,19 +1,41 @@
 import { randomUUID } from 'node:crypto';
-import { JsonStore } from '@/server/lib/json-store';
 import { ValidationError, NotFoundError } from '@/server/lib/errors';
-import { ProfilesFileSchema } from './profiles.schema';
-import type { AetherContext } from '@/server/domain/context/context.types';
-import type { ProfileMeta, ProfileRecord, ProfilesFile } from './profiles.types';
+import type {
+  AetherContext,
+  McpServerConfig,
+  McpToolPolicy,
+  Tool,
+} from '@/server/domain/context/context.types';
+import type { ProfileMeta, ProfileRecord } from './profiles.types';
+import type { DatabaseHandle } from '@/server/db/database';
 
 const NAME_MAX = 100;
 
-function findUniqueName(file: ProfilesFile, desired: string): string {
-  const existing = new Set(Object.values(file).map((r) => r.name));
-  if (!existing.has(desired)) return desired;
-  let n = 1;
-  while (existing.has(`${desired} (${n})`)) n++;
-  return `${desired} (${n})`;
-}
+type ProfileRow = {
+  id: string;
+  name: string;
+  created_at: number;
+  updated_at: number;
+  system_instruction: string;
+  thinking_enabled: number;
+};
+
+type ProfileServerRow = {
+  server_id: string;
+  name: string;
+  transport: string;
+  command: string | null;
+  args: string | null;
+  env: string | null;
+  url: string | null;
+  status: string;
+};
+
+type ProfilePolicyRow = {
+  server_id: string;
+  tool_name: string;
+  auto_approve: number;
+};
 
 function validateName(name: string): void {
   if (!name.trim()) throw new ValidationError('Name cannot be empty');
@@ -21,27 +43,89 @@ function validateName(name: string): void {
 }
 
 export class ProfilesStore {
-  private json: JsonStore<ProfilesFile>;
-
-  constructor(filePath: string) {
-    this.json = new JsonStore<ProfilesFile>(filePath, ProfilesFileSchema, {});
-  }
+  constructor(private readonly db: DatabaseHandle) {}
 
   async listProfiles(): Promise<ProfileMeta[]> {
-    const file = await this.json.read();
-    const metas: ProfileMeta[] = Object.entries(file).map(([id, rec]) => ({
-      id,
-      name: rec.name,
-      createdAt: rec.createdAt,
-      updatedAt: rec.updatedAt,
+    const rows = this.db
+      .prepare('SELECT id, name, created_at, updated_at FROM profiles ORDER BY updated_at DESC')
+      .all() as { id: string; name: string; created_at: number; updated_at: number }[];
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
     }));
-    metas.sort((a, b) => b.updatedAt - a.updatedAt);
-    return metas;
   }
 
   async read(id: string): Promise<ProfileRecord | null> {
-    const file = await this.json.read();
-    return file[id] ?? null;
+    const row = this.db
+      .prepare(
+        'SELECT id, name, created_at, updated_at, system_instruction, thinking_enabled FROM profiles WHERE id = ?',
+      )
+      .get(id) as ProfileRow | undefined;
+    if (!row) return null;
+
+    const skills = (
+      this.db
+        .prepare('SELECT name FROM profile_skills WHERE profile_id = ? ORDER BY position')
+        .all(id) as { name: string }[]
+    ).map((r) => r.name);
+
+    const tools = this.db
+      .prepare(
+        'SELECT tool_id AS id, name, version, status FROM profile_tools WHERE profile_id = ? ORDER BY position',
+      )
+      .all(id) as Tool[];
+
+    const serverRows = this.db
+      .prepare(
+        'SELECT server_id, name, transport, command, args, env, url, status FROM profile_mcp_servers WHERE profile_id = ?',
+      )
+      .all(id) as ProfileServerRow[];
+
+    const policyRows = this.db
+      .prepare(
+        'SELECT server_id, tool_name, auto_approve FROM profile_mcp_tool_policies WHERE profile_id = ?',
+      )
+      .all(id) as ProfilePolicyRow[];
+
+    const policiesByServer = new Map<string, Record<string, McpToolPolicy>>();
+    for (const p of policyRows) {
+      const map = policiesByServer.get(p.server_id) ?? {};
+      map[p.tool_name] = { autoApprove: p.auto_approve === 1 };
+      policiesByServer.set(p.server_id, map);
+    }
+
+    const mcpServers: McpServerConfig[] = serverRows.map((r) => {
+      const policies = policiesByServer.get(r.server_id);
+      const base: McpServerConfig = {
+        id: r.server_id,
+        name: r.name,
+        transport: r.transport as McpServerConfig['transport'],
+        status: r.status as McpServerConfig['status'],
+      };
+      if (r.command !== null) base.command = r.command;
+      if (r.args !== null) base.args = JSON.parse(r.args) as string[];
+      if (r.env !== null) base.env = JSON.parse(r.env) as Record<string, string>;
+      if (r.url !== null) base.url = r.url;
+      if (policies) base.toolPolicies = policies;
+      return base;
+    });
+
+    const context: AetherContext = {
+      systemInstruction: row.system_instruction,
+      skills,
+      tools,
+      mcpServers,
+    };
+
+    return {
+      name: row.name,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      context,
+      thinkingEnabled: row.thinking_enabled === 1,
+    };
   }
 
   async create(input: {
@@ -52,19 +136,17 @@ export class ProfilesStore {
     validateName(input.name);
     const id = randomUUID();
     const now = Date.now();
-    const updated = await this.json.update((cur) => {
-      const uniqueName = findUniqueName(cur, input.name);
-      const rec: ProfileRecord = {
-        name: uniqueName,
-        createdAt: now,
-        updatedAt: now,
-        context: input.context,
-        thinkingEnabled: input.thinkingEnabled,
-      };
-      return { ...cur, [id]: rec };
+    const tx = this.db.transaction(() => {
+      const uniqueName = this.findUniqueName(input.name);
+      this.db
+        .prepare(
+          'INSERT INTO profiles (id, name, created_at, updated_at, system_instruction, thinking_enabled) VALUES (?, ?, ?, ?, ?, ?)',
+        )
+        .run(id, uniqueName, now, now, input.context.systemInstruction, input.thinkingEnabled ? 1 : 0);
+      this.writeChildren(id, input.context);
     });
-    const rec = updated[id];
-    return { id, name: rec.name, createdAt: rec.createdAt, updatedAt: rec.updatedAt };
+    tx();
+    return this.metaOf(id);
   }
 
   async update(
@@ -72,19 +154,33 @@ export class ProfilesStore {
     patch: Partial<Omit<ProfileRecord, 'createdAt'>>,
   ): Promise<ProfileMeta> {
     if (patch.name !== undefined) validateName(patch.name);
-    const updated = await this.json.update((cur) => {
-      const r = cur[id];
-      if (!r) throw new NotFoundError(`profile ${id}`);
-      const next: ProfileRecord = {
-        ...r,
-        ...patch,
-        createdAt: r.createdAt,
-        updatedAt: Date.now(),
-      };
-      return { ...cur, [id]: next };
+    const tx = this.db.transaction(() => {
+      const exists = this.db.prepare('SELECT id FROM profiles WHERE id = ?').get(id);
+      if (!exists) throw new NotFoundError(`profile ${id}`);
+      const now = Date.now();
+
+      const cur = this.db
+        .prepare('SELECT name, system_instruction, thinking_enabled FROM profiles WHERE id = ?')
+        .get(id) as { name: string; system_instruction: string; thinking_enabled: number };
+
+      const nextName = patch.name ?? cur.name;
+      const nextSystemInstruction =
+        patch.context?.systemInstruction ?? cur.system_instruction;
+      const nextThinking =
+        patch.thinkingEnabled === undefined ? cur.thinking_enabled : patch.thinkingEnabled ? 1 : 0;
+
+      this.db
+        .prepare(
+          'UPDATE profiles SET name = ?, updated_at = ?, system_instruction = ?, thinking_enabled = ? WHERE id = ?',
+        )
+        .run(nextName, now, nextSystemInstruction, nextThinking, id);
+
+      if (patch.context) {
+        this.writeChildren(id, patch.context);
+      }
     });
-    const rec = updated[id];
-    return { id, name: rec.name, createdAt: rec.createdAt, updatedAt: rec.updatedAt };
+    tx();
+    return this.metaOf(id);
   }
 
   rename(id: string, name: string): Promise<ProfileMeta> {
@@ -92,11 +188,74 @@ export class ProfilesStore {
   }
 
   async delete(id: string): Promise<void> {
-    await this.json.update((cur) => {
-      if (!cur[id]) throw new NotFoundError(`profile ${id}`);
-      const next: ProfilesFile = { ...cur };
-      delete next[id];
-      return next;
-    });
+    const info = this.db.prepare('DELETE FROM profiles WHERE id = ?').run(id);
+    if (info.changes === 0) throw new NotFoundError(`profile ${id}`);
+  }
+
+  // ---- private helpers ----
+
+  private metaOf(id: string): ProfileMeta {
+    const row = this.db
+      .prepare('SELECT id, name, created_at, updated_at FROM profiles WHERE id = ?')
+      .get(id) as { id: string; name: string; created_at: number; updated_at: number };
+    return {
+      id: row.id,
+      name: row.name,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  private findUniqueName(desired: string): string {
+    const existing = new Set(
+      (this.db.prepare('SELECT name FROM profiles').all() as { name: string }[]).map((r) => r.name),
+    );
+    if (!existing.has(desired)) return desired;
+    let n = 1;
+    while (existing.has(`${desired} (${n})`)) n++;
+    return `${desired} (${n})`;
+  }
+
+  private writeChildren(profileId: string, context: AetherContext): void {
+    this.db.prepare('DELETE FROM profile_skills WHERE profile_id = ?').run(profileId);
+    const insertSkill = this.db.prepare(
+      'INSERT INTO profile_skills (profile_id, position, name) VALUES (?, ?, ?)',
+    );
+    context.skills.forEach((s, i) => insertSkill.run(profileId, i, s));
+
+    this.db.prepare('DELETE FROM profile_tools WHERE profile_id = ?').run(profileId);
+    const insertTool = this.db.prepare(
+      'INSERT INTO profile_tools (profile_id, tool_id, name, version, status, position) VALUES (?, ?, ?, ?, ?, ?)',
+    );
+    context.tools.forEach((t, i) =>
+      insertTool.run(profileId, t.id, t.name, t.version, t.status, i),
+    );
+
+    // Policies cascade on mcp_servers delete, so we don't delete them separately.
+    this.db.prepare('DELETE FROM profile_mcp_servers WHERE profile_id = ?').run(profileId);
+    const insertServer = this.db.prepare(
+      'INSERT INTO profile_mcp_servers (profile_id, server_id, name, transport, command, args, env, url, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    );
+    const insertPolicy = this.db.prepare(
+      'INSERT INTO profile_mcp_tool_policies (profile_id, server_id, tool_name, auto_approve) VALUES (?, ?, ?, ?)',
+    );
+    for (const s of context.mcpServers) {
+      insertServer.run(
+        profileId,
+        s.id,
+        s.name,
+        s.transport ?? 'stdio',
+        s.command ?? null,
+        s.args ? JSON.stringify(s.args) : null,
+        s.env ? JSON.stringify(s.env) : null,
+        s.url ?? null,
+        s.status,
+      );
+      if (s.toolPolicies) {
+        for (const [toolName, policy] of Object.entries(s.toolPolicies)) {
+          insertPolicy.run(profileId, s.id, toolName, policy.autoApprove ? 1 : 0);
+        }
+      }
+    }
   }
 }
