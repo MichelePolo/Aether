@@ -3,7 +3,7 @@ import { useChatStore } from '@/src/stores/chat.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
 import { useProvidersStore } from '@/src/stores/providers.store';
 import { useUiStore } from '@/src/stores/ui.store';
-import { createStreamingDispatch } from '@/src/lib/api/dispatch.api';
+import { createStreamingDispatch, createResumingDispatch } from '@/src/lib/api/dispatch.api';
 import { computeTitle } from '@/src/lib/title';
 import type { ReasoningStep } from '@/src/types/reasoning.types';
 import { emitToolCallRequest, type ToolCallRequestEvent } from './useToolCallDecisions';
@@ -139,9 +139,106 @@ export function useStreamingDispatch() {
     }
   }, []);
 
+  const resume = useCallback(async (messageId: string) => {
+    const activeId = useSessionsStore.getState().activeSessionId;
+    if (!activeId) {
+      console.warn('[aether] no active session');
+      return;
+    }
+    const chat = useChatStore.getState();
+    if (chat.streamingId) return;
+
+    useUiStore.getState().setFocusedMessageId(null);
+
+    const sessions = useSessionsStore.getState().sessions;
+    const defaultProvider = useProvidersStore.getState().defaultProvider;
+    const activeName =
+      ((sessions.find((s) => s.id === activeId) as { providerName?: string } | undefined)
+        ?.providerName ?? defaultProvider) ?? undefined;
+
+    const { id } = chat.startAssistant();
+    const controller = new AbortController();
+    chat.setAbortController(controller);
+
+    let firstThinkingSeen = false;
+
+    try {
+      for await (const ev of createResumingDispatch(
+        { sessionId: activeId, messageId, ...(activeName ? { providerName: activeName } : {}) },
+        controller.signal,
+      )) {
+        if (ev.event === 'text') {
+          useChatStore.getState().appendChunk(id, (ev.data as TextData).chunk);
+        } else if (ev.event === 'thinking') {
+          useChatStore.getState().appendThinkingChunk((ev.data as ThinkingData).chunk);
+          if (!firstThinkingSeen) {
+            firstThinkingSeen = true;
+            useUiStore.getState().openReasoningDrawer();
+          }
+        } else if (ev.event === 'reasoning_step') {
+          useChatStore.getState().appendReasoningStep(ev.data as ReasoningStep);
+        } else if (ev.event === 'done') {
+          const d = ev.data as DoneData;
+          useChatStore.getState().finishAssistant(id, {
+            model: d.model,
+            interrupted: !!d.interrupted,
+            reasoningSteps: d.reasoningSteps,
+          });
+          return;
+        } else if (ev.event === 'error') {
+          const d = ev.data as ErrorData;
+          useChatStore.getState().failAssistant(id, d.message, !!d.retryable);
+          return;
+        } else if (ev.event === 'tool_call_request') {
+          emitToolCallRequest(ev.data as ToolCallRequestEvent);
+        } else if (ev.event === 'tool_call_started') {
+          const p = ev.data as {
+            callId?: string;
+            id?: string;
+            qualifiedName: string;
+            args: Record<string, unknown>;
+          };
+          const callId = p.callId ?? p.id ?? '';
+          if (callId) {
+            useMcpStore.getState().registerInFlightCall({
+              callId,
+              qualifiedName: p.qualifiedName,
+              args: p.args,
+            });
+          }
+        } else if (ev.event === 'tool_call_progress') {
+          const p = ev.data as { id: string; note: string };
+          useMcpStore.getState().updateInFlightProgress(p.id, p.note);
+        } else if (ev.event === 'tool_call_result') {
+          const p = ev.data as { id?: string; callId?: string };
+          const callId = p.id ?? p.callId;
+          if (callId) useMcpStore.getState().clearInFlightCall(callId);
+        } else if (ev.event === 'mcp:state_change') {
+          const d = ev.data as McpStateChangeData;
+          useMcpStore.getState().applyServerStateEvent(
+            d.id,
+            d.state,
+            d.error,
+            d.reconnectAttempt,
+            d.reconnectMaxAttempts,
+          );
+        }
+      }
+      useChatStore.getState().finishAssistant(id, { interrupted: controller.signal.aborted });
+    } catch (e) {
+      if (controller.signal.aborted) {
+        useChatStore.getState().finishAssistant(id, { interrupted: true });
+      } else {
+        useChatStore.getState().failAssistant(id, errMsg(e), true);
+      }
+    } finally {
+      useSessionsStore.getState().touchUpdatedAt(activeId, Date.now());
+    }
+  }, []);
+
   const abort = useCallback(() => {
     useChatStore.getState().abort();
   }, []);
 
-  return { send, abort, isStreaming };
+  return { send, abort, resume, isStreaming };
 }
