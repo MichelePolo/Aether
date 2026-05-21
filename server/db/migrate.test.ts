@@ -91,4 +91,22 @@ describe('applyMigrations', () => {
     const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('a','b')").all() as unknown[]).length;
     expect(tables).toBe(2);
   });
+
+  it('applying real migrations 001+002 creates messages_fts and records both versions', async () => {
+    const { makeTestDb } = await import('@/server/test/test-db');
+    const fullDb = makeTestDb();
+    try {
+      const tables = (fullDb
+        .prepare("SELECT name FROM sqlite_master WHERE name = 'messages_fts'")
+        .all() as { name: string }[]).map((r) => r.name);
+      expect(tables).toEqual(['messages_fts']);
+
+      const versions = (fullDb
+        .prepare('SELECT version FROM _migrations ORDER BY version')
+        .all() as { version: number }[]).map((r) => r.version);
+      expect(versions).toEqual([1, 2]);
+    } finally {
+      fullDb.close();
+    }
+  });
 });
