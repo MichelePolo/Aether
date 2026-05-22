@@ -28,3 +28,5 @@ export interface SessionMeta {
 }
 
 export type SessionsFile = Record<string, SessionRecord>;
+
+export type { ExportEnvelope } from './history.export';
