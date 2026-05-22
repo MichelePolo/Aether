@@ -93,16 +93,16 @@ export function CommandPalette() {
   const groups = groupBy(commands);
 
   const runCmd = async (cmd: Command) => {
+    // Close BEFORE awaiting the command so any dialog the command opens
+    // (e.g. rename prompt) isn't trapped behind the palette's focus trap.
+    // "Search history…" intentionally keeps the palette open.
+    if (cmd.id !== 'sessions.search-history') {
+      close();
+    }
     try {
       await cmd.run();
     } catch {
       // store owns error display
-    } finally {
-      // "Search history…" intentionally KEEPS the palette open (it switches
-      // into search mode). All other commands close.
-      if (cmd.id !== 'sessions.search-history') {
-        close();
-      }
     }
   };
 
@@ -117,8 +117,8 @@ export function CommandPalette() {
       onOpenChange={(v) => (v ? null : close())}
       label="Command palette"
       shouldFilter={mode === 'commands'}
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/60"
-      contentClassName="w-full max-w-xl bg-surface-2 border border-border-subtle rounded-lg shadow-2xl overflow-hidden"
+      overlayClassName="fixed inset-0 z-50 bg-black/60"
+      contentClassName="fixed left-1/2 top-[15vh] z-50 w-full max-w-xl -translate-x-1/2 bg-surface-2 border border-border-subtle rounded-lg shadow-2xl overflow-hidden"
     >
       <Cmdk.Input
         autoFocus
