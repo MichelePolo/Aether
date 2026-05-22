@@ -143,4 +143,26 @@ export const handlers = [
       { status: 201 },
     );
   }),
+  http.get('http://localhost/api/providers/auth-status', () =>
+    HttpResponse.json({
+      checkedAt: 0,
+      statuses: [
+        { transport: 'anthropic', state: 'unconfigured', reason: 'no api key' },
+        { transport: 'openai', state: 'unconfigured', reason: 'no api key' },
+        { transport: 'gemini', state: 'unconfigured', reason: 'no api key' },
+        { transport: 'ollama', state: 'unconfigured', reason: 'no api key' },
+      ],
+    }),
+  ),
+  http.post('http://localhost/api/providers/auth-status/refresh', () =>
+    HttpResponse.json({
+      checkedAt: Date.now(),
+      statuses: [
+        { transport: 'anthropic', state: 'unconfigured', reason: 'no api key' },
+        { transport: 'openai', state: 'unconfigured', reason: 'no api key' },
+        { transport: 'gemini', state: 'unconfigured', reason: 'no api key' },
+        { transport: 'ollama', state: 'unconfigured', reason: 'no api key' },
+      ],
+    }),
+  ),
 ];
