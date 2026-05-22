@@ -15,6 +15,7 @@ import {
   Plug,
   FileText,
   Search,
+  Upload,
 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import type { Command } from '@/src/types/command.types';
@@ -24,6 +25,7 @@ import { useProfilesStore } from '@/src/stores/profiles.store';
 import { useContextStore } from '@/src/stores/context.store';
 import { useDialog } from '@/src/hooks/useDialog';
 import { addSkillFlow, addToolFlow, addMcpFlow } from '@/src/lib/context/addFlows';
+import { triggerImportOpen } from '@/src/components/layout/HiddenImportInput';
 
 const IS_MAC =
   typeof navigator !== 'undefined' && /mac/i.test(navigator.platform);
@@ -89,6 +91,15 @@ export function useCommands(): Command[] {
       icon: Search,
       run: async () => {
         useUiStore.getState().enterSearchMode();
+      },
+    });
+    out.push({
+      id: 'sessions.import',
+      group: 'sessions',
+      label: 'Import session…',
+      icon: Upload,
+      run: async () => {
+        triggerImportOpen();
       },
     });
     for (const s of sessions.list) {
