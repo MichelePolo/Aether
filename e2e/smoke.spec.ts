@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { test, expect } from '@playwright/test';
 
 // Wipe all server-side sessions so each test starts from a clean slate.
@@ -402,3 +403,25 @@ test('mcp advanced: refresh button against mock MCP', async ({ page, request }) 
   await request.put('/api/context', { data: cleaned });
 });
 
+
+test('session io: import session via palette creates a new session', async ({ page }) => {
+  await page.goto('/');
+  // Wait for the app shell
+  await page.getByText('AETHER_CORE').waitFor();
+
+  // Open the palette.
+  await page.keyboard.press('Meta+K');
+  await page.getByPlaceholder(/type a command/i).waitFor();
+
+  // Run the import command — this triggers a click on the hidden input.
+  await page.getByText('Import session…').click();
+
+  // Programmatically attach the fixture file to the hidden input.
+  const input = page.locator('input[type="file"][accept="application/json"]');
+  await input.setInputFiles(
+    path.resolve('e2e/fixtures/sample-session.json'),
+  );
+
+  // The imported session row should appear in the sidebar.
+  await page.getByText('Playwright Imported Session').waitFor();
+});
