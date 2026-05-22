@@ -425,3 +425,19 @@ test('session io: import session via palette creates a new session', async ({ pa
   // The imported session row should appear in the sidebar.
   await page.getByText('Playwright Imported Session').waitFor();
 });
+
+test('provider auth: pane is visible with 4 rows + refresh works', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('AETHER_CORE').waitFor();
+
+  // Wait for the section header to render
+  await page.getByText(/^Providers$/i).waitFor();
+  const rows = page.getByTestId('provider-auth-row');
+  await rows.first().waitFor();
+  expect(await rows.count()).toBe(4);
+
+  // Click refresh — rows still present
+  await page.getByLabel('Refresh provider auth').click();
+  await page.waitForTimeout(200);
+  expect(await rows.count()).toBe(4);
+});
