@@ -119,4 +119,28 @@ export const handlers = [
   http.get('http://localhost/api/search', () =>
     HttpResponse.json({ results: [] }),
   ),
+  http.get('http://localhost/api/sessions/:id/export', ({ params }) =>
+    HttpResponse.json({
+      app: 'aether',
+      version: 1,
+      exportedAt: 0,
+      session: {
+        title: `exported-${params.id}`,
+        createdAt: 0,
+        messages: [],
+      },
+    }),
+  ),
+  http.post('http://localhost/api/sessions/import', async ({ request }) => {
+    const body = (await request.json()) as { session?: { title?: string } };
+    return HttpResponse.json(
+      {
+        id: `imp-${Date.now()}`,
+        title: body?.session?.title ?? 'imported',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+      { status: 201 },
+    );
+  }),
 ];
