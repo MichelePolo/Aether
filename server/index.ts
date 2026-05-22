@@ -23,6 +23,7 @@ import { AnthropicProvider } from './domain/dispatch/providers/anthropic.provide
 import { OpenAIProvider } from './domain/dispatch/providers/openai.provider';
 import { detectAnthropicAuth } from './lib/anthropic-auth';
 import { SearchService } from './domain/search/search.service';
+import { AuthStatusService } from './domain/providers/auth-status';
 
 dotenv.config();
 
@@ -85,9 +86,16 @@ async function bootstrap() {
 
   await providers.refresh();
 
+  const authStatusService = new AuthStatusService({
+    detectAnthropicAuth,
+    openAIApiKey: cfg.openAIApiKey || undefined,
+    geminiApiKey: cfg.geminiApiKey || undefined,
+    ollamaHost: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
+  });
+
   const dispatcher = new DispatchService({ providers, historyStore, contextStore, subAgentsStore, mcpRegistry });
 
-  const app = createApp({ contextStore, historyStore, dispatcher, profilesStore, subAgentsStore, mcpRegistry, providers, searchService });
+  const app = createApp({ contextStore, historyStore, dispatcher, profilesStore, subAgentsStore, mcpRegistry, providers, searchService, authStatusService });
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
