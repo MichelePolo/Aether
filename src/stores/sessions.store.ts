@@ -17,6 +17,7 @@ interface SessionsState {
   rename: (id: string, title: string) => Promise<void>;
   setProviderName: (id: string, providerName: string) => Promise<void>;
   delete: (id: string) => Promise<void>;
+  importSession: (file: File) => Promise<void>;
   setActive: (id: string) => void;
   setLocalTitle: (id: string, title: string) => void;
   touchUpdatedAt: (id: string, ts: number) => void;
@@ -111,6 +112,24 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     } catch (e) {
       set({ error: errMsg(e) });
       throw e;
+    }
+  },
+
+  importSession: async (file) => {
+    let envelope: unknown;
+    try {
+      const text = await file.text();
+      envelope = JSON.parse(text);
+    } catch {
+      set({ error: 'Import failed: invalid JSON file' });
+      return;
+    }
+    try {
+      const meta = await sessionsApi.importSession(envelope);
+      set((s) => ({ sessions: [meta, ...s.sessions], error: null }));
+      get().setActive(meta.id);
+    } catch (e) {
+      set({ error: `Import failed: ${errMsg(e)}` });
     }
   },
 

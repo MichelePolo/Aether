@@ -296,6 +296,58 @@ describe('useSessionsStore.setProviderName', () => {
   });
 });
 
+describe('useSessionsStore.importSession', () => {
+  it('prepends imported session, sets active, clears error on success', async () => {
+    useSessionsStore.setState({
+      sessions: [m('OLD')], activeSessionId: 'OLD', hydrated: true, error: 'leftover',
+    });
+    server.use(
+      http.post('http://localhost/api/sessions/import', () =>
+        HttpResponse.json(
+          { id: 'new-imp', title: 'imp', createdAt: 1, updatedAt: 2 },
+          { status: 201 },
+        ),
+      ),
+      http.get('http://localhost/api/sessions/new-imp', () =>
+        HttpResponse.json({ messages: [] }),
+      ),
+    );
+    const file = new File([JSON.stringify({ version: 1 })], 'export.json', { type: 'application/json' });
+    await useSessionsStore.getState().importSession(file);
+    const s = useSessionsStore.getState();
+    expect(s.sessions.map((x) => x.id)).toEqual(['new-imp', 'OLD']);
+    expect(s.activeSessionId).toBe('new-imp');
+    expect(s.error).toBeNull();
+  });
+
+  it('sets error matching /invalid JSON/ when file is not valid JSON', async () => {
+    useSessionsStore.setState({ sessions: [], activeSessionId: null, hydrated: true });
+    let postCalled = false;
+    server.use(
+      http.post('http://localhost/api/sessions/import', () => {
+        postCalled = true;
+        return HttpResponse.json({}, { status: 201 });
+      }),
+    );
+    const file = new File(['NOT_JSON{{'], 'bad.json', { type: 'application/json' });
+    await useSessionsStore.getState().importSession(file);
+    expect(useSessionsStore.getState().error).toMatch(/invalid JSON/i);
+    expect(postCalled).toBe(false);
+  });
+
+  it('sets error containing server message on server 400', async () => {
+    useSessionsStore.setState({ sessions: [], activeSessionId: null, hydrated: true });
+    server.use(
+      http.post('http://localhost/api/sessions/import', () =>
+        HttpResponse.json({ error: { message: 'nope' } }, { status: 400 }),
+      ),
+    );
+    const file = new File([JSON.stringify({ version: 1 })], 'export.json', { type: 'application/json' });
+    await useSessionsStore.getState().importSession(file);
+    expect(useSessionsStore.getState().error).toMatch(/nope/);
+  });
+});
+
 describe('useSessionsStore edge cases', () => {
   it('init: falls back to "Operation failed" when API throws a non-Error', async () => {
     // Force fetch to reject with a non-Error value so errMsg returns the default string.
