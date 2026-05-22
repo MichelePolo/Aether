@@ -127,7 +127,11 @@ export class AuthStatusService {
       },
     );
 
-    return Promise.race([fetchPromise, timeoutPromise]);
+    const winner = Promise.race([fetchPromise, timeoutPromise]);
+    // Silence the loser's rejection so a slow non-abort error after the timer
+    // wins doesn't surface as an unhandledRejection.
+    fetchPromise.catch(() => {});
+    return winner;
   }
 }
 
