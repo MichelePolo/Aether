@@ -10,6 +10,7 @@ import { SkillsSection } from '@/src/components/sidebar/SkillsSection';
 import { ToolsSection } from '@/src/components/sidebar/ToolsSection';
 import { McpServersSection } from '@/src/components/sidebar/McpServersSection';
 import { SubAgentsSection } from '@/src/components/sidebar/SubAgentsSection';
+import { ProviderAuthSection } from '@/src/components/sidebar/ProviderAuthSection';
 import { ConnectionFooter } from '@/src/components/sidebar/ConnectionFooter';
 import { ChatView } from '@/src/components/chat/ChatView';
 import { ToolCallBanner } from '@/src/components/chat/ToolCallBanner';
@@ -23,6 +24,7 @@ import { useUiStore } from '@/src/stores/ui.store';
 import { useProfilesStore } from '@/src/stores/profiles.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
 import { useProvidersStore } from '@/src/stores/providers.store';
+import { useProviderAuthStore } from '@/src/stores/providerAuth.store';
 import { useGlobalShortcuts } from '@/src/hooks/useGlobalShortcuts';
 import { useToolCallDecisions } from '@/src/hooks/useToolCallDecisions';
 
@@ -35,6 +37,7 @@ export default function App() {
   const initProfiles = useProfilesStore((s) => s.init);
   const initSubAgents = useSubAgentsStore((s) => s.init);
   const initProviders = useProvidersStore((s) => s.init);
+  const initProviderAuth = useProviderAuthStore((s) => s.init);
 
   useEffect(() => {
     initContext();
@@ -43,7 +46,8 @@ export default function App() {
     initProfiles();
     initSubAgents();
     initProviders();
-  }, [initContext, initSessions, initUi, initProfiles, initSubAgents, initProviders]);
+    initProviderAuth();
+  }, [initContext, initSessions, initUi, initProfiles, initSubAgents, initProviders, initProviderAuth]);
 
   useGlobalShortcuts();
   useToolCallDecisions();
@@ -67,6 +71,7 @@ export default function App() {
             <ToolsSection />
             <McpServersSection />
             <SubAgentsSection />
+            <ProviderAuthSection />
           </Sidebar>
         }
       >

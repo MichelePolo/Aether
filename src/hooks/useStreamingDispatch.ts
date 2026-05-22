@@ -9,6 +9,8 @@ import type { ReasoningStep } from '@/src/types/reasoning.types';
 import { emitToolCallRequest, type ToolCallRequestEvent } from './useToolCallDecisions';
 import { useMcpStore } from '@/src/stores/mcp.store';
 import type { McpConnectionState } from '@/src/types/mcp.types';
+import { useProviderAuthStore } from '@/src/stores/providerAuth.store';
+import type { ProviderTransport } from '@/src/types/provider-auth.types';
 
 interface TextData { chunk: string }
 interface ThinkingData { chunk: string }
@@ -24,6 +26,16 @@ interface McpStateChangeData {
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : 'Unknown error';
+}
+
+const PROBED_TRANSPORTS = ['anthropic', 'openai', 'gemini', 'ollama'] as const;
+
+function maybeRefreshAuthStatus(providerName: string | undefined): void {
+  if (!providerName) return;
+  const transport = providerName.split(':')[0];
+  if ((PROBED_TRANSPORTS as readonly string[]).includes(transport)) {
+    void useProviderAuthStore.getState().refresh(transport as ProviderTransport);
+  }
 }
 
 export function useStreamingDispatch() {
@@ -89,6 +101,7 @@ export function useStreamingDispatch() {
           return;
         } else if (ev.event === 'error') {
           const d = ev.data as ErrorData;
+          maybeRefreshAuthStatus(activeName);
           useChatStore.getState().failAssistant(id, d.message, !!d.retryable);
           return;
         } else if (ev.event === 'tool_call_request') {
@@ -132,6 +145,7 @@ export function useStreamingDispatch() {
       if (controller.signal.aborted) {
         useChatStore.getState().finishAssistant(id, { interrupted: true });
       } else {
+        maybeRefreshAuthStatus(activeName);
         useChatStore.getState().failAssistant(id, errMsg(e), true);
       }
     } finally {
@@ -187,6 +201,7 @@ export function useStreamingDispatch() {
           return;
         } else if (ev.event === 'error') {
           const d = ev.data as ErrorData;
+          maybeRefreshAuthStatus(activeName);
           useChatStore.getState().failAssistant(id, d.message, !!d.retryable);
           return;
         } else if (ev.event === 'tool_call_request') {
@@ -229,6 +244,7 @@ export function useStreamingDispatch() {
       if (controller.signal.aborted) {
         useChatStore.getState().finishAssistant(id, { interrupted: true });
       } else {
+        maybeRefreshAuthStatus(activeName);
         useChatStore.getState().failAssistant(id, errMsg(e), true);
       }
     } finally {

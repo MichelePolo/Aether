@@ -1,4 +1,5 @@
 import type { ProviderDescriptor } from '@/src/types/provider.types';
+import type { AuthStatusReport, ProviderTransport } from '@/src/types/provider-auth.types';
 
 async function jsonRes<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -24,4 +25,14 @@ export const providersApi = {
     fetch('/api/providers/default')
       .then(jsonRes<{ name: string | null }>)
       .then((b) => b.name),
+
+  fetchAuthStatus: (): Promise<AuthStatusReport> =>
+    fetch('/api/providers/auth-status').then(jsonRes<AuthStatusReport>),
+
+  refreshAuthStatus: (transport?: ProviderTransport): Promise<AuthStatusReport> => {
+    const url = transport
+      ? `/api/providers/auth-status/refresh?transport=${encodeURIComponent(transport)}`
+      : '/api/providers/auth-status/refresh';
+    return fetch(url, { method: 'POST' }).then(jsonRes<AuthStatusReport>);
+  },
 };
