@@ -374,18 +374,21 @@ describe('HistoryStore.importSession', () => {
     const NOW = 9_999_000;
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
-    const meta = await store.importSession({
-      app: 'aether', version: 1, exportedAt: 0,
-      session: { title: 't', createdAt: 1, messages: [
-        { id: 'a', role: 'user', text: 'one', timestamp: 100 },
-        { id: 'b', role: 'model', text: 'two', timestamp: 200 },
-      ] },
-    });
-    expect(meta.createdAt).toBe(NOW);
-    expect(meta.updatedAt).toBe(NOW);
-    const msgs = await store.read(meta.id);
-    for (const m of msgs!) expect(m.timestamp).toBe(NOW);
-    vi.useRealTimers();
+    try {
+      const meta = await store.importSession({
+        app: 'aether', version: 1, exportedAt: 0,
+        session: { title: 't', createdAt: 1, messages: [
+          { id: 'a', role: 'user', text: 'one', timestamp: 100 },
+          { id: 'b', role: 'model', text: 'two', timestamp: 200 },
+        ] },
+      });
+      expect(meta.createdAt).toBe(NOW);
+      expect(meta.updatedAt).toBe(NOW);
+      const msgs = await store.read(meta.id);
+      for (const m of msgs!) expect(m.timestamp).toBe(NOW);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('populates messages_fts so imported messages are searchable', async () => {
