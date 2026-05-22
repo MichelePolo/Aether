@@ -4,6 +4,7 @@ import { computeTitle } from './title';
 import type { Message, SessionMeta, SessionRecord } from './history.types';
 import type { ReasoningStep, ToolCallTrace } from '@/server/domain/reasoning/reasoning.types';
 import type { DatabaseHandle } from '@/server/db/database';
+import { wrap, type ExportEnvelope } from './history.export';
 
 const TITLE_MAX = 200;
 
@@ -105,6 +106,12 @@ export class HistoryStore {
     };
   }
 
+  async exportSession(id: string): Promise<ExportEnvelope | null> {
+    const record = await this.readRecord(id);
+    if (!record) return null;
+    return wrap(record, Date.now());
+  }
+
   async setProviderName(id: string, providerName: string): Promise<void> {
     const info = this.db
       .prepare('UPDATE sessions SET provider_name = ? WHERE id = ?')
@@ -189,6 +196,61 @@ export class HistoryStore {
     });
     tx();
     if (!deleted) throw new NotFoundError(`session ${sessionId}`);
+  }
+
+  async importSession(envelope: ExportEnvelope): Promise<SessionMeta> {
+    const { session } = envelope;
+    const newSessionId = randomUUID();
+    const now = Date.now();
+
+    const insertMessage = this.db.prepare(
+      'INSERT INTO messages (id, session_id, role, content, model, interrupted, error, retryable, created_at, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    );
+    const insertFts = this.db.prepare(
+      'INSERT INTO messages_fts (message_id, session_id, role, content) VALUES (?, ?, ?, ?)',
+    );
+
+    const tx = this.db.transaction(() => {
+      this.db
+        .prepare('INSERT INTO sessions (id, title, created_at, updated_at, provider_name) VALUES (?, ?, ?, ?, ?)')
+        .run(newSessionId, session.title, now, now, session.providerName ?? null);
+
+      session.messages.forEach((msg, i) => {
+        const newMsgId = randomUUID();
+        insertMessage.run(
+          newMsgId, newSessionId, msg.role, msg.text,
+          msg.model ?? null,
+          msg.interrupted ? 1 : 0,
+          msg.error ?? null,
+          msg.retryable === undefined ? null : msg.retryable ? 1 : 0,
+          now, i,
+        );
+        insertFts.run(newMsgId, newSessionId, msg.role, msg.text);
+
+        const reIdded: ReasoningStep[] = (msg.reasoningSteps ?? []).map((step) => {
+          const newStep: ReasoningStep = {
+            ...step,
+            id: randomUUID(),
+            type: step.type as ReasoningStep['type'],
+            timestamp: now,
+          };
+          if (step.type === 'tool_call' && step.toolCall) {
+            newStep.toolCall = { ...step.toolCall, id: randomUUID() };
+          }
+          return newStep;
+        });
+        this.insertReasoningSteps(newMsgId, reIdded);
+      });
+    });
+    tx();
+
+    return {
+      id: newSessionId,
+      title: session.title,
+      createdAt: now,
+      updatedAt: now,
+      providerName: session.providerName,
+    };
   }
 
   // ---- private helpers ----

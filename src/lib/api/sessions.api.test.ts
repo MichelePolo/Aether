@@ -74,4 +74,34 @@ describe('sessionsApi', () => {
     );
     await expect(sessionsApi.delete('nope')).rejects.toThrow();
   });
+
+  it('exportSessionUrl returns the correct URL', () => {
+    expect(sessionsApi.exportSessionUrl('abc')).toBe('/api/sessions/abc/export');
+  });
+
+  it('importSession POSTs JSON body and returns SessionMeta', async () => {
+    const envelope = { version: 1, session: { id: 'x', title: 'T', createdAt: 1, updatedAt: 2 }, messages: [] };
+    let capturedBody: unknown = null;
+    server.use(
+      http.post('http://localhost/api/sessions/import', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json(
+          { id: 'imp-1', title: 'Imported', createdAt: 10, updatedAt: 20 },
+          { status: 201 },
+        );
+      }),
+    );
+    const meta = await sessionsApi.importSession(envelope);
+    expect(capturedBody).toEqual(envelope);
+    expect(meta).toMatchObject({ id: 'imp-1', title: 'Imported' });
+  });
+
+  it('importSession throws with server error message on non-2xx', async () => {
+    server.use(
+      http.post('http://localhost/api/sessions/import', () =>
+        HttpResponse.json({ error: { message: 'nope' } }, { status: 400 }),
+      ),
+    );
+    await expect(sessionsApi.importSession({})).rejects.toThrow(/nope/);
+  });
 });

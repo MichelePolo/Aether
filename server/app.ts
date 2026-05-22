@@ -16,6 +16,7 @@ import { createProvidersRoutes } from '@/server/routes/providers.routes';
 import type { ProviderRegistry } from '@/server/domain/providers/registry';
 import { createSearchRoutes } from '@/server/routes/search.routes';
 import type { SearchService } from '@/server/domain/search/search.service';
+import { createSessionsRoutes } from './routes/sessions.routes';
 
 export interface AppDeps {
   contextStore?: ContextStore;
@@ -37,6 +38,15 @@ export function createApp(
   extraRoutes?: (app: Express) => void,
 ): Express {
   const app = express();
+
+  // Sessions io router mounted BEFORE global json parser so its import
+  // route can install its own 10 MB parser. Other /api/sessions routes
+  // (list/create/read/patch/delete) live in history.routes and use the
+  // 1 MB parser below.
+  if (deps.historyStore) {
+    app.use('/api/sessions', createSessionsRoutes(deps.historyStore));
+  }
+
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/api/health', (_req, res) => {
@@ -84,6 +94,12 @@ export function createApp(
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (isAppError(err)) {
       res.status(err.status).json({ error: { code: err.code, message: err.message } });
+      return;
+    }
+    // Express HTTP errors (e.g. 413 entity.too.large) carry a numeric `status`.
+    if (typeof err === 'object' && err !== null && 'status' in err && typeof (err as { status: unknown }).status === 'number') {
+      const httpErr = err as { status: number; message?: string };
+      res.status(httpErr.status).json({ error: { code: 'HTTP_ERROR', message: httpErr.message ?? 'HTTP error' } });
       return;
     }
     const message = err instanceof Error ? err.message : 'Unknown error';

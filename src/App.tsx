@@ -3,6 +3,7 @@ import { AppShell } from '@/src/components/layout/AppShell';
 import { TopBar } from '@/src/components/layout/TopBar';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { DialogHost } from '@/src/components/layout/DialogHost';
+import { HiddenImportInput } from '@/src/components/layout/HiddenImportInput';
 import { SessionsSection } from '@/src/components/sidebar/SessionsSection';
 import { SystemProtocolSection } from '@/src/components/sidebar/SystemProtocolSection';
 import { SkillsSection } from '@/src/components/sidebar/SkillsSection';
@@ -82,6 +83,7 @@ export default function App() {
       <SubAgentEditModal />
       <CommandPalette />
       <DialogHost />
+      <HiddenImportInput />
     </>
   );
 }

@@ -1,0 +1,12 @@
+{
+  "app": "aether",
+  "version": 1,
+  "exportedAt": 0,
+  "session": {
+    "title": "Playwright Imported Session",
+    "createdAt": 0,
+    "messages": [
+      { "id": "m1", "role": "user", "text": "hello from fixture", "timestamp": 0 }
+    ]
+  }
+}

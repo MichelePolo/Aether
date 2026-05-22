@@ -43,4 +43,9 @@ export const sessionsApi = {
     const res = await fetch(`${BASE}/${id}`, json('PATCH', { providerName }));
     await asJson<void>(res);
   },
+  exportSessionUrl: (id: string): string => `${BASE}/${id}/export`,
+  importSession: async (envelope: unknown): Promise<SessionMeta> => {
+    const res = await fetch(`${BASE}/import`, json('POST', envelope));
+    return asJson<SessionMeta>(res);
+  },
 };

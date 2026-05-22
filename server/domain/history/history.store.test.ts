@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { HistoryStore } from './history.store';
 import { makeTestDb } from '@/server/test/test-db';
 import type { DatabaseHandle } from '@/server/db/database';
@@ -318,5 +318,106 @@ describe('providerName persistence (slice-8)', () => {
 
   it('setProviderName on unknown id throws NotFoundError', async () => {
     await expect(store.setProviderName('bogus', 'fake:default')).rejects.toThrow();
+  });
+});
+
+import { EXPORT_VERSION } from './history.export';
+
+describe('HistoryStore.exportSession', () => {
+  it('returns null for unknown id', async () => {
+    const env = await store.exportSession('does-not-exist');
+    expect(env).toBeNull();
+  });
+
+  it('returns a versioned envelope for a seeded session', async () => {
+    const s = await store.createEmpty({ providerName: 'fake:default' });
+    await store.append(s.id, { id: 'm1', role: 'user', text: 'hello', timestamp: 100 });
+
+    const env = await store.exportSession(s.id);
+    expect(env).not.toBeNull();
+    expect(env!.app).toBe('aether');
+    expect(env!.version).toBe(EXPORT_VERSION);
+    expect(env!.session.title).toBe('hello'); // auto-titled from first user msg
+    expect(env!.session.providerName).toBe('fake:default');
+    expect(env!.session.messages).toHaveLength(1);
+    expect(env!.session.messages[0].id).toBe('m1');
+  });
+});
+
+describe('HistoryStore.importSession', () => {
+  it('creates a new session with a fresh id', async () => {
+    const meta = await store.importSession({
+      app: 'aether', version: 1, exportedAt: 0,
+      session: { title: 'imported', createdAt: 1, messages: [{ id: 'orig-1', role: 'user', text: 'hello', timestamp: 1 }] },
+    });
+    expect(meta.id).not.toBe('orig-1');
+    expect(meta.title).toBe('imported');
+    const list = await store.listSessions();
+    expect(list.find((x) => x.id === meta.id)).toBeDefined();
+  });
+
+  it('regenerates message and reasoning ids', async () => {
+    const meta = await store.importSession({
+      app: 'aether', version: 1, exportedAt: 0,
+      session: { title: 't', createdAt: 1, messages: [{
+        id: 'orig-msg', role: 'model', text: 'answer', timestamp: 1,
+        reasoningSteps: [{ id: 'orig-step', type: 'thought', title: 'thinking', content: 'x', timestamp: 1 }],
+      }] },
+    });
+    const msgs = await store.read(meta.id);
+    expect(msgs).not.toBeNull();
+    expect(msgs![0].id).not.toBe('orig-msg');
+    expect(msgs![0].reasoningSteps![0].id).not.toBe('orig-step');
+  });
+
+  it('sets all timestamps to a single Date.now() captured at import', async () => {
+    const NOW = 9_999_000;
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    try {
+      const meta = await store.importSession({
+        app: 'aether', version: 1, exportedAt: 0,
+        session: { title: 't', createdAt: 1, messages: [
+          { id: 'a', role: 'user', text: 'one', timestamp: 100 },
+          { id: 'b', role: 'model', text: 'two', timestamp: 200 },
+        ] },
+      });
+      expect(meta.createdAt).toBe(NOW);
+      expect(meta.updatedAt).toBe(NOW);
+      const msgs = await store.read(meta.id);
+      for (const m of msgs!) expect(m.timestamp).toBe(NOW);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('populates messages_fts so imported messages are searchable', async () => {
+    const meta = await store.importSession({
+      app: 'aether', version: 1, exportedAt: 0,
+      session: { title: 't', createdAt: 1, messages: [{ id: 'a', role: 'user', text: 'banana custard', timestamp: 1 }] },
+    });
+    const row = db.prepare('SELECT count(*) as n FROM messages_fts WHERE session_id = ?').get(meta.id) as { n: number };
+    expect(row.n).toBe(1);
+  });
+
+  it('preserves message order via position', async () => {
+    const meta = await store.importSession({
+      app: 'aether', version: 1, exportedAt: 0,
+      session: { title: 't', createdAt: 1, messages: [
+        { id: 'a', role: 'user', text: 'first', timestamp: 1 },
+        { id: 'b', role: 'model', text: 'second', timestamp: 2 },
+        { id: 'c', role: 'user', text: 'third', timestamp: 3 },
+      ] },
+    });
+    const msgs = await store.read(meta.id);
+    expect(msgs!.map((m) => m.text)).toEqual(['first', 'second', 'third']);
+  });
+
+  it('preserves providerName when present', async () => {
+    const meta = await store.importSession({
+      app: 'aether', version: 1, exportedAt: 0,
+      session: { title: 't', createdAt: 1, providerName: 'fake:default', messages: [] },
+    });
+    expect(meta.providerName).toBe('fake:default');
   });
 });

@@ -1,6 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
+
+vi.mock('@/src/components/layout/HiddenImportInput', () => ({
+  triggerImportOpen: vi.fn(),
+}));
+
 import { useCommands } from './useCommands';
+import { triggerImportOpen } from '@/src/components/layout/HiddenImportInput';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
 import { useProfilesStore } from '@/src/stores/profiles.store';
@@ -11,6 +17,7 @@ beforeEach(() => {
   useSessionsStore.getState()._reset();
   useProfilesStore.getState()._reset();
   useContextStore.getState()._reset();
+  vi.mocked(triggerImportOpen).mockClear();
 });
 
 function ids(cmds: { id: string }[]): string[] {
@@ -84,5 +91,16 @@ describe('useCommands', () => {
     const sidebar = result.current.find((c) => c.id === 'ui.toggleSidebar');
     expect(newSession?.shortcut).toBeTruthy();
     expect(sidebar?.shortcut).toBeTruthy();
+  });
+});
+
+describe('useCommands — sessions.import', () => {
+  it('exposes an "Import session…" command that triggers the hidden input', async () => {
+    const { result } = renderHook(() => useCommands());
+    const cmd = result.current.find((c) => c.id === 'sessions.import');
+    expect(cmd).toBeDefined();
+    expect(cmd!.label).toBe('Import session…');
+    await cmd!.run();
+    expect(triggerImportOpen).toHaveBeenCalled();
   });
 });

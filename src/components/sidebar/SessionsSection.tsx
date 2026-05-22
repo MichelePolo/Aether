@@ -3,6 +3,7 @@ import { useChatStore } from '@/src/stores/chat.store';
 import { useDialog } from '@/src/hooks/useDialog';
 import type { SessionMeta } from '@/src/types/session.types';
 import { cn } from '@/src/lib/cn';
+import { sessionsApi } from '@/src/lib/api/sessions.api';
 
 const FALLBACK_TITLE = 'Nuova sessione';
 
@@ -11,11 +12,12 @@ interface SessionRowProps {
   active: boolean;
   disabled: boolean;
   onSelect: () => void;
+  onExport: () => void;
   onRename: () => void;
   onDelete: () => void;
 }
 
-function SessionRow({ session, active, disabled, onSelect, onRename, onDelete }: SessionRowProps) {
+function SessionRow({ session, active, disabled, onSelect, onExport, onRename, onDelete }: SessionRowProps) {
   const label = session.title || FALLBACK_TITLE;
   return (
     <div
@@ -36,6 +38,14 @@ function SessionRow({ session, active, disabled, onSelect, onRename, onDelete }:
         {label}
       </button>
       <div className="hidden group-hover:flex gap-1">
+        <button
+          onClick={onExport}
+          disabled={disabled}
+          aria-label={`Export ${label}`}
+          className="hover:text-white disabled:opacity-50"
+        >
+          ↓
+        </button>
         <button
           onClick={onRename}
           disabled={disabled}
@@ -92,6 +102,10 @@ export function SessionsSection() {
     if (ok) await remove(id).catch(() => {});
   };
 
+  const handleExport = (id: string) => {
+    window.location.assign(sessionsApi.exportSessionUrl(id));
+  };
+
   return (
     <section>
       <div className="flex items-center justify-between mb-2">
@@ -121,6 +135,7 @@ export function SessionsSection() {
             active={s.id === activeSessionId}
             disabled={isStreaming}
             onSelect={() => setActive(s.id)}
+            onExport={() => handleExport(s.id)}
             onRename={() => handleRename(s.id, s.title || FALLBACK_TITLE)}
             onDelete={() => handleDelete(s.id, s.title || FALLBACK_TITLE)}
           />
