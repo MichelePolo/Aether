@@ -89,7 +89,8 @@ export function slugifyFilename(title: string, exportedAt: number): string {
   const slug = lower
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .slice(0, SLUG_MAX);
+    .slice(0, SLUG_MAX)
+    .replace(/-+$/, '');
   const safe = slug || 'untitled';
   return `aether-session-${safe}-${formatStamp(exportedAt)}.json`;
 }

@@ -129,4 +129,13 @@ describe('slugifyFilename', () => {
     const slug = name.replace(/^aether-session-/, '').replace(/-\d{8}-\d{4}\.json$/, '');
     expect(slug.length).toBeLessThanOrEqual(60);
   });
+
+  it('does not leave a trailing dash when the 60-char clamp lands on a dash', () => {
+    // Build a title whose slug ends with a dash exactly at position 60.
+    // 30 chars of 'a', a separator, more 'a's — clamp lands right after the dash.
+    const title = `${'a'.repeat(59)} more`;
+    const name = slugifyFilename(title, 1779863400000);
+    const slug = name.replace(/^aether-session-/, '').replace(/-\d{8}-\d{4}\.json$/, '');
+    expect(slug.endsWith('-')).toBe(false);
+  });
 });
