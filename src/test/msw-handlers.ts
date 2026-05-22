@@ -116,4 +116,7 @@ export const handlers = [
   http.get('http://localhost/api/providers/default', () =>
     HttpResponse.json({ name: 'fake:default' }),
   ),
+  http.get('http://localhost/api/search', () =>
+    HttpResponse.json({ results: [] }),
+  ),
 ];

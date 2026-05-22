@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { SessionHits } from '@/src/types/search.types';
 
 const THINKING_KEY = 'aether.thinkingEnabled';
 const SIDEBAR_KEY = 'aether.sidebarOpen';
@@ -9,6 +10,9 @@ interface UiState {
   focusedMessageId: string | null;
   profilesModalOpen: boolean;
   paletteOpen: boolean;
+  paletteMode: 'commands' | 'search';
+  searchQuery: string;
+  searchResults: SessionHits[];
   sidebarOpen: boolean;
   editingSubAgentId: string | null;
 
@@ -26,6 +30,10 @@ interface UiState {
   openPalette: () => void;
   closePalette: () => void;
   togglePalette: () => void;
+  enterSearchMode: () => void;
+  exitSearchMode: () => void;
+  setSearchQuery: (q: string) => void;
+  setSearchResults: (results: SessionHits[]) => void;
   setSidebarOpen: (v: boolean) => void;
   toggleSidebar: () => void;
   initFromStorage: () => void;
@@ -38,6 +46,9 @@ const initial = {
   focusedMessageId: null as string | null,
   profilesModalOpen: false,
   paletteOpen: false,
+  paletteMode: 'commands' as 'commands' | 'search',
+  searchQuery: '',
+  searchResults: [] as SessionHits[],
   sidebarOpen: true,
   editingSubAgentId: null as string | null,
 };
@@ -89,9 +100,22 @@ export const useUiStore = create<UiState>((set, get) => ({
   openSubAgentEditor: (id) => set({ editingSubAgentId: id }),
   closeSubAgentEditor: () => set({ editingSubAgentId: null }),
 
-  openPalette: () => set({ paletteOpen: true }),
-  closePalette: () => set({ paletteOpen: false }),
-  togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
+  openPalette: () =>
+    set({ paletteOpen: true, paletteMode: 'commands', searchQuery: '', searchResults: [] }),
+  closePalette: () =>
+    set({ paletteOpen: false, paletteMode: 'commands', searchQuery: '', searchResults: [] }),
+  togglePalette: () =>
+    set((s) =>
+      s.paletteOpen
+        ? { paletteOpen: false, paletteMode: 'commands', searchQuery: '', searchResults: [] }
+        : { paletteOpen: true, paletteMode: 'commands', searchQuery: '', searchResults: [] },
+    ),
+  enterSearchMode: () =>
+    set({ paletteMode: 'search', searchQuery: '', searchResults: [] }),
+  exitSearchMode: () =>
+    set({ paletteMode: 'commands', searchQuery: '', searchResults: [] }),
+  setSearchQuery: (q) => set({ searchQuery: q }),
+  setSearchResults: (results) => set({ searchResults: results }),
 
   setSidebarOpen: (v) => {
     writeBool(SIDEBAR_KEY, v);

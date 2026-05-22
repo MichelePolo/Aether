@@ -262,6 +262,38 @@ describe('HistoryStore', () => {
     expect(list[0].id).toBe(a.id);   // updated last
     expect(list[1].id).toBe(b.id);
   });
+
+  it('append() populates messages_fts with the same fields', async () => {
+    const s = await store.createEmpty();
+    await store.append(s.id, {
+      id: 'm-fts-1',
+      role: 'user',
+      text: 'searchable hello world',
+      timestamp: Date.now(),
+    });
+    const row = db
+      .prepare('SELECT message_id, session_id, role, content FROM messages_fts WHERE message_id = ?')
+      .get('m-fts-1') as { message_id: string; session_id: string; role: string; content: string };
+    expect(row).toEqual({
+      message_id: 'm-fts-1',
+      session_id: s.id,
+      role: 'user',
+      content: 'searchable hello world',
+    });
+  });
+
+  it('delete(sessionId) cascades to messages_fts rows', async () => {
+    const s = await store.createEmpty();
+    await store.append(s.id, { id: 'mf1', role: 'user', text: 'a', timestamp: Date.now() });
+    await store.append(s.id, { id: 'mf2', role: 'model', text: 'b', timestamp: Date.now() });
+    expect(
+      (db.prepare('SELECT COUNT(*) AS n FROM messages_fts WHERE session_id = ?').get(s.id) as { n: number }).n,
+    ).toBe(2);
+    await store.delete(s.id);
+    expect(
+      (db.prepare('SELECT COUNT(*) AS n FROM messages_fts WHERE session_id = ?').get(s.id) as { n: number }).n,
+    ).toBe(0);
+  });
 });
 
 describe('providerName persistence (slice-8)', () => {

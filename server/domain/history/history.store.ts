@@ -144,6 +144,12 @@ export class HistoryStore {
           position,
         );
 
+      this.db
+        .prepare(
+          'INSERT INTO messages_fts (message_id, session_id, role, content) VALUES (?, ?, ?, ?)',
+        )
+        .run(message.id, sessionId, message.role, message.text);
+
       this.insertReasoningSteps(message.id, message.reasoningSteps ?? []);
 
       this.db
@@ -175,8 +181,14 @@ export class HistoryStore {
   }
 
   async delete(sessionId: string): Promise<void> {
-    const info = this.db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
-    if (info.changes === 0) throw new NotFoundError(`session ${sessionId}`);
+    let deleted = false;
+    const tx = this.db.transaction(() => {
+      this.db.prepare('DELETE FROM messages_fts WHERE session_id = ?').run(sessionId);
+      const info = this.db.prepare('DELETE FROM sessions WHERE id = ?').run(sessionId);
+      deleted = info.changes > 0;
+    });
+    tx();
+    if (!deleted) throw new NotFoundError(`session ${sessionId}`);
   }
 
   // ---- private helpers ----
