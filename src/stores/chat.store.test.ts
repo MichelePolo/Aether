@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useChatStore, contextSizeOfActive } from './chat.store';
 import type { ReasoningStep } from '@/src/types/reasoning.types';
+import type { QueuedAttachment } from '@/src/types/attachment.types';
 
 beforeEach(() => {
   useChatStore.getState()._reset();
@@ -145,5 +146,63 @@ describe('useChatStore reasoning actions', () => {
     useChatStore.setState({ currentReasoning: { thinkingText: 'live', steps: [] } });
     useChatStore.getState().finishAssistant(id, { model: 'fake' });
     expect(useChatStore.getState().currentReasoning).toEqual({ thinkingText: '', steps: [] });
+  });
+});
+
+function makeFile(name: string, mime: string, content: string): File {
+  return new File([content], name, { type: mime });
+}
+
+describe('chat.store.queuedAttachments', () => {
+  beforeEach(() => useChatStore.getState().reset());
+
+  it('queueAttachments appends a valid PNG and clears error', async () => {
+    const file = makeFile('a.png', 'image/png', 'PNGBYTES');
+    await useChatStore.getState().queueAttachments([file]);
+    const q = useChatStore.getState().queuedAttachments;
+    expect(q).toHaveLength(1);
+    expect(q[0].name).toBe('a.png');
+    expect(q[0].mime).toBe('image/png');
+    expect(q[0].base64.length).toBeGreaterThan(0);
+    expect(q[0].dataUri.startsWith('data:image/png;base64,')).toBe(true);
+    expect(useChatStore.getState().error).toBeNull();
+  });
+
+  it('rejects when count would exceed MAX_ATTACHMENTS=5', async () => {
+    useChatStore.setState({
+      queuedAttachments: Array.from({ length: 5 }).map((_, i): QueuedAttachment => ({
+        id: `q${i}`, name: `a${i}.png`, mime: 'image/png', size: 1, base64: 'AA==', dataUri: 'data:image/png;base64,AA==',
+      })),
+    });
+    await useChatStore.getState().queueAttachments([makeFile('extra.png', 'image/png', 'X')]);
+    expect(useChatStore.getState().queuedAttachments).toHaveLength(5);
+    expect(useChatStore.getState().error).toMatch(/Too many attachments/i);
+  });
+
+  it('rejects when total size would exceed 10 MB', async () => {
+    const huge = makeFile('big.png', 'image/png', 'a'.repeat(11 * 1024 * 1024));
+    await useChatStore.getState().queueAttachments([huge]);
+    expect(useChatStore.getState().queuedAttachments).toHaveLength(0);
+    expect(useChatStore.getState().error).toMatch(/too large/i);
+  });
+
+  it('rejects an unsupported MIME with a per-file message', async () => {
+    const bad = makeFile('a.pdf', 'application/pdf', 'PDF');
+    await useChatStore.getState().queueAttachments([bad]);
+    expect(useChatStore.getState().queuedAttachments).toHaveLength(0);
+    expect(useChatStore.getState().error).toMatch(/a\.pdf/);
+  });
+
+  it('removeQueuedAttachment filters by id', async () => {
+    await useChatStore.getState().queueAttachments([makeFile('a.png', 'image/png', 'x')]);
+    const id = useChatStore.getState().queuedAttachments[0].id;
+    useChatStore.getState().removeQueuedAttachment(id);
+    expect(useChatStore.getState().queuedAttachments).toHaveLength(0);
+  });
+
+  it('clearQueuedAttachments empties the queue', async () => {
+    await useChatStore.getState().queueAttachments([makeFile('a.png', 'image/png', 'x')]);
+    useChatStore.getState().clearQueuedAttachments();
+    expect(useChatStore.getState().queuedAttachments).toHaveLength(0);
   });
 });

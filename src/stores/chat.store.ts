@@ -2,6 +2,49 @@ import { create } from 'zustand';
 import { newId } from '@/src/lib/ids';
 import type { Message } from '@/src/types/message.types';
 import type { ReasoningStep } from '@/src/types/reasoning.types';
+import type { QueuedAttachment } from '@/src/types/attachment.types';
+
+// ── Attachment helpers ────────────────────────────────────────────────────────
+
+const MAX_ATTACHMENTS = 5;
+const MAX_TOTAL_BYTES = 10 * 1024 * 1024;
+
+const IMAGE_MIMES = new Set<string>([
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp',
+  'image/gif',
+]);
+
+const TEXT_EXTENSIONS = new Set<string>([
+  'md', 'json', 'ts', 'tsx', 'js', 'jsx', 'py', 'yaml', 'yml',
+  'toml', 'sh', 'sql', 'rb', 'go', 'rs', 'java', 'c', 'cpp', 'h',
+  'html', 'css', 'csv', 'env', 'gitignore', 'txt',
+]);
+
+function classifyFile(name: string, mime: string): 'image' | 'text' | null {
+  if (IMAGE_MIMES.has(mime)) return 'image';
+  if (mime.startsWith('text/')) return 'text';
+  const dot = name.lastIndexOf('.');
+  if (dot === -1) return null;
+  const ext = name.slice(dot + 1).toLowerCase();
+  if (!ext) return null;
+  if (TEXT_EXTENSIONS.has(ext)) return 'text';
+  return null;
+}
+
+async function readFileBase64(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface CurrentReasoning {
   thinkingText: string;
@@ -14,6 +57,8 @@ interface ChatState {
   abortController: AbortController | null;
   hydrated: boolean;
   currentReasoning: CurrentReasoning;
+  queuedAttachments: QueuedAttachment[];
+  error: string | null;
 
   hydrate: (messages: Message[]) => void;
   appendUser: (text: string) => { id: string };
@@ -30,6 +75,9 @@ interface ChatState {
   abort: () => void;
   reset: () => void;
   _reset: () => void;
+  queueAttachments: (files: File[]) => Promise<void>;
+  removeQueuedAttachment: (id: string) => void;
+  clearQueuedAttachments: () => void;
 }
 
 const emptyReasoning: CurrentReasoning = { thinkingText: '', steps: [] };
@@ -40,6 +88,8 @@ const initial = {
   abortController: null as AbortController | null,
   hydrated: false,
   currentReasoning: emptyReasoning,
+  queuedAttachments: [] as QueuedAttachment[],
+  error: null as string | null,
 };
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -125,6 +175,61 @@ export const useChatStore = create<ChatState>((set, get) => ({
     c.abort();
     set({ abortController: null });
   },
+
+  queueAttachments: async (files: File[]) => {
+    const current = get().queuedAttachments;
+
+    // Count guard
+    if (current.length + files.length > MAX_ATTACHMENTS) {
+      set({ error: `Too many attachments — maximum is ${MAX_ATTACHMENTS}.` });
+      return;
+    }
+
+    // Compute current total size
+    const currentTotalSize = current.reduce((acc, a) => acc + a.size, 0);
+
+    const accepted: QueuedAttachment[] = [];
+    let runningSize = currentTotalSize;
+
+    for (const file of files) {
+      // MIME check
+      const kind = classifyFile(file.name, file.type);
+      if (kind === null) {
+        set({ error: `${file.name} is not a supported file type.` });
+        return;
+      }
+
+      // Size check
+      if (runningSize + file.size > MAX_TOTAL_BYTES) {
+        set({ error: `${file.name} is too large — total attachments must stay under 10 MB.` });
+        return;
+      }
+      runningSize += file.size;
+
+      const base64 = await readFileBase64(file);
+      const dataUri = `data:${file.type};base64,${base64}`;
+      accepted.push({
+        id: newId(),
+        name: file.name,
+        mime: file.type,
+        size: file.size,
+        base64,
+        dataUri,
+      });
+    }
+
+    set((s) => ({
+      queuedAttachments: [...s.queuedAttachments, ...accepted],
+      error: null,
+    }));
+  },
+
+  removeQueuedAttachment: (id: string) =>
+    set((s) => ({
+      queuedAttachments: s.queuedAttachments.filter((a) => a.id !== id),
+    })),
+
+  clearQueuedAttachments: () => set({ queuedAttachments: [] }),
 }));
 
 export function contextSizeOfActive(state: ChatState): {
