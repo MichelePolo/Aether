@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useChatStore } from './chat.store';
+import { useChatStore, contextSizeOfActive } from './chat.store';
 import type { ReasoningStep } from '@/src/types/reasoning.types';
 
 beforeEach(() => {
@@ -84,6 +84,34 @@ describe('useChatStore basic actions', () => {
     expect(s.messages).toEqual([]);
     expect(s.streamingId).toBeNull();
     expect(s.currentReasoning).toEqual({ thinkingText: '', steps: [] });
+  });
+});
+
+describe('useChatStore tokens (slice-19)', () => {
+  it('finishAssistant merges tokensIn and tokensOut onto the message', () => {
+    const { id } = useChatStore.getState().startAssistant();
+    useChatStore.getState().finishAssistant(id, { model: 'fake', tokensIn: 80, tokensOut: 40 });
+    const last = useChatStore.getState().messages.at(-1);
+    expect(last?.tokensIn).toBe(80);
+    expect(last?.tokensOut).toBe(40);
+  });
+
+  it('contextSizeOfActive returns null when no assistant message', () => {
+    useChatStore.getState().appendUser('hello');
+    expect(contextSizeOfActive(useChatStore.getState())).toBeNull();
+  });
+
+  it('contextSizeOfActive returns null when assistant has no tokens', () => {
+    const { id } = useChatStore.getState().startAssistant();
+    useChatStore.getState().finishAssistant(id, { model: 'fake' });
+    expect(contextSizeOfActive(useChatStore.getState())).toBeNull();
+  });
+
+  it('contextSizeOfActive returns { prompt, reply, total } from last assistant message', () => {
+    const { id } = useChatStore.getState().startAssistant();
+    useChatStore.getState().finishAssistant(id, { model: 'fake', tokensIn: 100, tokensOut: 50 });
+    const result = contextSizeOfActive(useChatStore.getState());
+    expect(result).toEqual({ prompt: 100, reply: 50, total: 150 });
   });
 });
 
