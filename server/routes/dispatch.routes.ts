@@ -1,11 +1,11 @@
-import { Router, type Request, type Response } from 'express';
+import express, { Router, type Request, type Response } from 'express';
 import { createSseEmitter } from '@/server/lib/sse';
 import type { DispatchService } from '@/server/domain/dispatch/dispatch.service';
 
 export function createDispatchRoutes(dispatcher: DispatchService): Router {
   const router = Router();
 
-  router.post('/', async (req: Request, res: Response) => {
+  router.post('/', express.json({ limit: '15mb' }), async (req: Request, res: Response) => {
     const sse = createSseEmitter(res);
     const controller = new AbortController();
     // Nota: usiamo `res.on('close')` invece di `req.on('close')` perché alcuni
@@ -26,7 +26,7 @@ export function createDispatchRoutes(dispatcher: DispatchService): Router {
     }
   });
 
-  router.post('/resume', async (req: Request, res: Response) => {
+  router.post('/resume', express.json({ limit: '15mb' }), async (req: Request, res: Response) => {
     const sse = createSseEmitter(res);
     const controller = new AbortController();
     res.on('close', () => {

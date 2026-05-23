@@ -410,3 +410,30 @@ describe('POST /api/ai/dispatch/resume', () => {
     expect((err!.data as { message: string }).message).toMatch(/Invalid request body/);
   });
 });
+
+describe('dispatch route — 15 MB body parser (slice 20)', () => {
+  it('accepts an attachment-bearing body up to ~6 MB without returning 413', async () => {
+    const { app, historyStore: hs } = await makeApp({ chunks: ['ok'] });
+    const session = await hs.createEmpty();
+    // Build a ~6 MB base64 payload (well under 15 MB limit, well over the 1 MB global limit).
+    const bigBytes = Buffer.alloc(4 * 1024 * 1024, 'x'); // 4 MB raw → ~5.4 MB base64
+    const body = JSON.stringify({
+      sessionId: session.id,
+      message: 'big',
+      attachments: [
+        {
+          name: 'big.txt',
+          mime: 'text/plain',
+          size: bigBytes.length,
+          contentBase64: bigBytes.toString('base64'),
+        },
+      ],
+    });
+    const res = await request(app)
+      .post('/api/ai/dispatch')
+      .set('Content-Type', 'application/json')
+      .send(body);
+    // The request should NOT be rejected with 413 — it should proceed to the dispatcher.
+    expect(res.status).not.toBe(413);
+  });
+});
