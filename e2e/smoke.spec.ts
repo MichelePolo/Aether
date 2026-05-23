@@ -441,3 +441,23 @@ test('provider auth: pane is visible with 4 rows + refresh works', async ({ page
   await page.waitForTimeout(200);
   expect(await rows.count()).toBe(4);
 });
+
+test('key vault: open modal via palette, save a key, reopen shows masked', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('AETHER_CORE').waitFor();
+
+  await page.keyboard.press('Meta+K');
+  await page.getByText('Configure API keys…').click();
+
+  await expect(page.getByTestId('key-vault-row')).toHaveCount(5);
+
+  const openaiInput = page.getByLabel('OpenAI key');
+  await openaiInput.fill('sk-e2e-test-key-67890');
+  await page.getByRole('button', { name: /save openai/i }).click();
+
+  await expect(page.getByText('sk-…7890')).toBeVisible({ timeout: 3000 });
+
+  await page.getByRole('button', { name: /clear openai/i }).click();
+  await page.getByRole('button', { name: /clear openai/i }).click();
+  await expect(page.getByLabel('OpenAI key')).toBeVisible();
+});
