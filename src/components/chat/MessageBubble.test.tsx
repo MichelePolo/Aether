@@ -172,9 +172,6 @@ describe('MessageBubble', () => {
   it('right-click on model bubble opens menu with role=model', () => {
     seed({ id: 'm1', role: 'model', text: 'Hi there' });
     render(<MessageBubble id="m1" />);
-    // Find the outer bubble div (the one with onContextMenu)
-    const allDivs = document.querySelectorAll('[data-testid="message-bubble"]');
-    // Fallback: find via the wrapper div with max-w class
     const wrapper = document.querySelector('.max-w-\\[80\\%\\]') as HTMLElement;
     fireEvent.contextMenu(wrapper, { clientX: 50, clientY: 60 });
     const menu = useUiStore.getState().messageContextMenu;
