@@ -1,5 +1,13 @@
 import type { ReasoningStep } from '@/server/domain/reasoning/reasoning.types';
 
+export interface MessageAttachment {
+  id: string;
+  mime: string;
+  name: string;
+  size: number;
+  contentBase64?: string;   // present on write/import paths; absent on read
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'model';
@@ -12,6 +20,7 @@ export interface Message {
   reasoningSteps?: ReasoningStep[];
   tokensIn?: number;
   tokensOut?: number;
+  attachments?: MessageAttachment[];
 }
 
 export interface SessionRecord {

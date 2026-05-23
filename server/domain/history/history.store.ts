@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ValidationError, NotFoundError } from '@/server/lib/errors';
 import { computeTitle } from './title';
-import type { Message, SessionMeta, SessionRecord } from './history.types';
+import type { Message, MessageAttachment, SessionMeta, SessionRecord } from './history.types';
 import type { ReasoningStep, ToolCallTrace } from '@/server/domain/reasoning/reasoning.types';
 import type { DatabaseHandle } from '@/server/db/database';
 import { wrap, type ExportEnvelope } from './history.export';
@@ -163,6 +163,10 @@ export class HistoryStore {
 
       this.insertReasoningSteps(message.id, message.reasoningSteps ?? []);
 
+      if (message.attachments && message.attachments.length > 0) {
+        this.insertAttachments(message.id, message.attachments);
+      }
+
       this.db
         .prepare('UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?')
         .run(nextTitle, message.timestamp, sessionId);
@@ -244,6 +248,13 @@ export class HistoryStore {
           return newStep;
         });
         this.insertReasoningSteps(newMsgId, reIdded);
+
+        if (msg.attachments && msg.attachments.length > 0) {
+          this.insertAttachments(newMsgId, msg.attachments.map((a) => ({
+            ...a,
+            id: randomUUID(),
+          })));
+        }
       });
     });
     tx();
@@ -329,6 +340,20 @@ export class HistoryStore {
           return newStep;
         });
         this.insertReasoningSteps(newMsgId, reIdded);
+
+        if (msg.attachments && msg.attachments.length > 0) {
+          msg.attachments.forEach((meta, attIdx) => {
+            const row = this.db
+              .prepare('SELECT content FROM messages_attachments WHERE id = ?')
+              .get(meta.id) as { content: Buffer } | undefined;
+            if (!row) return;
+            this.db
+              .prepare(
+                'INSERT INTO messages_attachments (id, message_id, position, mime, name, size, content) VALUES (?, ?, ?, ?, ?, ?, ?)',
+              )
+              .run(randomUUID(), newMsgId, attIdx, meta.mime, meta.name, meta.size, row.content);
+          });
+        }
       });
     });
     tx();
@@ -351,6 +376,19 @@ export class HistoryStore {
       )
       .all(sessionId) as MessageRow[];
 
+    const attachmentRows = this.db
+      .prepare(
+        'SELECT id, message_id, position, mime, name, size FROM messages_attachments WHERE message_id IN (SELECT id FROM messages WHERE session_id = ?) ORDER BY message_id, position',
+      )
+      .all(sessionId) as Array<{ id: string; message_id: string; position: number; mime: string; name: string; size: number }>;
+
+    const byMessage = new Map<string, MessageAttachment[]>();
+    for (const r of attachmentRows) {
+      const arr = byMessage.get(r.message_id) ?? [];
+      arr.push({ id: r.id, mime: r.mime, name: r.name, size: r.size });
+      byMessage.set(r.message_id, arr);
+    }
+
     return msgRows.map((m) => {
       const msg: Message = {
         id: m.id,
@@ -366,6 +404,8 @@ export class HistoryStore {
       if (m.tokens_out !== null) msg.tokensOut = m.tokens_out;
       const steps = this.readReasoningSteps(m.id);
       if (steps.length > 0) msg.reasoningSteps = steps;
+      const atts = byMessage.get(m.id);
+      if (atts && atts.length > 0) msg.attachments = atts;
       return msg;
     });
   }
@@ -413,6 +453,25 @@ export class HistoryStore {
     if (row.error !== null) trace.error = row.error;
     if (row.progress_note !== null) trace.progressNote = row.progress_note;
     return trace;
+  }
+
+  async getAttachmentBytes(id: string): Promise<{ mime: string; name: string; content: Buffer } | null> {
+    const row = this.db
+      .prepare('SELECT mime, name, content FROM messages_attachments WHERE id = ?')
+      .get(id) as { mime: string; name: string; content: Buffer } | undefined;
+    if (!row) return null;
+    return row;
+  }
+
+  private insertAttachments(messageId: string, attachments: MessageAttachment[]): void {
+    const stmt = this.db.prepare(
+      'INSERT INTO messages_attachments (id, message_id, position, mime, name, size, content) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    );
+    attachments.forEach((a, i) => {
+      if (!a.contentBase64) throw new ValidationError(`Attachment ${a.id} missing contentBase64`);
+      const bytes = Buffer.from(a.contentBase64, 'base64');
+      stmt.run(a.id, messageId, i, a.mime, a.name, a.size, bytes);
+    });
   }
 
   private insertReasoningSteps(messageId: string, steps: ReasoningStep[]): void {
