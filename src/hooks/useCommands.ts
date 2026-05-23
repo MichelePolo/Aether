@@ -16,6 +16,7 @@ import {
   FileText,
   Search,
   Upload,
+  KeyRound,
 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import type { Command } from '@/src/types/command.types';
@@ -100,6 +101,15 @@ export function useCommands(): Command[] {
       icon: Upload,
       run: async () => {
         triggerImportOpen();
+      },
+    });
+    out.push({
+      id: 'keys.configure',
+      group: 'profiles',
+      label: 'Configure API keys…',
+      icon: KeyRound,
+      run: async () => {
+        useUiStore.getState().openKeyVault();
       },
     });
     for (const s of sessions.list) {

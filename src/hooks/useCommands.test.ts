@@ -104,3 +104,16 @@ describe('useCommands — sessions.import', () => {
     expect(triggerImportOpen).toHaveBeenCalled();
   });
 });
+
+describe('useCommands — keys.configure', () => {
+  it('exposes a "Configure API keys…" command in the profiles group that opens the key vault', async () => {
+    const { result } = renderHook(() => useCommands());
+    const cmd = result.current.find((c) => c.id === 'keys.configure');
+    expect(cmd).toBeDefined();
+    expect(cmd!.label).toBe('Configure API keys…');
+    expect(cmd!.group).toBe('profiles');
+    await cmd!.run();
+    expect(useUiStore.getState().keyVaultOpen).toBe(true);
+    expect(useUiStore.getState().keyVaultFocusTransport).toBeNull();
+  });
+});

@@ -157,6 +157,32 @@ describe('useUiStore.subAgentEditor', () => {
   });
 });
 
+describe('useUiStore.keyVault', () => {
+  it('keyVaultOpen defaults to false; keyVaultFocusTransport defaults to null', () => {
+    expect(useUiStore.getState().keyVaultOpen).toBe(false);
+    expect(useUiStore.getState().keyVaultFocusTransport).toBeNull();
+  });
+
+  it('openKeyVault with focus sets open=true and focus transport', () => {
+    useUiStore.getState().openKeyVault('openai');
+    expect(useUiStore.getState().keyVaultOpen).toBe(true);
+    expect(useUiStore.getState().keyVaultFocusTransport).toBe('openai');
+  });
+
+  it('openKeyVault without arg sets open=true and focus to null', () => {
+    useUiStore.getState().openKeyVault();
+    expect(useUiStore.getState().keyVaultOpen).toBe(true);
+    expect(useUiStore.getState().keyVaultFocusTransport).toBeNull();
+  });
+
+  it('closeKeyVault resets open and focus', () => {
+    useUiStore.getState().openKeyVault('gemini');
+    useUiStore.getState().closeKeyVault();
+    expect(useUiStore.getState().keyVaultOpen).toBe(false);
+    expect(useUiStore.getState().keyVaultFocusTransport).toBeNull();
+  });
+});
+
 describe('useUiStore.paletteSearch', () => {
   it('starts in commands mode with empty search state', () => {
     const s = useUiStore.getState();

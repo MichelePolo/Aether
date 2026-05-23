@@ -19,6 +19,11 @@ interface UiState {
   openSubAgentEditor: (id: string) => void;
   closeSubAgentEditor: () => void;
 
+  keyVaultOpen: boolean;
+  keyVaultFocusTransport: 'anthropic' | 'openai' | 'gemini' | null;
+  openKeyVault(focus?: 'anthropic' | 'openai' | 'gemini'): void;
+  closeKeyVault(): void;
+
   toggleReasoningDrawer: () => void;
   openReasoningDrawer: () => void;
   closeReasoningDrawer: () => void;
@@ -51,6 +56,8 @@ const initial = {
   searchResults: [] as SessionHits[],
   sidebarOpen: true,
   editingSubAgentId: null as string | null,
+  keyVaultOpen: false,
+  keyVaultFocusTransport: null as 'anthropic' | 'openai' | 'gemini' | null,
 };
 
 function readBool(key: string, fallback: boolean): boolean {
@@ -99,6 +106,9 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   openSubAgentEditor: (id) => set({ editingSubAgentId: id }),
   closeSubAgentEditor: () => set({ editingSubAgentId: null }),
+
+  openKeyVault: (focus) => set({ keyVaultOpen: true, keyVaultFocusTransport: focus ?? null }),
+  closeKeyVault: () => set({ keyVaultOpen: false, keyVaultFocusTransport: null }),
 
   openPalette: () =>
     set({ paletteOpen: true, paletteMode: 'commands', searchQuery: '', searchResults: [] }),
