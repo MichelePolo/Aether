@@ -14,7 +14,7 @@ import type { ProviderTransport } from '@/src/types/provider-auth.types';
 
 interface TextData { chunk: string }
 interface ThinkingData { chunk: string }
-interface DoneData { model?: string; interrupted?: boolean; reasoningSteps?: ReasoningStep[] }
+interface DoneData { model?: string; interrupted?: boolean; reasoningSteps?: ReasoningStep[]; tokensIn?: number; tokensOut?: number }
 interface ErrorData { message: string; retryable: boolean }
 interface McpStateChangeData {
   id: string;
@@ -97,6 +97,8 @@ export function useStreamingDispatch() {
             model: d.model,
             interrupted: !!d.interrupted,
             reasoningSteps: d.reasoningSteps,
+            tokensIn: d.tokensIn,
+            tokensOut: d.tokensOut,
           });
           return;
         } else if (ev.event === 'error') {
@@ -197,6 +199,8 @@ export function useStreamingDispatch() {
             model: d.model,
             interrupted: !!d.interrupted,
             reasoningSteps: d.reasoningSteps,
+            tokensIn: d.tokensIn,
+            tokensOut: d.tokensOut,
           });
           return;
         } else if (ev.event === 'error') {

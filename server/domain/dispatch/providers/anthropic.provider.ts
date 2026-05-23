@@ -121,12 +121,16 @@ export class AnthropicProvider implements AIProvider {
             }
           }
         } else if (e.type === 'result') {
-          const inTok = Number(e.usage?.input_tokens ?? 0);
-          const outTok = Number(e.usage?.output_tokens ?? 0);
-          const total = inTok + outTok;
+          const input = typeof e.usage?.input_tokens === 'number' ? e.usage.input_tokens : undefined;
+          const output = typeof e.usage?.output_tokens === 'number' ? e.usage.output_tokens : undefined;
+          const total = (input ?? 0) + (output ?? 0);
           yield {
             type: 'done',
-            usage: total > 0 ? { totalTokens: total } : undefined,
+            usage: total > 0 ? {
+              totalTokens: total,
+              ...(input !== undefined ? { inputTokens: input } : {}),
+              ...(output !== undefined ? { outputTokens: output } : {}),
+            } : undefined,
           };
           return;
         }

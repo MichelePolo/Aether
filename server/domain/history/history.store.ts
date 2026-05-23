@@ -27,6 +27,8 @@ type MessageRow = {
   retryable: number | null;
   created_at: number;
   position: number;
+  tokens_in: number | null;
+  tokens_out: number | null;
 };
 
 type ReasoningRow = {
@@ -136,7 +138,7 @@ export class HistoryStore {
 
       this.db
         .prepare(
-          'INSERT INTO messages (id, session_id, role, content, model, interrupted, error, retryable, created_at, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO messages (id, session_id, role, content, model, interrupted, error, retryable, created_at, position, tokens_in, tokens_out) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         )
         .run(
           message.id,
@@ -149,6 +151,8 @@ export class HistoryStore {
           message.retryable === undefined ? null : (message.retryable ? 1 : 0),
           message.timestamp,
           position,
+          message.tokensIn ?? null,
+          message.tokensOut ?? null,
         );
 
       this.db
@@ -253,12 +257,97 @@ export class HistoryStore {
     };
   }
 
+  async forkSession(sessionId: string, fromMessageId: string): Promise<SessionMeta> {
+    // Read source session metadata
+    const src = this.db
+      .prepare(
+        'SELECT id, title, created_at, updated_at, provider_name FROM sessions WHERE id = ?',
+      )
+      .get(sessionId) as { id: string; title: string; created_at: number; updated_at: number; provider_name: string | null } | undefined;
+    if (!src) throw new NotFoundError(`session ${sessionId}`);
+
+    // Read all messages with reasoning, in position order
+    const all = this.readMessages(sessionId);
+    const idx = all.findIndex((m) => m.id === fromMessageId);
+    if (idx < 0) throw new ValidationError(`Message ${fromMessageId} not in session ${sessionId}`);
+
+    // Resolve cut-point: walk back from model bubbles to the nearest user message.
+    let cut = idx;
+    if (all[cut].role === 'model') {
+      while (cut >= 0 && all[cut].role !== 'user') cut--;
+      if (cut < 0) {
+        const err = new ValidationError('NO_FORK_POINT: no user message at or before cut');
+        (err as { code?: string }).code = 'NO_FORK_POINT';
+        throw err;
+      }
+    }
+    // Inclusive of cut: keep messages at positions 0..cut
+    const slice = all.slice(0, cut + 1);
+
+    const newSessionId = randomUUID();
+    const now = Date.now();
+
+    const insertMessage = this.db.prepare(
+      'INSERT INTO messages (id, session_id, role, content, model, interrupted, error, retryable, created_at, position, tokens_in, tokens_out) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    );
+    const insertFts = this.db.prepare(
+      'INSERT INTO messages_fts (message_id, session_id, role, content) VALUES (?, ?, ?, ?)',
+    );
+
+    const tx = this.db.transaction(() => {
+      this.db
+        .prepare(
+          'INSERT INTO sessions (id, title, created_at, updated_at, provider_name) VALUES (?, ?, ?, ?, ?)',
+        )
+        .run(newSessionId, src.title, now, now, src.provider_name);
+
+      slice.forEach((msg, i) => {
+        const newMsgId = randomUUID();
+        insertMessage.run(
+          newMsgId, newSessionId, msg.role, msg.text,
+          msg.model ?? null,
+          msg.interrupted ? 1 : 0,
+          msg.error ?? null,
+          msg.retryable === undefined ? null : msg.retryable ? 1 : 0,
+          now, i,
+          msg.tokensIn ?? null,
+          msg.tokensOut ?? null,
+        );
+        insertFts.run(newMsgId, newSessionId, msg.role, msg.text);
+
+        // Re-id reasoning steps + tool calls, reuse insertReasoningSteps helper.
+        const reIdded: ReasoningStep[] = (msg.reasoningSteps ?? []).map((step) => {
+          const newStep: ReasoningStep = {
+            ...step,
+            id: randomUUID(),
+            type: step.type as ReasoningStep['type'],
+            timestamp: now,
+          };
+          if (step.type === 'tool_call' && step.toolCall) {
+            newStep.toolCall = { ...step.toolCall, id: randomUUID() };
+          }
+          return newStep;
+        });
+        this.insertReasoningSteps(newMsgId, reIdded);
+      });
+    });
+    tx();
+
+    return {
+      id: newSessionId,
+      title: src.title,
+      createdAt: now,
+      updatedAt: now,
+      providerName: src.provider_name ?? undefined,
+    };
+  }
+
   // ---- private helpers ----
 
   private readMessages(sessionId: string): Message[] {
     const msgRows = this.db
       .prepare(
-        'SELECT id, session_id, role, content, model, interrupted, error, retryable, created_at, position FROM messages WHERE session_id = ? ORDER BY position',
+        'SELECT id, session_id, role, content, model, interrupted, error, retryable, created_at, position, tokens_in, tokens_out FROM messages WHERE session_id = ? ORDER BY position',
       )
       .all(sessionId) as MessageRow[];
 
@@ -273,6 +362,8 @@ export class HistoryStore {
       if (m.interrupted === 1) msg.interrupted = true;
       if (m.error !== null) msg.error = m.error;
       if (m.retryable !== null) msg.retryable = m.retryable === 1;
+      if (m.tokens_in !== null) msg.tokensIn = m.tokens_in;
+      if (m.tokens_out !== null) msg.tokensOut = m.tokens_out;
       const steps = this.readReasoningSteps(m.id);
       if (steps.length > 0) msg.reasoningSteps = steps;
       return msg;

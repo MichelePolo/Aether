@@ -17,10 +17,16 @@ interface GeminiCandidate {
   content?: { parts?: GeminiPart[] };
 }
 
+interface GeminiUsageMetadata {
+  totalTokenCount?: number;
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+}
+
 interface GeminiChunk {
   text?: string;
   candidates?: GeminiCandidate[];
-  usageMetadata?: { totalTokenCount?: number };
+  usageMetadata?: GeminiUsageMetadata;
 }
 
 export class GeminiProvider implements AIProvider {
@@ -89,8 +95,13 @@ export class GeminiProvider implements AIProvider {
       if (signal.aborted) return;
       const chunk = raw as GeminiChunk;
 
-      if (chunk.usageMetadata?.totalTokenCount !== undefined) {
-        lastUsage = { totalTokens: chunk.usageMetadata.totalTokenCount };
+      const um = chunk.usageMetadata;
+      if (um && (um.totalTokenCount !== undefined || um.promptTokenCount !== undefined || um.candidatesTokenCount !== undefined)) {
+        lastUsage = {
+          ...(um.totalTokenCount !== undefined ? { totalTokens: um.totalTokenCount } : {}),
+          ...(um.promptTokenCount !== undefined ? { inputTokens: um.promptTokenCount } : {}),
+          ...(um.candidatesTokenCount !== undefined ? { outputTokens: um.candidatesTokenCount } : {}),
+        };
       }
 
       const parts = chunk.candidates?.[0]?.content?.parts;

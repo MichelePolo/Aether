@@ -47,5 +47,18 @@ export function createSessionsRoutes(store: HistoryStore): Router {
     }),
   );
 
+  router.post(
+    '/:id/fork',
+    express.json({ limit: '1mb' }),
+    asyncHandler(async (req, res) => {
+      const fromMessageId = req.body?.fromMessageId;
+      if (typeof fromMessageId !== 'string' || fromMessageId.length === 0) {
+        throw new ValidationError('fromMessageId required');
+      }
+      const meta = await store.forkSession(req.params.id, fromMessageId);
+      res.status(201).json({ meta });
+    }),
+  );
+
   return router;
 }

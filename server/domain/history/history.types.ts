@@ -10,6 +10,8 @@ export interface Message {
   error?: string;
   retryable?: boolean;
   reasoningSteps?: ReasoningStep[];
+  tokensIn?: number;
+  tokensOut?: number;
 }
 
 export interface SessionRecord {

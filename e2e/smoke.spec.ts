@@ -461,3 +461,23 @@ test('key vault: open modal via palette, save a key, reopen shows masked', async
   await page.getByRole('button', { name: /clear openai/i }).click();
   await expect(page.getByLabel('OpenAI key')).toBeVisible();
 });
+
+test('fork: send message, right-click → Branch from here', async ({ page }) => {
+  await page.goto('/');
+  const input = page.getByPlaceholder(/Scrivi un messaggio/i);
+  await input.fill('hello aether');
+  await input.press('Enter');
+
+  // Wait for FakeProvider reply
+  await expect(page.getByText('pong')).toBeVisible({ timeout: 5000 });
+
+  // Right-click the user bubble in the main chat area
+  const userBubble = page.getByRole('main').getByText('hello aether');
+  await userBubble.click({ button: 'right' });
+
+  // Click "Branch from here"
+  await page.getByText('Branch from here').click();
+
+  // The forked session is now active and contains the user message
+  await expect(page.getByRole('main').getByText('hello aether')).toBeVisible();
+});

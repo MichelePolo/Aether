@@ -48,4 +48,9 @@ export const sessionsApi = {
     const res = await fetch(`${BASE}/import`, json('POST', envelope));
     return asJson<SessionMeta>(res);
   },
+  forkSession: async (id: string, fromMessageId: string): Promise<SessionMeta> => {
+    const res = await fetch(`${BASE}/${id}/fork`, json('POST', { fromMessageId }));
+    const body = await asJson<{ meta: SessionMeta }>(res);
+    return body.meta;
+  },
 };

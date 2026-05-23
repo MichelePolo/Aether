@@ -23,7 +23,7 @@ interface ChatState {
   appendReasoningStep: (step: ReasoningStep) => void;
   finishAssistant: (
     id: string,
-    opts: { model?: string; interrupted?: boolean; reasoningSteps?: ReasoningStep[] },
+    opts: { model?: string; interrupted?: boolean; reasoningSteps?: ReasoningStep[]; tokensIn?: number; tokensOut?: number },
   ) => void;
   failAssistant: (id: string, error: string, retryable: boolean) => void;
   setAbortController: (c: AbortController | null) => void;
@@ -98,6 +98,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
               model: opts.model,
               interrupted: opts.interrupted,
               reasoningSteps: opts.reasoningSteps ?? m.reasoningSteps,
+              ...(opts.tokensIn != null ? { tokensIn: opts.tokensIn } : {}),
+              ...(opts.tokensOut != null ? { tokensOut: opts.tokensOut } : {}),
             }
           : m,
       ),
@@ -124,3 +126,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ abortController: null });
   },
 }));
+
+export function contextSizeOfActive(state: ChatState): {
+  total: number;
+  prompt: number;
+  reply: number;
+} | null {
+  const lastAssistant = [...state.messages].reverse().find((m) => m.role === 'model');
+  if (!lastAssistant || lastAssistant.tokensIn == null || lastAssistant.tokensOut == null) return null;
+  return {
+    prompt: lastAssistant.tokensIn,
+    reply: lastAssistant.tokensOut,
+    total: lastAssistant.tokensIn + lastAssistant.tokensOut,
+  };
+}

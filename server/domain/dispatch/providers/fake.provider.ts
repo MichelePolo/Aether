@@ -1,4 +1,4 @@
-import type { AIProvider, ProviderChunk, ProviderFunctionCall, ProviderRequest } from './provider.types';
+import type { AIProvider, ProviderChunk, ProviderFunctionCall, ProviderRequest, ProviderUsage } from './provider.types';
 
 export interface FakeProviderOptions {
   chunks: string[];
@@ -6,6 +6,8 @@ export interface FakeProviderOptions {
   chunkDelayMs?: number;
   model?: string;
   totalTokens?: number;
+  inputTokens?: number;
+  outputTokens?: number;
   functionCallSequence?: ProviderFunctionCall[];
 }
 
@@ -53,12 +55,13 @@ export class FakeProvider implements AIProvider {
       yield { type: 'text', text };
     }
     if (!signal.aborted) {
+      const usageParts: ProviderUsage = {};
+      if (this.opts.totalTokens !== undefined) usageParts.totalTokens = this.opts.totalTokens;
+      if (this.opts.inputTokens !== undefined) usageParts.inputTokens = this.opts.inputTokens;
+      if (this.opts.outputTokens !== undefined) usageParts.outputTokens = this.opts.outputTokens;
       yield {
         type: 'done',
-        usage:
-          this.opts.totalTokens !== undefined
-            ? { totalTokens: this.opts.totalTokens }
-            : undefined,
+        usage: Object.keys(usageParts).length > 0 ? usageParts : undefined,
       };
     }
   }

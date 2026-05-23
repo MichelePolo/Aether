@@ -421,3 +421,124 @@ describe('HistoryStore.importSession', () => {
     expect(meta.providerName).toBe('fake:default');
   });
 });
+
+describe('HistoryStore.append — tokens_in/out', () => {
+  it('persists tokensIn and tokensOut when present', async () => {
+    const s = await store.createEmpty();
+    await store.append(s.id, {
+      id: 'm1', role: 'model', text: 'hi', timestamp: 1,
+      tokensIn: 100, tokensOut: 50,
+    });
+    const msgs = await store.read(s.id);
+    expect(msgs![0].tokensIn).toBe(100);
+    expect(msgs![0].tokensOut).toBe(50);
+  });
+
+  it('persists NULL columns when tokens are absent', async () => {
+    const s = await store.createEmpty();
+    await store.append(s.id, { id: 'u1', role: 'user', text: 'hi', timestamp: 1 });
+    const msgs = await store.read(s.id);
+    expect(msgs![0].tokensIn).toBeUndefined();
+    expect(msgs![0].tokensOut).toBeUndefined();
+  });
+
+  it('round-trips mixed user (NULL) and assistant (populated) messages', async () => {
+    const s = await store.createEmpty();
+    await store.append(s.id, { id: 'u1', role: 'user', text: 'q', timestamp: 1 });
+    await store.append(s.id, { id: 'a1', role: 'model', text: 'r', timestamp: 2, tokensIn: 80, tokensOut: 40 });
+    const msgs = await store.read(s.id);
+    expect(msgs![0].tokensIn).toBeUndefined();
+    expect(msgs![1].tokensIn).toBe(80);
+    expect(msgs![1].tokensOut).toBe(40);
+  });
+});
+
+describe('HistoryStore.forkSession', () => {
+  async function seedThreeTurns() {
+    const s = await store.createEmpty({ providerName: 'fake:default' });
+    await store.append(s.id, { id: 'u1', role: 'user', text: 'q1', timestamp: 1 });
+    await store.append(s.id, { id: 'a1', role: 'model', text: 'r1', timestamp: 2, tokensIn: 10, tokensOut: 5 });
+    await store.append(s.id, { id: 'u2', role: 'user', text: 'q2', timestamp: 3 });
+    await store.append(s.id, { id: 'a2', role: 'model', text: 'r2', timestamp: 4, tokensIn: 20, tokensOut: 10 });
+    return s;
+  }
+
+  it('throws NotFoundError for unknown source session', async () => {
+    await expect(store.forkSession('does-not-exist', 'u1')).rejects.toThrow();
+  });
+
+  it('throws when fromMessageId is not in the source session', async () => {
+    const s = await seedThreeTurns();
+    await expect(store.forkSession(s.id, 'never-there')).rejects.toThrow();
+  });
+
+  it('forks from a user message inclusive', async () => {
+    const s = await seedThreeTurns();
+    const meta = await store.forkSession(s.id, 'u2');
+    const msgs = await store.read(meta.id);
+    expect(msgs!.map((m) => m.text)).toEqual(['q1', 'r1', 'q2']);
+  });
+
+  it('forks from a model message by resolving to the preceding user message', async () => {
+    const s = await seedThreeTurns();
+    const meta = await store.forkSession(s.id, 'a2');
+    const msgs = await store.read(meta.id);
+    expect(msgs!.map((m) => m.text)).toEqual(['q1', 'r1', 'q2']);
+  });
+
+  it('regenerates all message ids', async () => {
+    const s = await seedThreeTurns();
+    const meta = await store.forkSession(s.id, 'u2');
+    const msgs = await store.read(meta.id);
+    expect(msgs!.map((m) => m.id)).not.toContain('u1');
+    expect(msgs!.map((m) => m.id)).not.toContain('a1');
+    expect(msgs!.map((m) => m.id)).not.toContain('u2');
+  });
+
+  it('sets all timestamps to a single Date.now() and creates new session id', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(7_000_000);
+    try {
+      const s = await seedThreeTurns();
+      const meta = await store.forkSession(s.id, 'u2');
+      expect(meta.id).not.toBe(s.id);
+      expect(meta.createdAt).toBe(7_000_000);
+      expect(meta.updatedAt).toBe(7_000_000);
+      const msgs = await store.read(meta.id);
+      for (const m of msgs!) expect(m.timestamp).toBe(7_000_000);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('preserves tokensIn/tokensOut on copied assistant messages', async () => {
+    const s = await seedThreeTurns();
+    const meta = await store.forkSession(s.id, 'u2');
+    const msgs = await store.read(meta.id);
+    // a1 is the only assistant message in the fork; check its tokens
+    expect(msgs![1].tokensIn).toBe(10);
+    expect(msgs![1].tokensOut).toBe(5);
+  });
+
+  it('writes copied messages into messages_fts', async () => {
+    const s = await seedThreeTurns();
+    const meta = await store.forkSession(s.id, 'u2');
+    const row = db
+      .prepare('SELECT count(*) as n FROM messages_fts WHERE session_id = ?')
+      .get(meta.id) as { n: number };
+    expect(row.n).toBe(3); // q1, r1, q2
+  });
+
+  it('preserves providerName from source', async () => {
+    const s = await seedThreeTurns();
+    const meta = await store.forkSession(s.id, 'u2');
+    expect(meta.providerName).toBe('fake:default');
+  });
+
+  it('throws NO_FORK_POINT when no user message exists at or before the cut', async () => {
+    const s = await store.createEmpty();
+    // synthetic edge: a session with only a model message (won't happen in practice)
+    await store.append(s.id, { id: 'a-only', role: 'model', text: 'r', timestamp: 1, tokensIn: 5, tokensOut: 2 });
+    await expect(store.forkSession(s.id, 'a-only')).rejects.toThrow(/NO_FORK_POINT/);
+  });
+});

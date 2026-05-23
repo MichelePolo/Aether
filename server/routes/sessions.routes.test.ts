@@ -117,6 +117,70 @@ describe('POST /api/sessions/import', () => {
   });
 });
 
+describe('POST /api/sessions/:id/fork', () => {
+  it('returns 201 + new SessionMeta when forking from a user message', async () => {
+    const s = await history.createEmpty();
+    await history.append(s.id, { id: 'u1', role: 'user', text: 'hello', timestamp: 100 });
+    await history.append(s.id, { id: 'm1', role: 'model', text: 'world', timestamp: 200 });
+
+    const res = await request(app)
+      .post(`/api/sessions/${s.id}/fork`)
+      .send({ fromMessageId: 'u1' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.meta).toBeDefined();
+    expect(typeof res.body.meta.id).toBe('string');
+    expect(res.body.meta.id).not.toBe(s.id);
+    const list = await history.listSessions();
+    expect(list.find((x) => x.id === res.body.meta.id)).toBeDefined();
+  });
+
+  it('resolves model-bubble fork to preceding user message', async () => {
+    const s = await history.createEmpty();
+    await history.append(s.id, { id: 'u1', role: 'user', text: 'hello', timestamp: 100 });
+    await history.append(s.id, { id: 'm1', role: 'model', text: 'world', timestamp: 200 });
+
+    const res = await request(app)
+      .post(`/api/sessions/${s.id}/fork`)
+      .send({ fromMessageId: 'm1' });
+
+    // Fork from model message resolves back to preceding user — should succeed
+    expect(res.status).toBe(201);
+    expect(res.body.meta).toBeDefined();
+  });
+
+  it('returns 400 for missing fromMessageId', async () => {
+    const s = await history.createEmpty();
+    const res = await request(app)
+      .post(`/api/sessions/${s.id}/fork`)
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('returns 400 for unknown fromMessageId', async () => {
+    const s = await history.createEmpty();
+    await history.append(s.id, { id: 'u1', role: 'user', text: 'hello', timestamp: 100 });
+
+    const res = await request(app)
+      .post(`/api/sessions/${s.id}/fork`)
+      .send({ fromMessageId: 'nonexistent-id' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('returns 404 for unknown session', async () => {
+    const res = await request(app)
+      .post('/api/sessions/nonexistent-session/fork')
+      .send({ fromMessageId: 'any-id' });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+  });
+});
+
 describe('createApp wiring', () => {
   it('GET /:id/export is reachable via createApp({ historyStore })', async () => {
     const wiredApp = createApp({ historyStore: history });

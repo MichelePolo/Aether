@@ -18,6 +18,7 @@ interface SessionsState {
   setProviderName: (id: string, providerName: string) => Promise<void>;
   delete: (id: string) => Promise<void>;
   importSession: (file: File) => Promise<void>;
+  forkSession: (fromMessageId: string) => Promise<void>;
   setActive: (id: string) => void;
   setLocalTitle: (id: string, title: string) => void;
   touchUpdatedAt: (id: string, ts: number) => void;
@@ -130,6 +131,18 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
       get().setActive(meta.id);
     } catch (e) {
       set({ error: `Import failed: ${errMsg(e)}` });
+    }
+  },
+
+  forkSession: async (fromMessageId) => {
+    const activeId = get().activeSessionId;
+    if (!activeId) return;
+    try {
+      const meta = await sessionsApi.forkSession(activeId, fromMessageId);
+      set((s) => ({ sessions: [meta, ...s.sessions], error: null }));
+      get().setActive(meta.id);
+    } catch (e) {
+      set({ error: `Fork failed: ${errMsg(e)}` });
     }
   },
 

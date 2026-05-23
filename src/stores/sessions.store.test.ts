@@ -247,6 +247,60 @@ describe('useSessionsStore.clearError', () => {
   });
 });
 
+describe('useSessionsStore.forkSession', () => {
+  it('success: prepends forked session and activates it', async () => {
+    const existing = m('existing', 'Existing');
+    useSessionsStore.setState({
+      sessions: [existing],
+      activeSessionId: 'existing',
+      hydrated: true,
+    });
+    const forked = m('forked-1', 'Fork');
+    server.use(
+      http.post('http://localhost/api/sessions/:id/fork', () =>
+        HttpResponse.json({ meta: forked }, { status: 201 }),
+      ),
+      http.get('http://localhost/api/sessions/forked-1', () =>
+        HttpResponse.json({ messages: [] }),
+      ),
+    );
+    await useSessionsStore.getState().forkSession('msg-42');
+    const s = useSessionsStore.getState();
+    expect(s.sessions[0].id).toBe('forked-1');
+    expect(s.activeSessionId).toBe('forked-1');
+    expect(s.error).toBeNull();
+  });
+
+  it('server failure sets error', async () => {
+    useSessionsStore.setState({
+      sessions: [m('existing')],
+      activeSessionId: 'existing',
+      hydrated: true,
+    });
+    server.use(
+      http.post('http://localhost/api/sessions/:id/fork', () =>
+        HttpResponse.json({ error: { message: 'fork error' } }, { status: 500 }),
+      ),
+    );
+    await useSessionsStore.getState().forkSession('msg-42');
+    const s = useSessionsStore.getState();
+    expect(s.error).toMatch(/Fork failed/);
+    expect(s.activeSessionId).toBe('existing'); // unchanged
+  });
+
+  it('no-op when no active session', async () => {
+    useSessionsStore.setState({
+      sessions: [],
+      activeSessionId: null,
+      hydrated: true,
+    });
+    await useSessionsStore.getState().forkSession('msg-42');
+    const s = useSessionsStore.getState();
+    expect(s.sessions).toHaveLength(0);
+    expect(s.error).toBeNull();
+  });
+});
+
 describe('useSessionsStore.setActive clears error', () => {
   it('clears error when switching sessions', () => {
     useSessionsStore.setState({

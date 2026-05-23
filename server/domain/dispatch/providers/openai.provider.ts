@@ -92,7 +92,7 @@ export class OpenAIProvider implements AIProvider {
     const decoder = new TextDecoder();
     let buf = '';
     const toolBuffers = new Map<number, { id: string; name: string; argsBuffer: string }>();
-    let totalTokens = 0;
+    let lastUsage: { totalTokens?: number; inputTokens?: number; outputTokens?: number } | undefined;
     let sawUsage = false;
     let sawStop = false;
 
@@ -119,7 +119,7 @@ export class OpenAIProvider implements AIProvider {
             // OpenAI's terminator.
             yield {
               type: 'done',
-              usage: sawUsage && totalTokens > 0 ? { totalTokens } : undefined,
+              usage: sawUsage ? lastUsage : undefined,
             };
             return;
           }
@@ -130,9 +130,16 @@ export class OpenAIProvider implements AIProvider {
             continue;
           }
 
-          if (parsed.usage && typeof parsed.usage.total_tokens === 'number') {
-            totalTokens = parsed.usage.total_tokens;
-            sawUsage = true;
+          if (parsed.usage) {
+            const u = parsed.usage;
+            if (u.total_tokens !== undefined || u.prompt_tokens !== undefined || u.completion_tokens !== undefined) {
+              lastUsage = {
+                ...(u.total_tokens !== undefined ? { totalTokens: u.total_tokens } : {}),
+                ...(u.prompt_tokens !== undefined ? { inputTokens: u.prompt_tokens } : {}),
+                ...(u.completion_tokens !== undefined ? { outputTokens: u.completion_tokens } : {}),
+              };
+              sawUsage = true;
+            }
           }
 
           const choice = parsed.choices?.[0];
@@ -190,7 +197,7 @@ export class OpenAIProvider implements AIProvider {
           if (sawStop && sawUsage) {
             yield {
               type: 'done',
-              usage: totalTokens > 0 ? { totalTokens } : undefined,
+              usage: lastUsage,
             };
             return;
           }
@@ -203,7 +210,7 @@ export class OpenAIProvider implements AIProvider {
     // Stream ended naturally without an explicit terminator: emit a defensive done.
     yield {
       type: 'done',
-      usage: sawUsage && totalTokens > 0 ? { totalTokens } : undefined,
+      usage: sawUsage ? lastUsage : undefined,
     };
   }
 }

@@ -19,6 +19,7 @@ import { ProfilesModal } from '@/src/components/profiles/ProfilesModal';
 import { KeyVaultModal } from '@/src/components/profiles/KeyVaultModal';
 import { SubAgentEditModal } from '@/src/components/subagents/SubAgentEditModal';
 import { CommandPalette } from '@/src/components/palette/CommandPalette';
+import { MessageContextMenu } from '@/src/components/chat/MessageContextMenu';
 import { useContextStore } from '@/src/stores/context.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
 import { useUiStore } from '@/src/stores/ui.store';
@@ -89,6 +90,7 @@ export default function App() {
       <KeyVaultModal />
       <SubAgentEditModal />
       <CommandPalette />
+      <MessageContextMenu />
       <DialogHost />
       <HiddenImportInput />
     </>

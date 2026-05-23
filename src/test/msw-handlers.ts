@@ -199,4 +199,17 @@ export const handlers = [
   http.get('http://localhost/api/providers/keys/:transport', ({ params }) =>
     HttpResponse.json({ plaintext: `mock-${params.transport}-key` }),
   ),
+  http.post('http://localhost/api/sessions/:id/fork', () =>
+    HttpResponse.json(
+      {
+        meta: {
+          id: `fork-${Date.now()}`,
+          title: 'forked',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      },
+      { status: 201 },
+    ),
+  ),
 ];

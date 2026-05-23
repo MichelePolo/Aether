@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MessageBubble } from './MessageBubble';
 import { useChatStore } from '@/src/stores/chat.store';
@@ -21,6 +21,8 @@ interface SeedInput {
   interrupted?: boolean;
   model?: string;
   reasoningSteps?: ReasoningStep[];
+  tokensIn?: number;
+  tokensOut?: number;
 }
 
 function seed(msg: SeedInput) {
@@ -152,5 +154,43 @@ describe('MessageBubble', () => {
     seed({ id: 'noreasoning', role: 'model', text: 'done' });
     render(<MessageBubble id="noreasoning" />);
     expect(screen.queryByRole('button', { name: /show reasoning/i })).not.toBeInTheDocument();
+  });
+
+  it('right-click on user bubble opens menu with role=user and correct coords', () => {
+    seed({ id: 'u1', role: 'user', text: 'Hello' });
+    render(<MessageBubble id="u1" />);
+    const bubble = screen.getByText('Hello').closest('div')!;
+    fireEvent.contextMenu(bubble, { clientX: 150, clientY: 200 });
+    const menu = useUiStore.getState().messageContextMenu;
+    expect(menu).not.toBeNull();
+    expect(menu?.role).toBe('user');
+    expect(menu?.messageId).toBe('u1');
+    expect(menu?.x).toBe(150);
+    expect(menu?.y).toBe(200);
+  });
+
+  it('right-click on model bubble opens menu with role=model', () => {
+    seed({ id: 'm1', role: 'model', text: 'Hi there' });
+    render(<MessageBubble id="m1" />);
+    const wrapper = document.querySelector('.max-w-\\[80\\%\\]') as HTMLElement;
+    fireEvent.contextMenu(wrapper, { clientX: 50, clientY: 60 });
+    const menu = useUiStore.getState().messageContextMenu;
+    expect(menu?.role).toBe('model');
+    expect(menu?.messageId).toBe('m1');
+  });
+
+  it('assistant bubble with tokens sets title attribute', () => {
+    seed({ id: 'tok', role: 'model', text: 'reply', tokensIn: 80, tokensOut: 40 });
+    render(<MessageBubble id="tok" />);
+    const wrapper = document.querySelector('.max-w-\\[80\\%\\]') as HTMLElement;
+    expect(wrapper.title).toMatch(/Prompt: 80/);
+    expect(wrapper.title).toMatch(/Reply: 40/);
+  });
+
+  it('user bubble has no title attribute', () => {
+    seed({ id: 'usr', role: 'user', text: 'Hello' });
+    render(<MessageBubble id="usr" />);
+    const wrapper = document.querySelector('.max-w-\\[80\\%\\]') as HTMLElement;
+    expect(wrapper.title ?? '').toBe('');
   });
 });

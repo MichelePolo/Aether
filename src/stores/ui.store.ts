@@ -15,9 +15,13 @@ interface UiState {
   searchResults: SessionHits[];
   sidebarOpen: boolean;
   editingSubAgentId: string | null;
+  messageContextMenu: { x: number; y: number; messageId: string; role: 'user' | 'model' } | null;
 
   openSubAgentEditor: (id: string) => void;
   closeSubAgentEditor: () => void;
+
+  openMessageContextMenu(payload: { x: number; y: number; messageId: string; role: 'user' | 'model' }): void;
+  closeMessageContextMenu(): void;
 
   keyVaultOpen: boolean;
   keyVaultFocusTransport: 'anthropic' | 'openai' | 'gemini' | null;
@@ -56,6 +60,7 @@ const initial = {
   searchResults: [] as SessionHits[],
   sidebarOpen: true,
   editingSubAgentId: null as string | null,
+  messageContextMenu: null as { x: number; y: number; messageId: string; role: 'user' | 'model' } | null,
   keyVaultOpen: false,
   keyVaultFocusTransport: null as 'anthropic' | 'openai' | 'gemini' | null,
 };
@@ -106,6 +111,9 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   openSubAgentEditor: (id) => set({ editingSubAgentId: id }),
   closeSubAgentEditor: () => set({ editingSubAgentId: null }),
+
+  openMessageContextMenu: (payload) => set({ messageContextMenu: payload }),
+  closeMessageContextMenu: () => set({ messageContextMenu: null }),
 
   openKeyVault: (focus) => set({ keyVaultOpen: true, keyVaultFocusTransport: focus ?? null }),
   closeKeyVault: () => set({ keyVaultOpen: false, keyVaultFocusTransport: null }),
