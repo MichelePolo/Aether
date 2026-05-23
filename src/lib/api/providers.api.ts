@@ -1,5 +1,10 @@
 import type { ProviderDescriptor } from '@/src/types/provider.types';
 import type { AuthStatusReport, ProviderTransport } from '@/src/types/provider-auth.types';
+import type {
+  KeyVaultListResponse,
+  SaveKeyResponse,
+  VaultTransport,
+} from '@/src/types/key-vault.types';
 
 async function jsonRes<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -35,4 +40,23 @@ export const providersApi = {
       : '/api/providers/auth-status/refresh';
     return fetch(url, { method: 'POST' }).then(jsonRes<AuthStatusReport>);
   },
+
+  listKeys: (): Promise<KeyVaultListResponse> =>
+    fetch('/api/providers/keys').then(jsonRes<KeyVaultListResponse>),
+
+  setKey: (transport: VaultTransport, key: string): Promise<SaveKeyResponse> =>
+    fetch(`/api/providers/keys/${transport}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key }),
+    }).then(jsonRes<SaveKeyResponse>),
+
+  clearKey: (transport: VaultTransport): Promise<{ status: SaveKeyResponse['status'] }> =>
+    fetch(`/api/providers/keys/${transport}`, { method: 'DELETE' })
+      .then(jsonRes<{ status: SaveKeyResponse['status'] }>),
+
+  revealKey: (transport: VaultTransport): Promise<string> =>
+    fetch(`/api/providers/keys/${transport}?reveal=1`)
+      .then(jsonRes<{ plaintext: string }>)
+      .then((b) => b.plaintext),
 };
