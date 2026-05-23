@@ -5,10 +5,10 @@ import { TRANSPORT_ORDER } from './auth-status.types';
 function makeService(overrides: Partial<ConstructorParameters<typeof AuthStatusService>[0]> = {}) {
   return new AuthStatusService({
     detectAnthropicAuth: async () => 'none',
-    openAIApiKey: undefined,
-    geminiApiKey: undefined,
+    getOpenAIKey: () => undefined,
+    getGeminiKey: () => undefined,
     ollamaHost: 'http://localhost:11434',
-    fetch: vi.fn(async () => new Response(null, { status: 599 })),
+    fetch: vi.fn(async () => new Response(null, { status: 599 })) as unknown as typeof fetch,
     timeoutMs: 50,
     ...overrides,
   });
@@ -26,8 +26,8 @@ describe('AuthStatusService.probe — all-OK path', () => {
     });
     const svc = makeService({
       detectAnthropicAuth: async () => 'oauth',
-      openAIApiKey: 'sk-x',
-      geminiApiKey: 'gk-x',
+      getOpenAIKey: () => 'sk-x',
+      getGeminiKey: () => 'gk-x',
       fetch: fetchMock as typeof fetch,
     });
     const report = await svc.probe();
@@ -49,8 +49,8 @@ describe('AuthStatusService.probe — mixed', () => {
     });
     const svc = makeService({
       detectAnthropicAuth: async () => 'apikey',
-      openAIApiKey: undefined,
-      geminiApiKey: 'gk-x',
+      getOpenAIKey: () => undefined,
+      getGeminiKey: () => 'gk-x',
       fetch: fetchMock as typeof fetch,
     });
     const report = await svc.probe();
@@ -81,7 +81,7 @@ describe('AuthStatusService.probe — timeout', () => {
       () => new Promise<Response>(() => {}), // never resolves
     );
     const svc = makeService({
-      openAIApiKey: 'sk-x',
+      getOpenAIKey: () => 'sk-x',
       fetch: fetchMock,
       timeoutMs: 30,
     });
