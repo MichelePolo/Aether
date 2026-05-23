@@ -183,6 +183,23 @@ describe('useUiStore.keyVault', () => {
   });
 });
 
+describe('useUiStore.messageContextMenu (slice-19)', () => {
+  it('messageContextMenu defaults to null', () => {
+    expect(useUiStore.getState().messageContextMenu).toBeNull();
+  });
+
+  it('openMessageContextMenu sets the payload', () => {
+    useUiStore.getState().openMessageContextMenu({ x: 100, y: 200, messageId: 'msg1', role: 'user' });
+    expect(useUiStore.getState().messageContextMenu).toEqual({ x: 100, y: 200, messageId: 'msg1', role: 'user' });
+  });
+
+  it('closeMessageContextMenu clears to null', () => {
+    useUiStore.getState().openMessageContextMenu({ x: 10, y: 20, messageId: 'msg2', role: 'model' });
+    useUiStore.getState().closeMessageContextMenu();
+    expect(useUiStore.getState().messageContextMenu).toBeNull();
+  });
+});
+
 describe('useUiStore.paletteSearch', () => {
   it('starts in commands mode with empty search state', () => {
     const s = useUiStore.getState();
