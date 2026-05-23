@@ -21,6 +21,8 @@ import { createSearchRoutes } from '@/server/routes/search.routes';
 import type { SearchService } from '@/server/domain/search/search.service';
 import { createSessionsRoutes } from './routes/sessions.routes';
 import { createAttachmentsRoutes } from './routes/attachments.routes';
+import type { BuiltinMcpStore } from '@/server/domain/mcp/builtin/builtin.store';
+import { createBuiltinMcpRoutes } from './routes/builtin-mcp.routes';
 
 export interface AppDeps {
   contextStore?: ContextStore;
@@ -29,6 +31,7 @@ export interface AppDeps {
   profilesStore?: ProfilesStore;
   subAgentsStore?: SubAgentsStore;
   mcpRegistry?: McpRegistry;
+  builtinStore?: BuiltinMcpStore;
   providers?: ProviderRegistry;
   searchService?: SearchService;
   authStatusService?: AuthStatusService;
@@ -82,6 +85,10 @@ export function createApp(
 
   if (deps.subAgentsStore) {
     app.use('/api/subagents', createSubAgentsRoutes(deps.subAgentsStore));
+  }
+
+  if (deps.builtinStore && deps.mcpRegistry) {
+    app.use('/api/mcp/builtin', createBuiltinMcpRoutes(deps.builtinStore, deps.mcpRegistry));
   }
 
   if (deps.mcpRegistry) {
