@@ -8,9 +8,8 @@ import type { AIProvider } from '@/server/domain/dispatch/providers/provider.typ
 export async function buildSingleProviderRegistry(provider: AIProvider): Promise<ProviderRegistry> {
   const reg = new ProviderRegistry({
     ollamaHost: 'http://localhost:11434',
-    geminiApiKey: undefined,
-    anthropicAuth: 'none',
-    openAIApiKey: undefined,
+    resolveKey: () => undefined,
+    detectAnthropicAuth: async () => 'none',
     fakeProvider: provider,
     geminiBuilder: () => provider,
     ollamaBuilder: () => provider,

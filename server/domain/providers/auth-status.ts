@@ -9,8 +9,8 @@ type AnthropicAuth = 'oauth' | 'apikey' | 'none';
 
 export interface AuthStatusServiceDeps {
   detectAnthropicAuth: () => Promise<AnthropicAuth>;
-  openAIApiKey: string | undefined;
-  geminiApiKey: string | undefined;
+  getOpenAIKey: () => string | undefined;
+  getGeminiKey: () => string | undefined;
   ollamaHost: string;
   /** Override for tests; defaults to globalThis.fetch. */
   fetch?: typeof fetch;
@@ -54,11 +54,12 @@ export class AuthStatusService {
   }
 
   private async probeOpenAI(): Promise<TransportStatus> {
-    if (!this.deps.openAIApiKey) {
+    const apiKey = this.deps.getOpenAIKey();
+    if (!apiKey) {
       return { transport: 'openai', state: 'unconfigured', reason: 'no api key' };
     }
     const res = await this.fetchWithTimeout('https://api.openai.com/v1/models', {
-      headers: { Authorization: `Bearer ${this.deps.openAIApiKey}` },
+      headers: { Authorization: `Bearer ${apiKey}` },
     });
     if (res.ok) return { transport: 'openai', state: 'ok', reason: 'api key set' };
     return {
@@ -70,11 +71,12 @@ export class AuthStatusService {
   }
 
   private async probeGemini(): Promise<TransportStatus> {
-    if (!this.deps.geminiApiKey) {
+    const apiKey = this.deps.getGeminiKey();
+    if (!apiKey) {
       return { transport: 'gemini', state: 'unconfigured', reason: 'no api key' };
     }
     const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(
-      this.deps.geminiApiKey,
+      apiKey,
     )}`;
     const res = await this.fetchWithTimeout(url);
     if (res.ok) return { transport: 'gemini', state: 'ok', reason: 'api key set' };

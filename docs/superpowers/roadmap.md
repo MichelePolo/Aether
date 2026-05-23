@@ -72,6 +72,45 @@ Forward-looking slice plan. Each entry is a stub — when we pick one up, the fu
 
 ---
 
+### Slice 18 — In-app provider key vault
+
+**Branch:** `feat/slice-18-key-vault`
+
+**Scope:** lets the user enter / update / clear provider API keys (Gemini, OpenAI, Anthropic) from a modal opened via a palette command, without restarting the server. Keys persist to SQLite encrypted with a machine-local key derived from `os.hostname()` + `os.userInfo().username`. After save: `ProviderRegistry.refresh()` + `AuthStatusService.probe()` re-run so the registry and auth pane update live. Env-var keys remain the override; the vault is read only when no env var is set.
+
+**Likely touch:** new migration for `provider_keys` table, `KeyVaultService` (set/get/clear + envelope crypto), `GET/PUT/DELETE /api/providers/keys`, FE `KeyVaultModal` opened from palette, integration with the existing `ProviderRegistry.refresh()` path.
+
+**Estimate:** 1 medium slice. No new dependency (uses Node `crypto`).
+
+---
+
+### Slice 19 — Conversation forking + cost meter (bundled)
+
+**Branch:** `feat/slice-19-fork-and-meter`
+
+**Scope:** two complementary additions.
+
+- **Fork:** hover any user message → "Branch from here" copies the session up to that message into a brand-new session (new UUIDs, fresh timestamps — reuses the existing `importSession` rewrite logic), switches active, and drops everything after. Right-click on a session row → "Duplicate" forks at the latest message.
+- **Cost meter:** add `tokens_in`, `tokens_out`, `cost_usd` columns to `messages` (migration). Each provider's `done` event already carries usage (or use the slice-14 token estimator as fallback). Surface running session total in the `TopBar` next to the provider chip and per-session in the sidebar row tooltip. Per-message tooltip on the message bubble shows in/out tokens.
+
+**Likely touch:** new `HistoryStore.forkSession(sessionId, fromMessageId)`, route `POST /api/sessions/:id/fork`, FE row button, migration `003_message_usage.sql`, provider adapters expose usage, token aggregation selector in the chat store, `TopBar` cost chip.
+
+**Estimate:** 1 medium slice (small + small).
+
+---
+
+### Slice 20 — Message attachments (images + text files)
+
+**Branch:** `feat/slice-20-attachments`
+
+**Scope:** drag-and-drop or paste attachments into the chat input. Backend accepts multipart upload, stores attachments as DB rows (`messages_attachments` table with mime, name, size, content), and adapts to each provider's multimodal format (Anthropic image blocks, OpenAI Chat Completions vision parts, Gemini image parts; Ollama: skipped with a "provider does not support attachments" note). Render thumbnails / file chips in `MessageBubble`. Hard cap per dispatch: 5 attachments, 10 MB total.
+
+**Likely touch:** `004_attachments.sql` migration, multipart dispatch route variant or new sub-route, attachment storage helper, provider adapter changes (anthropic / openai / gemini), `MessageInput` drag/paste handling + attachment chip row, `MessageBubble` attachment rendering, MSW handlers, integration tests, Playwright.
+
+**Estimate:** 1 large slice. No new dependency beyond Node's built-in multipart parsing or a tiny library (`busboy`) if needed.
+
+---
+
 ## Notes
 
 - Slice numbering is reserved sequentially — if you pick slice 15 before 14, the branch name still matches the table entry.

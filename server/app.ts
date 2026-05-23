@@ -15,6 +15,8 @@ import type { McpRegistry } from '@/server/domain/mcp/registry';
 import { createProvidersRoutes } from '@/server/routes/providers.routes';
 import type { ProviderRegistry } from '@/server/domain/providers/registry';
 import type { AuthStatusService } from '@/server/domain/providers/auth-status';
+import type { KeyVaultService } from './domain/providers/key-vault';
+import type { KeyVaultHooks } from './routes/providers.routes';
 import { createSearchRoutes } from '@/server/routes/search.routes';
 import type { SearchService } from '@/server/domain/search/search.service';
 import { createSessionsRoutes } from './routes/sessions.routes';
@@ -29,6 +31,9 @@ export interface AppDeps {
   providers?: ProviderRegistry;
   searchService?: SearchService;
   authStatusService?: AuthStatusService;
+  keyVault?: KeyVaultService;
+  keyVaultHooks?: KeyVaultHooks;
+  buildInfoRowsCtx?: { anthropicCliPresent: boolean; ollamaHost: string };
 }
 
 // In Express l'error middleware DEVE essere registrato dopo le route per
@@ -84,7 +89,16 @@ export function createApp(
   }
 
   if (deps.providers) {
-    app.use('/api/providers', createProvidersRoutes(deps.providers, deps.authStatusService));
+    app.use(
+      '/api/providers',
+      createProvidersRoutes(
+        deps.providers,
+        deps.authStatusService,
+        deps.keyVault,
+        deps.keyVaultHooks,
+        deps.buildInfoRowsCtx,
+      ),
+    );
   }
 
   if (deps.searchService) {

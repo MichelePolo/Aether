@@ -165,4 +165,38 @@ export const handlers = [
       ],
     }),
   ),
+  http.get('http://localhost/api/providers/keys', () =>
+    HttpResponse.json({
+      vault: [
+        { transport: 'anthropic', hasKey: false, masked: null, updatedAt: null },
+        { transport: 'openai', hasKey: false, masked: null, updatedAt: null },
+        { transport: 'gemini', hasKey: false, masked: null, updatedAt: null },
+      ],
+      info: [
+        { transport: 'anthropic-oauth', label: 'Anthropic OAuth (via claude CLI)', status: 'detected' },
+        { transport: 'ollama', label: 'Ollama', status: 'Host: http://localhost:11434' },
+      ],
+    }),
+  ),
+  http.put('http://localhost/api/providers/keys/:transport', async ({ params, request }) => {
+    const body = (await request.json()) as { key: string };
+    const masked = body.key.length > 8 ? `${body.key.slice(0, 3)}…${body.key.slice(-4)}` : '***';
+    return HttpResponse.json({
+      row: {
+        transport: params.transport,
+        hasKey: true,
+        masked,
+        updatedAt: Date.now(),
+      },
+      status: { transport: params.transport, state: 'ok', reason: 'api key set' },
+    });
+  }),
+  http.delete('http://localhost/api/providers/keys/:transport', ({ params }) =>
+    HttpResponse.json({
+      status: { transport: params.transport, state: 'unconfigured', reason: 'no api key' },
+    }),
+  ),
+  http.get('http://localhost/api/providers/keys/:transport', ({ params }) =>
+    HttpResponse.json({ plaintext: `mock-${params.transport}-key` }),
+  ),
 ];

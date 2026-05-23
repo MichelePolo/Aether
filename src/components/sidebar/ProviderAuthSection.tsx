@@ -3,6 +3,8 @@ import { useProviderAuthStore } from '@/src/stores/providerAuth.store';
 import { TRANSPORT_ORDER } from '@/src/types/provider-auth.types';
 import type { ProviderTransport, TransportStatus } from '@/src/types/provider-auth.types';
 import { cn } from '@/src/lib/cn';
+import { useUiStore } from '@/src/stores/ui.store';
+import type { VaultTransport } from '@/src/types/key-vault.types';
 
 const TRANSPORT_LABELS: Record<ProviderTransport, string> = {
   anthropic: 'Anthropic',
@@ -17,11 +19,14 @@ function dotClass(state: TransportStatus['state']): string {
   return 'text-zinc-500';
 }
 
+const VAULT_SET = new Set<VaultTransport>(['anthropic', 'openai', 'gemini']);
+
 export function ProviderAuthSection() {
   const statuses = useProviderAuthStore((s) => s.statuses);
   const loading = useProviderAuthStore((s) => s.loading);
   const error = useProviderAuthStore((s) => s.error);
   const refresh = useProviderAuthStore((s) => s.refresh);
+  const openKeyVault = useUiStore((s) => s.openKeyVault);
 
   const statusMap = Object.fromEntries(statuses.map((s) => [s.transport, s])) as
     Partial<Record<ProviderTransport, TransportStatus>>;
@@ -55,12 +60,19 @@ export function ProviderAuthSection() {
           const state = s?.state ?? 'unconfigured';
           const reason = s?.reason ?? '';
           const detail = s?.detail ?? '';
+          const clickable = state !== 'ok' && VAULT_SET.has(transport as VaultTransport);
           return (
             <div
               key={transport}
               data-testid="provider-auth-row"
               title={detail}
-              className="flex items-center gap-1.5 text-[10px] font-mono px-1"
+              onClick={clickable ? () => openKeyVault(transport as VaultTransport) : undefined}
+              role={clickable ? 'button' : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              className={cn(
+                'flex items-center gap-1.5 text-[10px] font-mono px-1 py-1 rounded',
+                clickable && 'cursor-pointer hover:bg-surface-3',
+              )}
             >
               <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', {
                 'bg-status-ok': state === 'ok',

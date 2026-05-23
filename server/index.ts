@@ -24,6 +24,8 @@ import { OpenAIProvider } from './domain/dispatch/providers/openai.provider';
 import { detectAnthropicAuth } from './lib/anthropic-auth';
 import { SearchService } from './domain/search/search.service';
 import { AuthStatusService } from './domain/providers/auth-status';
+import { KeyVaultService } from './domain/providers/key-vault';
+import { KeyResolver } from './domain/providers/key-resolver';
 
 dotenv.config();
 
@@ -55,28 +57,40 @@ async function bootstrap() {
     console.log('[aether] Using FakeProvider (AETHER_FAKE_PROVIDER=1)');
   }
 
-  const anthropicAuth = await detectAnthropicAuth();
-  console.log(`[providers] anthropic: ${anthropicAuth}`);
+  const keyVault = new KeyVaultService(db);
+
+  // Cold-start anthropic env priming: if vault has an anthropic key and env doesn't,
+  // set process.env.ANTHROPIC_API_KEY BEFORE detectAnthropicAuth() runs so the SDK sees it.
+  if (!process.env.ANTHROPIC_API_KEY) {
+    const stored = keyVault.getKey('anthropic');
+    if (stored) process.env.ANTHROPIC_API_KEY = stored;
+  }
+
+  const resolver = new KeyResolver({
+    vault: keyVault,
+    env: {
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      OPENAI_API_KEY: cfg.openAIApiKey || undefined,
+      GEMINI_API_KEY: cfg.geminiApiKey || undefined,
+    },
+  });
+
+  const ollamaHost = process.env.OLLAMA_HOST ?? 'http://localhost:11434';
 
   const providers = new ProviderRegistry({
-    ollamaHost: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
-    geminiApiKey: cfg.geminiApiKey || undefined,
-    anthropicAuth,
-    openAIApiKey: cfg.openAIApiKey || undefined,
+    ollamaHost,
+    resolveKey: (t) => resolver.get(t),
+    detectAnthropicAuth,
     fakeProvider,
-    geminiBuilder: (model) => new GeminiProvider({ apiKey: cfg.geminiApiKey, model }),
-    ollamaBuilder: (model) =>
-      new OllamaProvider({
-        host: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
-        model,
-      }),
+    geminiBuilder: (model) => new GeminiProvider({ apiKey: resolver.get('gemini') ?? '', model }),
+    ollamaBuilder: (model) => new OllamaProvider({ host: ollamaHost, model }),
     anthropicBuilder: (model) =>
       new AnthropicProvider({
         model: model as 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5',
       }),
     openAIBuilder: (model) =>
       new OpenAIProvider({
-        apiKey: cfg.openAIApiKey,
+        apiKey: resolver.get('openai') ?? '',
         model: model as 'gpt-5' | 'gpt-5-mini' | 'gpt-4.1' | 'o3',
       }),
     defaultOverride:
@@ -88,14 +102,42 @@ async function bootstrap() {
 
   const authStatusService = new AuthStatusService({
     detectAnthropicAuth,
-    openAIApiKey: cfg.openAIApiKey || undefined,
-    geminiApiKey: cfg.geminiApiKey || undefined,
-    ollamaHost: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
+    getOpenAIKey: () => resolver.get('openai'),
+    getGeminiKey: () => resolver.get('gemini'),
+    ollamaHost,
   });
+
+  // Detect whether the claude CLI is present (for the info row label).
+  // We re-use the existing detector — if it returns anything other than 'none', the CLI is reachable.
+  const anthropicAuth = await detectAnthropicAuth();
+  const anthropicCliPresent = anthropicAuth !== 'none';
+  console.log(`[providers] anthropic: ${anthropicAuth}`);
+
+  const buildInfoRowsCtx = { anthropicCliPresent, ollamaHost };
+
+  const keyVaultHooks = {
+    setAnthropicEnv: (key: string | null) => {
+      if (key) process.env.ANTHROPIC_API_KEY = key;
+      else delete process.env.ANTHROPIC_API_KEY;
+    },
+  };
 
   const dispatcher = new DispatchService({ providers, historyStore, contextStore, subAgentsStore, mcpRegistry });
 
-  const app = createApp({ contextStore, historyStore, dispatcher, profilesStore, subAgentsStore, mcpRegistry, providers, searchService, authStatusService });
+  const app = createApp({
+    contextStore,
+    historyStore,
+    dispatcher,
+    profilesStore,
+    subAgentsStore,
+    mcpRegistry,
+    providers,
+    searchService,
+    authStatusService,
+    keyVault,
+    keyVaultHooks,
+    buildInfoRowsCtx,
+  });
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

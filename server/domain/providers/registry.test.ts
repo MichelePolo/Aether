@@ -15,9 +15,8 @@ function baseDeps(
 ): ConstructorParameters<typeof ProviderRegistry>[0] {
   return {
     ollamaHost: 'http://localhost:11434',
-    geminiApiKey: undefined,
-    anthropicAuth: 'none',
-    openAIApiKey: undefined,
+    resolveKey: () => undefined,
+    detectAnthropicAuth: async () => 'none' as const,
     fakeProvider: makeFake('fake-1'),
     geminiBuilder: () => makeFake('g'),
     ollamaBuilder: () => makeFake('o'),
@@ -36,7 +35,7 @@ describe('ProviderRegistry', () => {
 
   it('registers gemini entries when API key is set', async () => {
     const reg = new ProviderRegistry(baseDeps({
-      geminiApiKey: 'sk-...',
+      resolveKey: (t) => t === 'gemini' ? 'sk-...' : undefined,
       geminiBuilder: (model) => makeFake(model),
     }));
     await reg.refresh();
@@ -58,7 +57,7 @@ describe('ProviderRegistry', () => {
 
   it('defaultName resolves: env override > gemini > ollama > fake', async () => {
     const reg = new ProviderRegistry(baseDeps({
-      geminiApiKey: 'sk-...',
+      resolveKey: (t) => t === 'gemini' ? 'sk-...' : undefined,
       geminiBuilder: (model) => makeFake(model),
       defaultOverride: 'gemini:gemini-1.5-flash',
     }));
@@ -73,7 +72,7 @@ describe('ProviderRegistry', () => {
   });
 
   it("registers all three anthropic entries when probe returns 'oauth'", async () => {
-    const reg = new ProviderRegistry(baseDeps({ anthropicAuth: 'oauth' }));
+    const reg = new ProviderRegistry(baseDeps({ detectAnthropicAuth: async () => 'oauth' }));
     await reg.refresh();
     expect(reg.get('anthropic:claude-opus-4-7')).not.toBeNull();
     expect(reg.get('anthropic:claude-sonnet-4-6')).not.toBeNull();
@@ -81,19 +80,19 @@ describe('ProviderRegistry', () => {
   });
 
   it("registers all three anthropic entries when probe returns 'apikey'", async () => {
-    const reg = new ProviderRegistry(baseDeps({ anthropicAuth: 'apikey' }));
+    const reg = new ProviderRegistry(baseDeps({ detectAnthropicAuth: async () => 'apikey' }));
     await reg.refresh();
     expect(reg.list().filter((d) => d.transport === 'anthropic')).toHaveLength(3);
   });
 
   it("skips anthropic entries when probe returns 'none'", async () => {
-    const reg = new ProviderRegistry(baseDeps({ anthropicAuth: 'none' }));
+    const reg = new ProviderRegistry(baseDeps({ detectAnthropicAuth: async () => 'none' }));
     await reg.refresh();
     expect(reg.list().find((d) => d.transport === 'anthropic')).toBeUndefined();
   });
 
   it('displayName for anthropic includes Anthropic and the model id', async () => {
-    const reg = new ProviderRegistry(baseDeps({ anthropicAuth: 'oauth' }));
+    const reg = new ProviderRegistry(baseDeps({ detectAnthropicAuth: async () => 'oauth' }));
     await reg.refresh();
     const d = reg.describe('anthropic:claude-opus-4-7');
     expect(d?.displayName).toMatch(/anthropic/i);
@@ -101,7 +100,7 @@ describe('ProviderRegistry', () => {
   });
 
   it("registers all four openai entries when API key is set", async () => {
-    const reg = new ProviderRegistry(baseDeps({ openAIApiKey: 'sk-test' }));
+    const reg = new ProviderRegistry(baseDeps({ resolveKey: (t) => t === 'openai' ? 'sk-test' : undefined }));
     await reg.refresh();
     expect(reg.get('openai:gpt-5')).not.toBeNull();
     expect(reg.get('openai:gpt-5-mini')).not.toBeNull();
@@ -110,13 +109,13 @@ describe('ProviderRegistry', () => {
   });
 
   it("skips openai entries when API key is absent", async () => {
-    const reg = new ProviderRegistry(baseDeps({ openAIApiKey: undefined }));
+    const reg = new ProviderRegistry(baseDeps({ resolveKey: () => undefined }));
     await reg.refresh();
     expect(reg.list().find((d) => d.transport === 'openai')).toBeUndefined();
   });
 
   it("displayName for openai includes OpenAI and the model id", async () => {
-    const reg = new ProviderRegistry(baseDeps({ openAIApiKey: 'sk-test' }));
+    const reg = new ProviderRegistry(baseDeps({ resolveKey: (t) => t === 'openai' ? 'sk-test' : undefined }));
     await reg.refresh();
     const d = reg.describe('openai:o3');
     expect(d?.displayName).toMatch(/openai/i);
@@ -127,7 +126,7 @@ describe('ProviderRegistry', () => {
     // The fake builder gives every model { thinking: true, toolCalling: true }.
     // For this test, swap in an openAIBuilder that returns model-specific caps.
     const reg = new ProviderRegistry(baseDeps({
-      openAIApiKey: 'sk-test',
+      resolveKey: (t) => t === 'openai' ? 'sk-test' : undefined,
       openAIBuilder: (model: string) => ({
         model,
         capabilities: { thinking: model === 'o3', toolCalling: true },
