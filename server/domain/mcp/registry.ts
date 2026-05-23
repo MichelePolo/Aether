@@ -7,6 +7,8 @@ import type {
   McpToolPolicy,
   McpConnectionStateSnapshot,
 } from './mcp.types';
+import type { BuiltinMcpStore } from './builtin/builtin.store';
+import type { BuiltinTransport } from './builtin/builtin.types';
 import { MockMcpConnection } from './mock-connection';
 import { StdioMcpConnection } from './stdio-connection';
 import { HttpMcpConnection } from './http-connection';
@@ -39,15 +41,21 @@ export class McpRegistry {
   >();
   private reconnectAborters = new Map<string, AbortController>();
 
-  constructor(private readonly contextStore: ContextStore) {}
+  constructor(
+    private readonly contextStore: ContextStore,
+    private readonly builtinStore?: BuiltinMcpStore,
+  ) {}
 
   async connect(id: string): Promise<{ tools: McpTool[] }> {
-    if (this.live.has(id)) {
-      return { tools: this.live.get(id)!.tools };
-    }
+    if (this.live.has(id)) return { tools: this.live.get(id)!.tools };
     const ctx = await this.contextStore.read();
     const cfg = ctx.mcpServers.find((s) => s.id === id);
     if (!cfg) throw new Error(`Unknown MCP server '${id}'`);
+    return this.connectFromConfig(cfg);
+  }
+
+  private async connectFromConfig(cfg: McpServerConfig): Promise<{ tools: McpTool[] }> {
+    const id = cfg.id;
     if (this.live.has(id)) {
       return { tools: this.live.get(id)!.tools };
     }
@@ -81,6 +89,26 @@ export class McpRegistry {
     }
   }
 
+  async startBuiltin(transport: BuiltinTransport): Promise<void> {
+    if (!this.builtinStore) throw new Error('Built-in MCP store not configured');
+    const id = `builtin:${transport}`;
+    if (this.live.has(id)) return;
+    const configs = this.builtinStore.toConfigs(process.cwd());
+    const cfg = configs.find((c) => c.id === id);
+    if (!cfg) throw new Error(`Built-in ${transport} not enabled`);
+    await this.connectFromConfig(cfg);
+  }
+
+  async stopBuiltin(transport: BuiltinTransport): Promise<void> {
+    const id = `builtin:${transport}`;
+    await this.disconnect(id);
+  }
+
+  async reconnectBuiltin(transport: BuiltinTransport): Promise<void> {
+    await this.stopBuiltin(transport);
+    await this.startBuiltin(transport);
+  }
+
   async disconnect(id: string): Promise<void> {
     const aborter = this.reconnectAborters.get(id);
     if (aborter) {
@@ -109,6 +137,22 @@ export class McpRegistry {
       }
     }
     return out;
+  }
+
+  /** User-facing list of live server entries — excludes built-in servers. */
+  list(): Array<{ serverId: string; serverName: string; tools: McpTool[] }> {
+    return [...this.live.values()]
+      .filter((entry) => !entry.serverId.startsWith('builtin:'))
+      .map((entry) => ({
+        serverId: entry.serverId,
+        serverName: entry.serverName,
+        tools: entry.tools,
+      }));
+  }
+
+  /** All live tools from all connected servers (including built-ins) — used by dispatch layer. */
+  getAvailableTools(): LiveTool[] {
+    return this.listLiveTools();
   }
 
   async callTool(

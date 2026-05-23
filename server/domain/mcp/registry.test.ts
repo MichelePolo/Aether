@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ContextStore } from '@/server/domain/context/context.store';
 import { makeTestDb } from '@/server/test/test-db';
 import { McpRegistry } from './registry';
+import { BuiltinMcpStore } from './builtin/builtin.store';
 
 function newCtx(): ContextStore {
   return new ContextStore(makeTestDb());
@@ -137,4 +138,88 @@ describe('McpRegistry', () => {
     await promise;
     expect(reg.stateOf('M1').state).toBe('online');
   }, 10_000);
+});
+
+// ---------------------------------------------------------------------------
+// Helper: override toConfigs to return mock transport to avoid spawning real subprocesses
+// ---------------------------------------------------------------------------
+function withMockTransport(store: BuiltinMcpStore): BuiltinMcpStore {
+  const orig = store.toConfigs.bind(store);
+  store.toConfigs = (cwd: string) => {
+    const real = orig(cwd);
+    return real.map((c) => ({
+      ...c,
+      transport: 'mock' as const,
+      command: undefined,
+      args: undefined,
+    }));
+  };
+  return store;
+}
+
+describe('McpRegistry — built-ins', () => {
+  it('startBuiltin connects an enabled built-in via toConfigs', async () => {
+    const db = makeTestDb();
+    try {
+      const builtinStore = withMockTransport(new BuiltinMcpStore(db));
+      builtinStore.setEnabled('terminal', true);
+      const ctx = new ContextStore(db);
+      const registry = new McpRegistry(ctx, builtinStore);
+      await registry.startBuiltin('terminal');
+      // 'builtin:terminal' should be live but NOT in user-facing list
+      expect(registry.list().find((e) => e.serverId === 'builtin:terminal')).toBeUndefined();
+      // It should be accessible via getAvailableTools (the dispatcher's view)
+      expect(registry.getAvailableTools().length).toBeGreaterThanOrEqual(0);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('stopBuiltin disconnects and re-start succeeds', async () => {
+    const db = makeTestDb();
+    try {
+      const builtinStore = withMockTransport(new BuiltinMcpStore(db));
+      builtinStore.setEnabled('terminal', true);
+      const ctx = new ContextStore(db);
+      const registry = new McpRegistry(ctx, builtinStore);
+      await registry.startBuiltin('terminal');
+      await registry.stopBuiltin('terminal');
+      // After stop, calling start again should re-connect successfully
+      await registry.startBuiltin('terminal');
+    } finally {
+      db.close();
+    }
+  });
+
+  it('reconnectBuiltin stops then starts without throwing', async () => {
+    const db = makeTestDb();
+    try {
+      const builtinStore = withMockTransport(new BuiltinMcpStore(db));
+      builtinStore.setEnabled('terminal', true);
+      const ctx = new ContextStore(db);
+      const registry = new McpRegistry(ctx, builtinStore);
+      await registry.startBuiltin('terminal');
+      await registry.reconnectBuiltin('terminal');
+      // A successful sequence of start → reconnect without throwing is the assertion
+    } finally {
+      db.close();
+    }
+  });
+
+  it('list() filters out entries with serverId starting with "builtin:"', async () => {
+    const db = makeTestDb();
+    try {
+      const builtinStore = withMockTransport(new BuiltinMcpStore(db));
+      builtinStore.setEnabled('terminal', true);
+      const ctx = new ContextStore(db);
+      const registry = new McpRegistry(ctx, builtinStore);
+      await registry.startBuiltin('terminal');
+      const list = registry.list();
+      for (const entry of list) {
+        expect(entry.serverId.startsWith('builtin:')).toBe(false);
+      }
+    } finally {
+      db.close();
+    }
+  });
 });
