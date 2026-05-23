@@ -132,7 +132,7 @@ export class McpRegistry {
           serverId: entry.serverId,
           serverName: entry.serverName,
           tool,
-          autoApprove: this.resolvePolicy(entry, tool.name).autoApprove,
+          autoApprove: this.resolvePolicy(entry, tool.name).autoApprove === true,
         });
       }
     }
