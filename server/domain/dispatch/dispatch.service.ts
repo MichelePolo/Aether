@@ -19,12 +19,22 @@ import { assemble } from './prompt-assembler';
 import type { McpRegistry } from '@/server/domain/mcp/registry';
 import type { McpToolResult } from '@/server/domain/mcp/mcp.types';
 import type { ProviderRegistry } from '@/server/domain/providers/registry';
+import { classifyAttachment, MAX_ATTACHMENTS, MAX_TOTAL_BYTES } from './attachment.types';
+import { AppError, ValidationError } from '@/server/lib/errors';
+
+const DispatchAttachmentSchema = z.object({
+  name: z.string().min(1).max(255),
+  mime: z.string().min(1).max(127),
+  size: z.number().int().nonnegative(),
+  contentBase64: z.string(),
+});
 
 export const DispatchRequestSchema = z.object({
   sessionId: z.string().min(1),
   message: z.string().min(1),
   thinking: z.boolean().optional(),
   providerName: z.string().optional(),
+  attachments: z.array(DispatchAttachmentSchema).max(MAX_ATTACHMENTS).optional(),
 });
 export type DispatchRequest = z.infer<typeof DispatchRequestSchema>;
 
@@ -34,6 +44,40 @@ export const ResumeRequestSchema = z.object({
   providerName: z.string().optional(),
 });
 export type ResumeRequest = z.infer<typeof ResumeRequestSchema>;
+
+function preprocessAttachments(
+  raw: Array<{ name: string; mime: string; size: number; contentBase64: string }>,
+): {
+  text: Array<{ name: string; mime: string; bytes: Buffer }>;
+  image: Array<{ name: string; mime: string; bytes: Buffer }>;
+} {
+  let totalBytes = 0;
+  const text: Array<{ name: string; mime: string; bytes: Buffer }> = [];
+  const image: Array<{ name: string; mime: string; bytes: Buffer }> = [];
+  for (const a of raw) {
+    const kind = classifyAttachment(a.name, a.mime);
+    if (kind === null) throw new ValidationError(`Unsupported MIME: ${a.mime} for ${a.name}`);
+    let bytes: Buffer;
+    try {
+      bytes = Buffer.from(a.contentBase64, 'base64');
+    } catch {
+      throw new ValidationError(`Invalid base64 for ${a.name}`);
+    }
+    totalBytes += bytes.length;
+    if (totalBytes > MAX_TOTAL_BYTES) {
+      throw new AppError('Attachments exceed 10 MB total', { status: 413, code: 'PAYLOAD_TOO_LARGE' });
+    }
+    if (kind === 'image') image.push({ name: a.name, mime: a.mime, bytes });
+    else text.push({ name: a.name, mime: a.mime, bytes });
+  }
+  return { text, image };
+}
+
+function inlineTextAttachments(userMessage: string, texts: Array<{ name: string; bytes: Buffer }>): string {
+  if (texts.length === 0) return userMessage;
+  const blocks = texts.map((t) => '```' + t.name + '\n' + t.bytes.toString('utf-8') + '\n```').join('\n\n');
+  return userMessage + '\n\n' + blocks;
+}
 
 export interface DispatchServiceDeps {
   providers: ProviderRegistry;
@@ -52,6 +96,7 @@ interface RunDispatchLoopOpts {
   thinking: boolean | undefined;
   mcpTools: ProviderToolDecl[];
   subAgent?: string;
+  attachments?: Array<{ name: string; mime: string; bytes: Buffer }>;
 }
 
 interface RunDispatchLoopResult {
@@ -136,6 +181,7 @@ export class DispatchService {
                 mcpTools: opts.mcpTools,
                 toolResults: pendingToolResults.length > 0 ? pendingToolResults : undefined,
                 pendingAssistantText: providerPendingText,
+                attachments: opts.attachments,
               },
               signal,
             );
@@ -326,6 +372,23 @@ export class DispatchService {
       }
     }
 
+    // Decode and classify attachments (throws ValidationError or AppError on bad input).
+    const rawAttachments = parsed.data.attachments ?? [];
+    let textAtts: Array<{ name: string; mime: string; bytes: Buffer }> = [];
+    let imageAtts: Array<{ name: string; mime: string; bytes: Buffer }> = [];
+    try {
+      const parts = preprocessAttachments(rawAttachments);
+      textAtts = parts.text;
+      imageAtts = parts.image;
+    } catch (e) {
+      if (e instanceof AppError) {
+        sse.event('error', { message: e.message, retryable: false });
+        sse.end();
+        return;
+      }
+      throw e;
+    }
+
     const mention = parseLeadingMention(message, knownNames);
     const matchedSubAgent =
       mention.name === null
@@ -352,13 +415,31 @@ export class DispatchService {
       description: t.tool.description,
       schema: t.tool.inputSchema,
     }));
-    const assembled = assemble(context, matchedSubAgent, mention.stripped, mention.name, mcpToolDecls);
+
+    // Inline text attachments as fenced code blocks into the user message.
+    const effectiveStripped = inlineTextAttachments(mention.stripped, textAtts);
+    const assembled = assemble(context, matchedSubAgent, effectiveStripped, mention.name, mcpToolDecls);
+
+    // Build attachment list for the provider (images only, stripped for non-vision providers).
+    const providerAttachments = provider.capabilities.vision ? imageAtts : [];
+
+    // Persist the user message with the ORIGINAL attachments (text + image).
+    const attachmentsToStore = rawAttachments.length > 0
+      ? rawAttachments.map((a) => ({
+          id: randomUUID(),
+          name: a.name,
+          mime: a.mime,
+          size: a.size,
+          contentBase64: a.contentBase64,
+        }))
+      : undefined;
 
     await historyStore.append(sessionId, {
       id: randomUUID(),
       role: 'user',
       text: message,
       timestamp: Date.now(),
+      attachments: attachmentsToStore,
     });
 
     const loopResult = await this.runDispatchLoop(
@@ -371,6 +452,7 @@ export class DispatchService {
         thinking,
         mcpTools: assembled.mcpTools,
         subAgent: assembled.subAgent ?? undefined,
+        attachments: providerAttachments.length > 0 ? providerAttachments : undefined,
       },
       tracer,
       sse,
