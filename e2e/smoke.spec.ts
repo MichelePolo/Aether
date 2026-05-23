@@ -504,3 +504,19 @@ test('attachments: paperclip → pick file → chip → send', async ({ page }) 
   // requires a hydration roundtrip — exercised by reopening the session.
   await expect(page.getByText('tiny.png').first()).not.toBeVisible({ timeout: 2000 });
 });
+
+test('builtin MCPs: 2 toggle rows visible, click Filesystem twice to toggle on/off', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('AETHER_CORE').waitFor();
+
+  const rows = page.getByTestId('builtin-mcp-row');
+  await expect(rows).toHaveCount(2);
+
+  await page.getByLabel('Toggle Filesystem').click();
+  await page.waitForTimeout(500);
+
+  await page.getByLabel('Toggle Filesystem').click();
+  await page.waitForTimeout(500);
+
+  await expect(rows).toHaveCount(2);
+});
