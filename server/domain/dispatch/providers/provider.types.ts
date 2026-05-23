@@ -29,6 +29,7 @@ export interface ProviderRequest {
   /** Assistant-side text accumulated before the function_call, if any.
    *  Used by providers (e.g. Gemini) that need to replay the partial turn. */
   pendingAssistantText?: string;
+  attachments?: ProviderAttachment[];
 }
 
 export interface ProviderUsage {
@@ -52,6 +53,13 @@ export type ProviderChunk =
 export interface ProviderCapabilities {
   thinking: boolean;
   toolCalling: boolean;
+  vision: boolean;
+}
+
+export interface ProviderAttachment {
+  name: string;
+  mime: string;
+  bytes: Buffer;
 }
 
 export interface AIProvider {

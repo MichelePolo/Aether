@@ -20,9 +20,9 @@ describe('OllamaProvider', () => {
     vi.unstubAllGlobals();
   });
 
-  it('capabilities = { thinking: false, toolCalling: true }', () => {
+  it('capabilities = { thinking: false, toolCalling: true, vision: false }', () => {
     const p = new OllamaProvider({ host: 'http://localhost:11434', model: 'llama3' });
-    expect(p.capabilities).toEqual({ thinking: false, toolCalling: true });
+    expect(p.capabilities).toEqual({ thinking: false, toolCalling: true, vision: false });
   });
 
   it('streams text chunks from NDJSON message.content', async () => {

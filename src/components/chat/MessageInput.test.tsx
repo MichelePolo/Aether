@@ -129,7 +129,7 @@ describe('MessageInput', () => {
     useProvidersStore.setState({
       list: [{
         name: 'ollama:llama3', transport: 'ollama', model: 'llama3',
-        capabilities: { thinking: false, toolCalling: true }, displayName: 'Ollama / llama3',
+        capabilities: { thinking: false, toolCalling: true, vision: false }, displayName: 'Ollama / llama3',
       }],
       defaultProvider: 'ollama:llama3',
       hydrated: true,
@@ -143,7 +143,7 @@ describe('MessageInput', () => {
     useProvidersStore.setState({
       list: [{
         name: 'fake:default', transport: 'fake', model: 'default',
-        capabilities: { thinking: true, toolCalling: true }, displayName: 'Fake',
+        capabilities: { thinking: true, toolCalling: true, vision: false }, displayName: 'Fake',
       }],
       defaultProvider: 'fake:default',
       hydrated: true,

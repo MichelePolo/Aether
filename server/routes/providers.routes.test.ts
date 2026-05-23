@@ -16,7 +16,7 @@ import { createProvidersRoutes } from './providers.routes';
 function makeFake(model: string): AIProvider {
   return {
     model,
-    capabilities: { thinking: true, toolCalling: true },
+    capabilities: { thinking: true, toolCalling: true, vision: false },
     async *stream() { yield { type: 'done' as const }; },
   };
 }

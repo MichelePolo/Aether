@@ -27,7 +27,7 @@ export interface OllamaProviderOpts {
 }
 
 export class OllamaProvider implements AIProvider {
-  readonly capabilities: ProviderCapabilities = { thinking: false, toolCalling: true };
+  readonly capabilities: ProviderCapabilities = { thinking: false, toolCalling: true, vision: false };
   readonly model: string;
 
   constructor(private readonly opts: OllamaProviderOpts) {

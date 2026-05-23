@@ -15,7 +15,7 @@ describe('useProvidersStore', () => {
         HttpResponse.json({
           providers: [
             { name: 'fake:default', transport: 'fake', model: 'default',
-              capabilities: { thinking: true, toolCalling: true }, displayName: 'Fake' },
+              capabilities: { thinking: true, toolCalling: true, vision: false }, displayName: 'Fake' },
           ],
         }),
       ),
@@ -35,7 +35,7 @@ describe('useProvidersStore', () => {
         HttpResponse.json({
           providers: [
             { name: 'gemini:gemini-2.0-flash-exp', transport: 'gemini', model: 'gemini-2.0-flash-exp',
-              capabilities: { thinking: true, toolCalling: true }, displayName: 'Gemini / 2.0 flash' },
+              capabilities: { thinking: true, toolCalling: true, vision: true }, displayName: 'Gemini / 2.0 flash' },
           ],
         }),
       ),
@@ -54,7 +54,7 @@ describe('useProvidersStore', () => {
         HttpResponse.json({
           providers: [
             { name: 'fake:default', transport: 'fake', model: 'default',
-              capabilities: { thinking: true, toolCalling: true }, displayName: 'Fake' },
+              capabilities: { thinking: true, toolCalling: true, vision: false }, displayName: 'Fake' },
           ],
         }),
       ),
@@ -76,13 +76,13 @@ describe('useProvidersStore', () => {
     useProvidersStore.setState({
       list: [{
         name: 'ollama:llama3', transport: 'ollama', model: 'llama3',
-        capabilities: { thinking: false, toolCalling: true }, displayName: 'Ollama / llama3',
+        capabilities: { thinking: false, toolCalling: true, vision: false }, displayName: 'Ollama / llama3',
       }],
       defaultProvider: 'ollama:llama3',
       hydrated: true,
       error: null,
     });
-    expect(useProvidersStore.getState().capabilitiesOf('ollama:llama3')).toEqual({ thinking: false, toolCalling: true });
+    expect(useProvidersStore.getState().capabilitiesOf('ollama:llama3')).toEqual({ thinking: false, toolCalling: true, vision: false });
     expect(useProvidersStore.getState().capabilitiesOf('not-real')).toBeNull();
   });
 });

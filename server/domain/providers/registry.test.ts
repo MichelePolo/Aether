@@ -5,7 +5,7 @@ import type { AIProvider } from '@/server/domain/dispatch/providers/provider.typ
 function makeFake(model: string): AIProvider {
   return {
     model,
-    capabilities: { thinking: true, toolCalling: true },
+    capabilities: { thinking: true, toolCalling: true, vision: false },
     async *stream() { yield { type: 'done' as const }; },
   };
 }
@@ -129,12 +129,12 @@ describe('ProviderRegistry', () => {
       resolveKey: (t) => t === 'openai' ? 'sk-test' : undefined,
       openAIBuilder: (model: string) => ({
         model,
-        capabilities: { thinking: model === 'o3', toolCalling: true },
+        capabilities: { thinking: model === 'o3', toolCalling: true, vision: true },
         async *stream() { yield { type: 'done' as const }; },
       }),
     }));
     await reg.refresh();
-    expect(reg.describe('openai:gpt-5')?.capabilities).toEqual({ thinking: false, toolCalling: true });
-    expect(reg.describe('openai:o3')?.capabilities).toEqual({ thinking: true, toolCalling: true });
+    expect(reg.describe('openai:gpt-5')?.capabilities).toEqual({ thinking: false, toolCalling: true, vision: true });
+    expect(reg.describe('openai:o3')?.capabilities).toEqual({ thinking: true, toolCalling: true, vision: true });
   });
 });

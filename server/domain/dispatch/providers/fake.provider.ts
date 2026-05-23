@@ -1,4 +1,4 @@
-import type { AIProvider, ProviderChunk, ProviderFunctionCall, ProviderRequest, ProviderUsage } from './provider.types';
+import type { AIProvider, ProviderCapabilities, ProviderChunk, ProviderFunctionCall, ProviderRequest, ProviderUsage } from './provider.types';
 
 export interface FakeProviderOptions {
   chunks: string[];
@@ -9,17 +9,23 @@ export interface FakeProviderOptions {
   inputTokens?: number;
   outputTokens?: number;
   functionCallSequence?: ProviderFunctionCall[];
+  vision?: boolean;
 }
 
 export class FakeProvider implements AIProvider {
   readonly model: string;
-  readonly capabilities = { thinking: true, toolCalling: true };
+  readonly capabilities: ProviderCapabilities;
   lastRequest: ProviderRequest | undefined;
   private functionCallQueue: ProviderFunctionCall[];
 
   constructor(private readonly opts: FakeProviderOptions) {
     this.model = opts.model ?? 'fake-1';
     this.functionCallQueue = [...(opts.functionCallSequence ?? [])];
+    this.capabilities = {
+      thinking: true,
+      toolCalling: true,
+      vision: opts.vision ?? false,
+    };
   }
 
   async *stream(
