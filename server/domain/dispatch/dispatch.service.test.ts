@@ -372,3 +372,174 @@ describe('DispatchService', () => {
     expect((done.data as { tokensOut?: number }).tokensOut).toBe(40);
   });
 });
+
+describe('DispatchService — attachments', () => {
+  async function makeServiceWithVision(vision: boolean) {
+    const provider = new FakeProvider({ chunks: ['ok'], model: 'fake-1', vision });
+    const db = makeTestDb();
+    const historyStore = new HistoryStore(db);
+    const contextStore = new ContextStore(db);
+    const providers = await buildSingleProviderRegistry(provider);
+    const service = new DispatchService({ providers, historyStore, contextStore });
+    const session = await historyStore.createEmpty();
+    return { service, provider, historyStore, sessionId: session.id };
+  }
+
+  it('inlines a text attachment as a fenced code block in the user message', async () => {
+    const { service, provider, sessionId } = await makeServiceWithVision(false);
+    const { emitter } = createCollectorEmitter();
+    await service.handle(
+      {
+        sessionId,
+        message: 'do this',
+        attachments: [
+          {
+            name: 'notes.md',
+            mime: 'text/markdown',
+            size: 11,
+            contentBase64: Buffer.from('hello world').toString('base64'),
+          },
+        ],
+      },
+      emitter,
+      new AbortController().signal,
+    );
+    expect(provider.lastRequest?.userMessage).toContain('do this');
+    expect(provider.lastRequest?.userMessage).toContain('```notes.md\nhello world\n```');
+  });
+
+  it('forwards image attachments to the provider via ProviderRequest.attachments', async () => {
+    const { service, provider, sessionId } = await makeServiceWithVision(true);
+    const { emitter } = createCollectorEmitter();
+    const imageBytes = Buffer.from('PNGDATA');
+    await service.handle(
+      {
+        sessionId,
+        message: 'look',
+        attachments: [
+          {
+            name: 'photo.png',
+            mime: 'image/png',
+            size: imageBytes.length,
+            contentBase64: imageBytes.toString('base64'),
+          },
+        ],
+      },
+      emitter,
+      new AbortController().signal,
+    );
+    expect(provider.lastRequest?.attachments).toHaveLength(1);
+    expect(provider.lastRequest?.attachments![0].mime).toBe('image/png');
+    expect(provider.lastRequest?.attachments![0].bytes).toEqual(imageBytes);
+  });
+
+  it('strips images when the resolved provider has vision=false', async () => {
+    const { service, provider, sessionId } = await makeServiceWithVision(false);
+    const { emitter } = createCollectorEmitter();
+    await service.handle(
+      {
+        sessionId,
+        message: 'look',
+        attachments: [
+          {
+            name: 'photo.png',
+            mime: 'image/png',
+            size: 4,
+            contentBase64: Buffer.from('IMGD').toString('base64'),
+          },
+        ],
+      },
+      emitter,
+      new AbortController().signal,
+    );
+    expect(provider.lastRequest?.attachments).toBeUndefined();
+  });
+
+  it('persists both text and image attachments on the user message', async () => {
+    const { service, historyStore, sessionId } = await makeServiceWithVision(true);
+    const { emitter } = createCollectorEmitter();
+    await service.handle(
+      {
+        sessionId,
+        message: 'check',
+        attachments: [
+          {
+            name: 'readme.md',
+            mime: 'text/markdown',
+            size: 2,
+            contentBase64: Buffer.from('hi').toString('base64'),
+          },
+          {
+            name: 'img.png',
+            mime: 'image/png',
+            size: 3,
+            contentBase64: Buffer.from('PNG').toString('base64'),
+          },
+        ],
+      },
+      emitter,
+      new AbortController().signal,
+    );
+    const msgs = await historyStore.read(sessionId);
+    const userMsg = msgs!.find((m) => m.role === 'user')!;
+    expect(userMsg.attachments).toHaveLength(2);
+    const names = userMsg.attachments!.map((a) => a.name).sort();
+    expect(names).toEqual(['img.png', 'readme.md']);
+  });
+
+  it('emits error event for an unsupported MIME type', async () => {
+    const { service, sessionId } = await makeServiceWithVision(false);
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle(
+      {
+        sessionId,
+        message: 'attach pdf',
+        attachments: [
+          {
+            name: 'doc.pdf',
+            mime: 'application/pdf',
+            size: 5,
+            contentBase64: Buffer.from('hello').toString('base64'),
+          },
+        ],
+      },
+      emitter,
+      new AbortController().signal,
+    );
+    const err = events.find((e) => e.event === 'error');
+    expect(err).toBeDefined();
+    expect((err!.data as { message: string }).message).toMatch(/Unsupported MIME/);
+  });
+
+  it('emits error event when total decoded bytes exceed 10 MB', async () => {
+    const { service, sessionId } = await makeServiceWithVision(false);
+    const { emitter, events } = createCollectorEmitter();
+    // Two 6 MB text files = 12 MB total
+    const bigContent = Buffer.alloc(6 * 1024 * 1024, 'x');
+    await service.handle(
+      {
+        sessionId,
+        message: 'too big',
+        attachments: [
+          {
+            name: 'a.txt',
+            mime: 'text/plain',
+            size: bigContent.length,
+            contentBase64: bigContent.toString('base64'),
+          },
+          {
+            name: 'b.txt',
+            mime: 'text/plain',
+            size: bigContent.length,
+            contentBase64: bigContent.toString('base64'),
+          },
+        ],
+      },
+      emitter,
+      new AbortController().signal,
+    );
+    const err = events.find((e) => e.event === 'error');
+    expect(err).toBeDefined();
+    expect((err!.data as { message: string }).message).toMatch(/10 MB/);
+  });
+});

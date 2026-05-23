@@ -194,3 +194,46 @@ describe('MessageBubble', () => {
     expect(wrapper.title ?? '').toBe('');
   });
 });
+
+describe('MessageBubble — attachments rendering', () => {
+  beforeEach(() => {
+    useChatStore.getState()._reset();
+    useUiStore.getState()._reset();
+  });
+
+  it('renders an <img> for image attachments', () => {
+    useChatStore.setState({
+      messages: [{
+        id: 'U1', role: 'user', text: 'look', timestamp: 0,
+        attachments: [{ id: 'a1', mime: 'image/png', name: 'p.png', size: 4 }],
+      }],
+    });
+    render(<MessageBubble id="U1" />);
+    const img = screen.getByRole('img', { name: /p\.png/i });
+    expect(img.getAttribute('src')).toBe('/api/attachments/a1');
+  });
+
+  it('renders a chip for text attachments', () => {
+    useChatStore.setState({
+      messages: [{
+        id: 'U1', role: 'user', text: 'see notes', timestamp: 0,
+        attachments: [{ id: 'a2', mime: 'text/markdown', name: 'notes.md', size: 100 }],
+      }],
+    });
+    render(<MessageBubble id="U1" />);
+    expect(screen.getByText(/notes\.md/i)).toBeInTheDocument();
+  });
+
+  it('clicking an image thumb opens the lightbox', async () => {
+    useChatStore.setState({
+      messages: [{
+        id: 'U1', role: 'user', text: '', timestamp: 0,
+        attachments: [{ id: 'a1', mime: 'image/png', name: 'p.png', size: 4 }],
+      }],
+    });
+    const user = userEvent.setup();
+    render(<MessageBubble id="U1" />);
+    await user.click(screen.getByRole('img', { name: /p\.png/i }));
+    expect(useUiStore.getState().lightboxAttachmentId).toBe('a1');
+  });
+});

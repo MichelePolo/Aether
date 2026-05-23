@@ -41,7 +41,7 @@ describe('AnthropicProvider', () => {
   it('reports declared capabilities and model', () => {
     const p = new AnthropicProvider({ model: 'claude-sonnet-4-6' });
     expect(p.model).toBe('claude-sonnet-4-6');
-    expect(p.capabilities).toEqual({ thinking: true, toolCalling: true });
+    expect(p.capabilities).toEqual({ thinking: true, toolCalling: true, vision: true });
   });
 
   it('maps SDK text content blocks to text chunks', async () => {
@@ -253,5 +253,65 @@ describe('AnthropicProvider', () => {
     };
     expect(arg.options.mcpServers).toEqual({});
     expect(arg.options.allowedTools).toEqual([]);
+  });
+
+  it('has vision: true in capabilities', () => {
+    const p = new AnthropicProvider({ model: 'claude-sonnet-4-6' });
+    expect(p.capabilities.vision).toBe(true);
+  });
+
+  it('prepends image blocks to the final user message content when attachments are present', async () => {
+    querySpy.mockReturnValue(asyncIterableFrom([
+      { type: 'result', usage: { input_tokens: 0, output_tokens: 0 } },
+    ]));
+    const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
+    const pngBytes = Buffer.from('fake-png-bytes');
+    await collect(p.stream(baseReq({
+      userMessage: 'describe this image',
+      attachments: [
+        { name: 'test.png', mime: 'image/png', bytes: pngBytes },
+      ],
+    }), new AbortController().signal));
+
+    const arg = querySpy.mock.calls[0][0] as { prompt: AsyncIterable<unknown> };
+    const messages: unknown[] = [];
+    for await (const m of arg.prompt) messages.push(m);
+
+    // The last message in the prompt is the user message with image block
+    const lastMsg = messages.at(-1) as {
+      message: {
+        role: string;
+        content: Array<{ type: string; source?: { type: string; media_type: string; data: string }; text?: string }>;
+      };
+    };
+    expect(lastMsg.message.role).toBe('user');
+    expect(lastMsg.message.content).toHaveLength(2);
+    expect(lastMsg.message.content[0]).toEqual({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: 'image/png',
+        data: pngBytes.toString('base64'),
+      },
+    });
+    expect(lastMsg.message.content[1]).toEqual({ type: 'text', text: 'describe this image' });
+  });
+
+  it('sends only a text block when there are no attachments', async () => {
+    querySpy.mockReturnValue(asyncIterableFrom([
+      { type: 'result', usage: { input_tokens: 0, output_tokens: 0 } },
+    ]));
+    const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
+    await collect(p.stream(baseReq({ userMessage: 'plain text' }), new AbortController().signal));
+
+    const arg = querySpy.mock.calls[0][0] as { prompt: AsyncIterable<unknown> };
+    const messages: unknown[] = [];
+    for await (const m of arg.prompt) messages.push(m);
+
+    const lastMsg = messages.at(-1) as {
+      message: { role: string; content: Array<{ type: string; text?: string }> };
+    };
+    expect(lastMsg.message.content).toHaveLength(1);
+    expect(lastMsg.message.content[0]).toEqual({ type: 'text', text: 'plain text' });
   });
 });

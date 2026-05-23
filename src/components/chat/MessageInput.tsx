@@ -1,9 +1,11 @@
 import { useRef, useState, type KeyboardEvent, type ChangeEvent } from 'react';
-import { Send, Square, Brain } from 'lucide-react';
+import { Send, Square, Brain, Paperclip } from 'lucide-react';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
 import { useProvidersStore } from '@/src/stores/providers.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
+import { useChatStore } from '@/src/stores/chat.store';
+import { isImageMime } from '@/src/types/attachment.types';
 import { cn } from '@/src/lib/cn';
 import { computeMentionState, type MentionState } from '@/src/hooks/useMentionAutocomplete';
 import { MentionPopover } from './MentionPopover';
@@ -18,6 +20,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   const [value, setValue] = useState('');
   const [mention, setMention] = useState<MentionState>({ open: false, query: '', replaceRange: [0, 0] });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const thinkingEnabled = useUiStore((s) => s.thinkingEnabled);
   const setThinkingEnabled = useUiStore((s) => s.setThinkingEnabled);
   const subAgents = useSubAgentsStore((s) => s.list);
@@ -26,6 +29,9 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   const sessions = useSessionsStore((s) => s.sessions);
   const defaultProvider = useProvidersStore((s) => s.defaultProvider);
   const capabilitiesOf = useProvidersStore((s) => s.capabilitiesOf);
+
+  const queuedAttachments = useChatStore((s) => s.queuedAttachments);
+  const queueAttachments = useChatStore((s) => s.queueAttachments);
 
   const activeProviderName = activeId
     ? ((sessions.find((s) => s.id === activeId) as { providerName?: string } | undefined)?.providerName ?? defaultProvider)
@@ -81,9 +87,44 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   const handleMentionClose = () =>
     setMention({ open: false, query: '', replaceRange: [0, 0] });
 
+  const onPickFiles = async (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length > 0) await queueAttachments(files);
+    e.target.value = '';
+  };
+
+  const onPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(e.clipboardData?.files ?? []);
+    if (files.length > 0) {
+      e.preventDefault();
+      await queueAttachments(files);
+    }
+  };
+
+  const hasImages = queuedAttachments.some((a) => isImageMime(a.mime));
+  const visionBlocked = hasImages && caps?.vision === false;
+  const canSend = (value.trim().length > 0 || queuedAttachments.length > 0) && !visionBlocked;
+
   return (
     <div className="border-t border-border-subtle bg-surface-2 p-3">
       <div className="flex items-end gap-2 relative">
+        <button
+          type="button"
+          aria-label="Attach files"
+          disabled={isStreaming}
+          onClick={() => fileInputRef.current?.click()}
+          className="p-2 rounded bg-surface-1 text-zinc-500 border border-border-subtle hover:text-zinc-300 disabled:opacity-50"
+        >
+          <Paperclip size={16} />
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/png,image/jpeg,image/webp,image/gif,.md,.json,.ts,.tsx,.js,.jsx,.py,.txt,.yaml,.yml,.toml,.sh,.sql,.csv"
+          hidden
+          onChange={onPickFiles}
+        />
         <button
           type="button"
           aria-label="Toggle thinking mode"
@@ -111,6 +152,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
             value={value}
             onChange={onChange}
             onKeyDown={onKey}
+            onPaste={onPaste}
             disabled={isStreaming}
             placeholder={
               isStreaming
@@ -141,8 +183,9 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
             type="button"
             aria-label="Send"
             onClick={submit}
+            title={visionBlocked ? 'Selected provider does not support images' : undefined}
+            disabled={!canSend}
             className="p-2 rounded bg-accent/20 hover:bg-accent/30 text-accent disabled:opacity-30"
-            disabled={!value.trim()}
           >
             <Send size={16} />
           </button>

@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { HistoryStore } from './history.store';
 import { makeTestDb } from '@/server/test/test-db';
 import type { DatabaseHandle } from '@/server/db/database';
-import type { Message } from './history.types';
+import type { Message, MessageAttachment } from './history.types';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -540,5 +541,136 @@ describe('HistoryStore.forkSession', () => {
     // synthetic edge: a session with only a model message (won't happen in practice)
     await store.append(s.id, { id: 'a-only', role: 'model', text: 'r', timestamp: 1, tokensIn: 5, tokensOut: 2 });
     await expect(store.forkSession(s.id, 'a-only')).rejects.toThrow(/NO_FORK_POINT/);
+  });
+});
+
+// Helper: encode a small buffer as base64 string
+function makeBase64(content: string): string {
+  return Buffer.from(content).toString('base64');
+}
+
+describe('HistoryStore.append — attachments', () => {
+  it('round-trips attachments on read (image + text)', async () => {
+    const s = await store.createEmpty();
+    const att1: MessageAttachment = {
+      id: randomUUID(),
+      mime: 'image/png',
+      name: 'photo.png',
+      size: 8,
+      contentBase64: makeBase64('PNG_DATA'),
+    };
+    const att2: MessageAttachment = {
+      id: randomUUID(),
+      mime: 'text/plain',
+      name: 'note.txt',
+      size: 4,
+      contentBase64: makeBase64('TEXT'),
+    };
+    const msg: Message = {
+      id: randomUUID(),
+      role: 'user',
+      text: 'check attachments',
+      timestamp: 1,
+      attachments: [att1, att2],
+    };
+    await store.append(s.id, msg);
+    const msgs = await store.read(s.id);
+    expect(msgs).toHaveLength(1);
+    expect(msgs![0].attachments).toHaveLength(2);
+    // contentBase64 is NOT returned on read path
+    expect(msgs![0].attachments![0]).toEqual({ id: att1.id, mime: 'image/png', name: 'photo.png', size: 8 });
+    expect(msgs![0].attachments![1]).toEqual({ id: att2.id, mime: 'text/plain', name: 'note.txt', size: 4 });
+  });
+
+  it('attachments field absent when message has none', async () => {
+    const s = await store.createEmpty();
+    await store.append(s.id, { id: randomUUID(), role: 'user', text: 'no atts', timestamp: 1 });
+    const msgs = await store.read(s.id);
+    expect(msgs![0].attachments).toBeUndefined();
+  });
+});
+
+describe('HistoryStore.getAttachmentBytes', () => {
+  it('returns mime, name, and content buffer for a known attachment', async () => {
+    const s = await store.createEmpty();
+    const content = 'HELLO_BYTES';
+    const attId = randomUUID();
+    const att: MessageAttachment = {
+      id: attId,
+      mime: 'image/jpeg',
+      name: 'img.jpg',
+      size: content.length,
+      contentBase64: makeBase64(content),
+    };
+    await store.append(s.id, { id: randomUUID(), role: 'user', text: 'hi', timestamp: 1, attachments: [att] });
+    const result = await store.getAttachmentBytes(attId);
+    expect(result).not.toBeNull();
+    expect(result!.mime).toBe('image/jpeg');
+    expect(result!.name).toBe('img.jpg');
+    expect(result!.content).toEqual(Buffer.from(content));
+  });
+
+  it('returns null for unknown attachment id', async () => {
+    const result = await store.getAttachmentBytes('does-not-exist');
+    expect(result).toBeNull();
+  });
+});
+
+describe('HistoryStore.delete — FK cascade on attachments', () => {
+  it('deleting session cascades to messages_attachments', async () => {
+    const s = await store.createEmpty();
+    const att: MessageAttachment = {
+      id: randomUUID(),
+      mime: 'image/png',
+      name: 'x.png',
+      size: 3,
+      contentBase64: makeBase64('abc'),
+    };
+    await store.append(s.id, { id: randomUUID(), role: 'user', text: 'q', timestamp: 1, attachments: [att] });
+    expect(
+      (db.prepare('SELECT COUNT(*) AS n FROM messages_attachments').get() as { n: number }).n,
+    ).toBe(1);
+    await store.delete(s.id);
+    expect(
+      (db.prepare('SELECT COUNT(*) AS n FROM messages_attachments').get() as { n: number }).n,
+    ).toBe(0);
+  });
+});
+
+describe('HistoryStore.forkSession — clones attachments', () => {
+  it('forked session has cloned attachments with new ids, same content', async () => {
+    const s = await store.createEmpty();
+    const origAttId = randomUUID();
+    const content = 'FORK_IMAGE';
+    const att: MessageAttachment = {
+      id: origAttId,
+      mime: 'image/png',
+      name: 'fork.png',
+      size: content.length,
+      contentBase64: makeBase64(content),
+    };
+    await store.append(s.id, { id: 'u1', role: 'user', text: 'q', timestamp: 1, attachments: [att] });
+
+    const forked = await store.forkSession(s.id, 'u1');
+
+    // Forked session has attachments in messages
+    const forkedMsgs = await store.read(forked.id);
+    expect(forkedMsgs).toHaveLength(1);
+    expect(forkedMsgs![0].attachments).toHaveLength(1);
+    const clonedAtt = forkedMsgs![0].attachments![0];
+
+    // New id (not the original)
+    expect(clonedAtt.id).not.toBe(origAttId);
+    expect(clonedAtt.mime).toBe('image/png');
+    expect(clonedAtt.name).toBe('fork.png');
+
+    // Content preserved in the cloned row
+    const bytes = await store.getAttachmentBytes(clonedAtt.id);
+    expect(bytes).not.toBeNull();
+    expect(bytes!.content).toEqual(Buffer.from(content));
+
+    // Original still intact
+    const origBytes = await store.getAttachmentBytes(origAttId);
+    expect(origBytes).not.toBeNull();
   });
 });

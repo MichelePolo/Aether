@@ -20,6 +20,7 @@ import type { KeyVaultHooks } from './routes/providers.routes';
 import { createSearchRoutes } from '@/server/routes/search.routes';
 import type { SearchService } from '@/server/domain/search/search.service';
 import { createSessionsRoutes } from './routes/sessions.routes';
+import { createAttachmentsRoutes } from './routes/attachments.routes';
 
 export interface AppDeps {
   contextStore?: ContextStore;
@@ -46,12 +47,18 @@ export function createApp(
 ): Express {
   const app = express();
 
-  // Sessions io router mounted BEFORE global json parser so its import
-  // route can install its own 10 MB parser. Other /api/sessions routes
-  // (list/create/read/patch/delete) live in history.routes and use the
-  // 1 MB parser below.
+  // Routes that need their own body parser (slice 16 import, slice 20 dispatch)
+  // mount BEFORE the global 1 MB parser.
   if (deps.historyStore) {
     app.use('/api/sessions', createSessionsRoutes(deps.historyStore));
+  }
+
+  if (deps.dispatcher) {
+    app.use('/api/ai/dispatch', createDispatchRoutes(deps.dispatcher));
+  } else {
+    app.post('/api/ai/dispatch', (_req, res) => {
+      res.status(503).json({ error: { code: 'NO_DISPATCHER', message: 'Dispatcher not configured' } });
+    });
   }
 
   app.use(express.json({ limit: '1mb' }));
@@ -64,15 +71,8 @@ export function createApp(
     app.use('/api/context', createContextRoutes(deps.contextStore));
   }
 
-  if (deps.dispatcher) {
-    app.use('/api/ai/dispatch', createDispatchRoutes(deps.dispatcher));
-  } else {
-    app.post('/api/ai/dispatch', (_req, res) => {
-      res.status(503).json({ error: { code: 'NO_DISPATCHER', message: 'Dispatcher not configured' } });
-    });
-  }
-
   if (deps.historyStore) {
+    app.use('/api/attachments', createAttachmentsRoutes(deps.historyStore));
     app.use('/api/sessions', createHistoryRoutes(deps.historyStore));
   }
 

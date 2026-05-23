@@ -29,6 +29,14 @@ const reasoningStepSchema = z.object({
   toolCall: toolCallTraceSchema.optional(),
 });
 
+const messageAttachmentSchema = z.object({
+  id: z.string(),
+  mime: z.string(),
+  name: z.string(),
+  size: z.number(),
+  contentBase64: z.string().optional(),
+});
+
 const messageSchema = z.object({
   id: z.string(),
   role: z.enum(['user', 'model']),
@@ -39,6 +47,7 @@ const messageSchema = z.object({
   error: z.string().optional(),
   retryable: z.boolean().optional(),
   reasoningSteps: z.array(reasoningStepSchema).optional(),
+  attachments: z.array(messageAttachmentSchema).optional(),
 });
 
 const sessionSchema = z.object({

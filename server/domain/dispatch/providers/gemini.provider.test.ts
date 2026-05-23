@@ -178,6 +178,65 @@ describe('GeminiProvider (with thinking)', () => {
   });
 });
 
+describe('GeminiProvider vision (slice 20)', () => {
+  it('has vision: true in capabilities', async () => {
+    const { GeminiProvider } = await import('./gemini.provider');
+    const p = new GeminiProvider({ apiKey: 'k', model: 'gemini-test' });
+    expect(p.capabilities.vision).toBe(true);
+  });
+
+  it('prepends inlineData parts for each attachment before the text part', async () => {
+    async function* fake() { yield { text: 'ok' }; }
+    generateContentStream.mockResolvedValue(fake());
+    const { GeminiProvider } = await import('./gemini.provider');
+    const p = new GeminiProvider({ apiKey: 'k', model: 'm' });
+    const pngBytes = Buffer.from('fake-png-bytes');
+    await collect(
+      p.stream(
+        {
+          systemInstruction: '',
+          history: [],
+          userMessage: 'describe this',
+          attachments: [
+            { name: 'test.png', mime: 'image/png', bytes: pngBytes },
+          ],
+        },
+        new AbortController().signal,
+      ),
+    );
+    const call = generateContentStream.mock.calls[0][0] as {
+      contents: Array<{ role: string; parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> }>;
+    };
+    const userMsg = call.contents.at(-1)!;
+    expect(userMsg.role).toBe('user');
+    expect(userMsg.parts).toHaveLength(2);
+    expect(userMsg.parts[0].inlineData).toEqual({
+      mimeType: 'image/png',
+      data: pngBytes.toString('base64'),
+    });
+    expect(userMsg.parts[1].text).toBe('describe this');
+  });
+
+  it('sends only a text part when there are no attachments', async () => {
+    async function* fake() { yield { text: 'ok' }; }
+    generateContentStream.mockResolvedValue(fake());
+    const { GeminiProvider } = await import('./gemini.provider');
+    const p = new GeminiProvider({ apiKey: 'k', model: 'm' });
+    await collect(
+      p.stream(
+        { systemInstruction: '', history: [], userMessage: 'hello' },
+        new AbortController().signal,
+      ),
+    );
+    const call = generateContentStream.mock.calls[0][0] as {
+      contents: Array<{ role: string; parts: Array<{ text?: string }> }>;
+    };
+    const userMsg = call.contents.at(-1)!;
+    expect(userMsg.parts).toHaveLength(1);
+    expect(userMsg.parts[0].text).toBe('hello');
+  });
+});
+
 describe('GeminiProvider function calling (slice 7)', () => {
   it('passes mcpTools as functionDeclarations in config.tools', async () => {
     async function* fake() { yield { text: 'ok' }; }

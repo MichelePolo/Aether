@@ -4,6 +4,9 @@ import { useChatStore } from '@/src/stores/chat.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
+import { AttachmentDropZone } from './AttachmentDropZone';
+import { AttachmentLightbox } from './AttachmentLightbox';
+import { AttachmentChips } from './AttachmentChips';
 
 export function ChatView() {
   const { send, abort, isStreaming } = useStreamingDispatch();
@@ -33,9 +36,13 @@ export function ChatView() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
-      <MessageList onRetry={handleRetry} />
-      <MessageInput onSend={send} onStop={abort} isStreaming={isStreaming} />
-    </div>
+    <AttachmentDropZone>
+      <div className="flex-1 flex flex-col min-h-0">
+        <MessageList onRetry={handleRetry} />
+        <AttachmentChips />
+        <MessageInput onSend={send} onStop={abort} isStreaming={isStreaming} />
+        <AttachmentLightbox />
+      </div>
+    </AttachmentDropZone>
   );
 }

@@ -53,6 +53,7 @@ export class OpenAIProvider implements AIProvider {
     this.capabilities = {
       thinking: opts.model === 'o3',
       toolCalling: true,
+      vision: true,
     };
   }
 
@@ -232,7 +233,19 @@ function buildBody(model: string, req: ProviderRequest): unknown {
   for (const r of req.toolResults ?? []) {
     messages.push(...buildToolResultMessages(r));
   }
-  messages.push({ role: 'user', content: req.userMessage });
+  if (req.attachments && req.attachments.length > 0) {
+    const content: Array<Record<string, unknown>> = [];
+    content.push({ type: 'text', text: req.userMessage });
+    for (const a of req.attachments) {
+      content.push({
+        type: 'image_url',
+        image_url: { url: `data:${a.mime};base64,${a.bytes.toString('base64')}` },
+      });
+    }
+    messages.push({ role: 'user', content });
+  } else {
+    messages.push({ role: 'user', content: req.userMessage });
+  }
 
   return {
     model,

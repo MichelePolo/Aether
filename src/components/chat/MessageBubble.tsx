@@ -1,8 +1,10 @@
 import ReactMarkdown from 'react-markdown';
+import { File as FileIcon } from 'lucide-react';
 import { useChatStore } from '@/src/stores/chat.store';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useStreamingDispatch } from '@/src/hooks/useStreamingDispatch';
 import { StreamingIndicator } from './StreamingIndicator';
+import { isImageMime } from '@/src/types/attachment.types';
 import { cn } from '@/src/lib/cn';
 
 export interface MessageBubbleProps {
@@ -60,6 +62,36 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
           <div className="prose prose-invert prose-sm max-w-none">
             <ReactMarkdown>{message.text}</ReactMarkdown>
             {isStreaming && <StreamingIndicator />}
+          </div>
+        )}
+
+        {message.attachments && message.attachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {message.attachments.map((a) => (
+              isImageMime(a.mime) ? (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => useUiStore.getState().openLightbox(a.id)}
+                  className="block"
+                >
+                  <img
+                    src={`/api/attachments/${a.id}`}
+                    alt={a.name}
+                    loading="lazy"
+                    className="h-24 w-24 object-cover rounded border border-border-subtle hover:opacity-80"
+                  />
+                </button>
+              ) : (
+                <div
+                  key={a.id}
+                  className="flex items-center gap-2 px-2 py-1 bg-surface-3 border border-border-subtle rounded text-xs text-zinc-300 font-mono"
+                >
+                  <FileIcon size={14} className="text-zinc-400" />
+                  {a.name}
+                </div>
+              )
+            ))}
           </div>
         )}
 

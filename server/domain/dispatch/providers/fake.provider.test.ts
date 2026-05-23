@@ -112,6 +112,28 @@ it('emits inputTokens and outputTokens when configured', async () => {
 
 import type { ProviderFunctionCall } from './provider.types';
 
+describe('FakeProvider vision (slice 20)', () => {
+  it('defaults vision to false', () => {
+    const p = new FakeProvider({ chunks: [] });
+    expect(p.capabilities.vision).toBe(false);
+  });
+
+  it('accepts vision: true via options', () => {
+    const p = new FakeProvider({ chunks: [], vision: true });
+    expect(p.capabilities.vision).toBe(true);
+  });
+
+  it('full capabilities shape when vision is true', () => {
+    const p = new FakeProvider({ chunks: [], vision: true });
+    expect(p.capabilities).toEqual({ thinking: true, toolCalling: true, vision: true });
+  });
+
+  it('full capabilities shape when vision is false (default)', () => {
+    const p = new FakeProvider({ chunks: [] });
+    expect(p.capabilities).toEqual({ thinking: true, toolCalling: true, vision: false });
+  });
+});
+
 describe('FakeProvider function_call (slice 7)', () => {
   it('emits programmed function_call before text chunks (no toolResults in request)', async () => {
     const call: ProviderFunctionCall = {

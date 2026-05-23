@@ -69,6 +69,16 @@ export function useStreamingDispatch() {
       ((sessions.find((s) => s.id === activeId) as { providerName?: string } | undefined)
         ?.providerName ?? defaultProvider) ?? undefined;
 
+    const queuedAttachments = useChatStore.getState().queuedAttachments;
+    const attachments = queuedAttachments.length > 0
+      ? queuedAttachments.map((a) => ({
+          name: a.name,
+          mime: a.mime,
+          size: a.size,
+          contentBase64: a.base64,
+        }))
+      : undefined;
+
     chat.appendUser(trimmed);
     const { id } = chat.startAssistant();
     const controller = new AbortController();
@@ -78,7 +88,13 @@ export function useStreamingDispatch() {
 
     try {
       for await (const ev of createStreamingDispatch(
-        { sessionId: activeId, message: trimmed, thinking, ...(activeName ? { providerName: activeName } : {}) },
+        {
+          sessionId: activeId,
+          message: trimmed,
+          thinking,
+          ...(activeName ? { providerName: activeName } : {}),
+          ...(attachments ? { attachments } : {}),
+        },
         controller.signal,
       )) {
         if (ev.event === 'text') {
@@ -100,6 +116,7 @@ export function useStreamingDispatch() {
             tokensIn: d.tokensIn,
             tokensOut: d.tokensOut,
           });
+          useChatStore.getState().clearQueuedAttachments();
           return;
         } else if (ev.event === 'error') {
           const d = ev.data as ErrorData;

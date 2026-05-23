@@ -44,13 +44,14 @@ interface SdkUserMessageEnvelope {
       | { type: 'text'; text: string }
       | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
       | { type: 'tool_result'; tool_use_id: string; content: string }
+      | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
     >;
   };
   parent_tool_use_id: null;
 }
 
 export class AnthropicProvider implements AIProvider {
-  readonly capabilities: ProviderCapabilities = { thinking: true, toolCalling: true };
+  readonly capabilities: ProviderCapabilities = { thinking: true, toolCalling: true, vision: true };
   readonly model: string;
 
   constructor(opts: AnthropicProviderOpts) {
@@ -222,11 +223,22 @@ async function* buildPromptStream(req: ProviderRequest): AsyncGenerator<SdkUserM
       parent_tool_use_id: null,
     };
   }
+  const userContent: Array<
+    | { type: 'text'; text: string }
+    | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+  > = [];
+  for (const a of req.attachments ?? []) {
+    userContent.push({
+      type: 'image',
+      source: { type: 'base64', media_type: a.mime, data: a.bytes.toString('base64') },
+    });
+  }
+  userContent.push({ type: 'text', text: req.userMessage });
   yield {
     type: 'user',
     message: {
       role: 'user',
-      content: [{ type: 'text', text: req.userMessage }],
+      content: userContent,
     },
     parent_tool_use_id: null,
   };

@@ -31,7 +31,7 @@ interface GeminiChunk {
 
 export class GeminiProvider implements AIProvider {
   readonly model: string;
-  readonly capabilities = { thinking: true, toolCalling: true };
+  readonly capabilities = { thinking: true, toolCalling: true, vision: true };
   private ai: GoogleGenAI;
 
   constructor(opts: GeminiProviderOptions) {
@@ -57,7 +57,14 @@ export class GeminiProvider implements AIProvider {
     const contents = [
       ...req.history.map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
       ...toolResultEntries,
-      { role: 'user' as const, parts: [{ text: req.userMessage }] },
+      (() => {
+        const userParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
+        for (const a of req.attachments ?? []) {
+          userParts.push({ inlineData: { mimeType: a.mime, data: a.bytes.toString('base64') } });
+        }
+        userParts.push({ text: req.userMessage });
+        return { role: 'user' as const, parts: userParts };
+      })(),
     ];
 
     const toolsConfig = (req.mcpTools && req.mcpTools.length > 0)

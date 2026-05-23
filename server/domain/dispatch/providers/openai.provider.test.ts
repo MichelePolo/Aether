@@ -44,10 +44,12 @@ describe('OpenAIProvider', () => {
     expect(new OpenAIProvider({ apiKey: 'sk-x', model: 'gpt-5' }).capabilities).toEqual({
       thinking: false,
       toolCalling: true,
+      vision: true,
     });
     expect(new OpenAIProvider({ apiKey: 'sk-x', model: 'o3' }).capabilities).toEqual({
       thinking: true,
       toolCalling: true,
+      vision: true,
     });
     expect(new OpenAIProvider({ apiKey: 'sk-x', model: 'gpt-5' }).model).toBe('gpt-5');
   });
@@ -247,6 +249,64 @@ describe('OpenAIProvider', () => {
     await expect(collect(p.stream(baseReq(), new AbortController().signal))).rejects.toThrow(
       /rate_limit_exceeded/,
     );
+  });
+
+  it('has vision: true in capabilities', () => {
+    expect(new OpenAIProvider({ apiKey: 'sk-x', model: 'gpt-5' }).capabilities.vision).toBe(true);
+    expect(new OpenAIProvider({ apiKey: 'sk-x', model: 'o3' }).capabilities.vision).toBe(true);
+  });
+
+  it('builds a content array with image_url parts when attachments are present', async () => {
+    let captured: { init?: RequestInit } = {};
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (_url: string, init?: RequestInit) => {
+      captured = { init };
+      return new Response(streamFromString(ssePayload([
+        JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }),
+        JSON.stringify({ choices: [], usage: { total_tokens: 0 } }),
+      ])), { status: 200 });
+    });
+
+    const p = new OpenAIProvider({ apiKey: 'sk-x', model: 'gpt-5' });
+    const jpegBytes = Buffer.from('fake-jpeg');
+    await collect(p.stream(baseReq({
+      userMessage: 'what is this?',
+      attachments: [
+        { name: 'photo.jpg', mime: 'image/jpeg', bytes: jpegBytes },
+      ],
+    }), new AbortController().signal));
+
+    const body = JSON.parse(captured.init?.body as string) as {
+      messages: Array<{ role: string; content: unknown }>;
+    };
+    const userMsg = body.messages.at(-1)!;
+    expect(userMsg.role).toBe('user');
+    expect(Array.isArray(userMsg.content)).toBe(true);
+    const content = userMsg.content as Array<Record<string, unknown>>;
+    expect(content[0]).toEqual({ type: 'text', text: 'what is this?' });
+    expect(content[1]).toEqual({
+      type: 'image_url',
+      image_url: { url: `data:image/jpeg;base64,${jpegBytes.toString('base64')}` },
+    });
+  });
+
+  it('sends plain string content when there are no attachments', async () => {
+    let captured: { init?: RequestInit } = {};
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (_url: string, init?: RequestInit) => {
+      captured = { init };
+      return new Response(streamFromString(ssePayload([
+        JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }),
+        JSON.stringify({ choices: [], usage: { total_tokens: 0 } }),
+      ])), { status: 200 });
+    });
+
+    const p = new OpenAIProvider({ apiKey: 'sk-x', model: 'gpt-5' });
+    await collect(p.stream(baseReq({ userMessage: 'plain text' }), new AbortController().signal));
+
+    const body = JSON.parse(captured.init?.body as string) as {
+      messages: Array<{ role: string; content: unknown }>;
+    };
+    const userMsg = body.messages.at(-1)!;
+    expect(userMsg.content).toBe('plain text');
   });
 
   it('forwards the abort signal to fetch', async () => {
