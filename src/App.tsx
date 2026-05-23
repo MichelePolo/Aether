@@ -9,6 +9,8 @@ import { SystemProtocolSection } from '@/src/components/sidebar/SystemProtocolSe
 import { SkillsSection } from '@/src/components/sidebar/SkillsSection';
 import { ToolsSection } from '@/src/components/sidebar/ToolsSection';
 import { McpServersSection } from '@/src/components/sidebar/McpServersSection';
+import { BuiltinMcpToggles } from '@/src/components/sidebar/BuiltinMcpToggles';
+import { useBuiltinMcpStore } from '@/src/stores/builtinMcp.store';
 import { SubAgentsSection } from '@/src/components/sidebar/SubAgentsSection';
 import { ProviderAuthSection } from '@/src/components/sidebar/ProviderAuthSection';
 import { ConnectionFooter } from '@/src/components/sidebar/ConnectionFooter';
@@ -40,6 +42,7 @@ export default function App() {
   const initSubAgents = useSubAgentsStore((s) => s.init);
   const initProviders = useProvidersStore((s) => s.init);
   const initProviderAuth = useProviderAuthStore((s) => s.init);
+  const initBuiltinMcp = useBuiltinMcpStore((s) => s.init);
 
   useEffect(() => {
     initContext();
@@ -49,7 +52,8 @@ export default function App() {
     initSubAgents();
     initProviders();
     initProviderAuth();
-  }, [initContext, initSessions, initUi, initProfiles, initSubAgents, initProviders, initProviderAuth]);
+    initBuiltinMcp();
+  }, [initContext, initSessions, initUi, initProfiles, initSubAgents, initProviders, initProviderAuth, initBuiltinMcp]);
 
   useGlobalShortcuts();
   useToolCallDecisions();
@@ -71,6 +75,7 @@ export default function App() {
             <SystemProtocolSection />
             <SkillsSection />
             <ToolsSection />
+            <BuiltinMcpToggles />
             <McpServersSection />
             <SubAgentsSection />
             <ProviderAuthSection />
