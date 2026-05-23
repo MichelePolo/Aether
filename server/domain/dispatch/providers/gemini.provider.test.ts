@@ -106,9 +106,9 @@ describe('GeminiProvider (with thinking)', () => {
     ]);
   });
 
-  it('captures usageMetadata.totalTokenCount into done.usage', async () => {
+  it('captures usageMetadata into done.usage with inputTokens + outputTokens', async () => {
     async function* fake() {
-      yield { text: 'x', usageMetadata: { totalTokenCount: 123 } };
+      yield { text: 'x', usageMetadata: { totalTokenCount: 123, promptTokenCount: 80, candidatesTokenCount: 43 } };
     }
     generateContentStream.mockResolvedValue(fake());
     const { GeminiProvider } = await import('./gemini.provider');
@@ -120,7 +120,7 @@ describe('GeminiProvider (with thinking)', () => {
       ),
     );
     const done = events.at(-1);
-    expect(done).toEqual({ type: 'done', usage: { totalTokens: 123 } });
+    expect(done).toEqual({ type: 'done', usage: { totalTokens: 123, inputTokens: 80, outputTokens: 43 } });
   });
 
   it('skips empty parts', async () => {

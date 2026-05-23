@@ -55,7 +55,7 @@ describe('AnthropicProvider', () => {
     expect(chunks).toEqual([
       { type: 'text', text: 'hello ' },
       { type: 'text', text: 'world' },
-      { type: 'done', usage: { totalTokens: 8 } },
+      { type: 'done', usage: { totalTokens: 8, inputTokens: 3, outputTokens: 5 } },
     ]);
   });
 

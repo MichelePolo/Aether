@@ -100,6 +100,16 @@ describe('FakeProvider', () => {
   });
 });
 
+it('emits inputTokens and outputTokens when configured', async () => {
+  const p = new FakeProvider({ chunks: ['x'], totalTokens: 42, inputTokens: 30, outputTokens: 12 });
+  const stream = p.stream({ systemInstruction: '', history: [], userMessage: 'hi' }, new AbortController().signal);
+  let done: ProviderChunk | undefined;
+  for await (const ev of stream) {
+    if (ev.type === 'done') done = ev;
+  }
+  expect(done).toEqual({ type: 'done', usage: { totalTokens: 42, inputTokens: 30, outputTokens: 12 } });
+});
+
 import type { ProviderFunctionCall } from './provider.types';
 
 describe('FakeProvider function_call (slice 7)', () => {
