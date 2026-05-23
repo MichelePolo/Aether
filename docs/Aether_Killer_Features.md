@@ -1,6 +1,6 @@
-# Aether: Le 5 Killer Features per il Code CLI Agent Definitivo
+# Aether: Le 7 Killer Features per il Code CLI Agent Definitivo
 
-Questo documento raccoglie 5 funzionalità architetturali ad alto impatto per trasformare Aether da strumento di chat sperimentale a un moltiplicatore di forza indispensabile per l'uso quotidiano da parte di un Senior Software Architect.
+Questo documento raccoglie 7 funzionalità architetturali ad alto impatto per trasformare Aether da strumento di chat sperimentale a un moltiplicatore di forza indispensabile per l'uso quotidiano da parte di un Senior Software Architect.
 
 ### 1. 🐝 Multi-Agent Swarm Orchestration (Workflow DSL)
 **La Feature:** Permettere di definire "Swarms" (sciami di agenti) tramite un semplice file YAML o DSL. Ad esempio: un `[Architect Agent]` che redige il plan, un `[Coder Agent]` che scrive l'implementazione e un `[QA Agent]` che esegue i test e fa review.
@@ -22,3 +22,11 @@ Questo documento raccoglie 5 funzionalità architetturali ad alto impatto per tr
 ### 5. 🔮 Test-Driven Auto-Resolution (Red-Green-Refactor Loop)
 **La Feature:** Integrazione bidirezionale con i test runner (Vitest, Playwright). Lo sviluppatore definisce i contratti scrivendo solo test e interfacce (TDD). Aether entra in un loop autonomo chiuso: scrive il codice, lancia il test, fa parsing dello stack trace, corregge l'errore e ripete finché la pipeline non è verde.
 **Valore Architetturale:** Approccio "Specification-Driven". Il Senior Architect si concentra sull'architettura e sui contratti; l'agente lavora come un implementatore instancabile per soddisfare la validazione.
+
+### 6. 🛠️ 1-Click Coding MCPs (Filesystem & Terminal pre-censiti)
+**La Feature:** Una funzionalità dedicata nella UI che consenta di configurare in maniera "ready-to-go" gli MCP vitali per la scrittura di codice. Gli strumenti per il filesystem e l'esecuzione di comandi non richiederanno comandi CLI complessi per l'aggiunta, ma saranno tool pre-censiti di default. Basterà un interruttore (toggle) "Abilita Filesystem" o "Abilita Terminale" (one-shot abilitabili e disabilitabili).
+**Valore Architetturale:** Abbassamento drastico della barriera d'ingresso. L'utente ottiene subito i poteri di agentic coding, nascondendo la complessità del protocollo MCP e promuovendo l'uso sicuro e isolato dei tool fondamentali.
+
+### 7. 📁 Native Workspace Management GUI
+**La Feature:** Come per gli MCP di sistema, anche la "gestione del workspace" diventa "ready-to-go" in una sezione dedicata. L'utente, anche non skillato, può gestire l'ambiente in modo canonico tramite classiche finestre di dialogo "Aggiungi Progetto" o "Apri Cartella".
+**Valore Architetturale:** Astrazione totale. Sotto il cofano Aether continuerà a generare e orchestrare un filesystem MCP server, ma lato UX l'esperienza risulterà identica a quella di VS Code o Cursor, mantenendo coerenza visiva e focalizzando l'utente sull'architettura del proprio progetto anziché sui dettagli del tool.
