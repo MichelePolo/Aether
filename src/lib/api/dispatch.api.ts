@@ -5,6 +5,12 @@ export interface DispatchRequestBody {
   message: string;
   thinking?: boolean;
   providerName?: string;
+  attachments?: Array<{
+    name: string;
+    mime: string;
+    size: number;
+    contentBase64: string;
+  }>;
 }
 
 export async function* createStreamingDispatch(
