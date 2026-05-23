@@ -240,3 +240,22 @@ describe('useUiStore.paletteSearch', () => {
     expect(useUiStore.getState().searchResults).toHaveLength(1);
   });
 });
+
+describe('useUiStore.lightbox', () => {
+  it('defaults lightboxAttachmentId to null', () => {
+    expect(useUiStore.getState().lightboxAttachmentId).toBeNull();
+  });
+
+  it('openLightbox(id) sets it; closeLightbox() clears', () => {
+    useUiStore.getState().openLightbox('a1');
+    expect(useUiStore.getState().lightboxAttachmentId).toBe('a1');
+    useUiStore.getState().closeLightbox();
+    expect(useUiStore.getState().lightboxAttachmentId).toBeNull();
+  });
+
+  it('_reset clears lightbox', () => {
+    useUiStore.setState({ lightboxAttachmentId: 'a1' });
+    useUiStore.getState()._reset();
+    expect(useUiStore.getState().lightboxAttachmentId).toBeNull();
+  });
+});

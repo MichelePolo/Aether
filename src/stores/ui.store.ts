@@ -16,6 +16,7 @@ interface UiState {
   sidebarOpen: boolean;
   editingSubAgentId: string | null;
   messageContextMenu: { x: number; y: number; messageId: string; role: 'user' | 'model' } | null;
+  lightboxAttachmentId: string | null;
 
   openSubAgentEditor: (id: string) => void;
   closeSubAgentEditor: () => void;
@@ -27,6 +28,8 @@ interface UiState {
   keyVaultFocusTransport: 'anthropic' | 'openai' | 'gemini' | null;
   openKeyVault(focus?: 'anthropic' | 'openai' | 'gemini'): void;
   closeKeyVault(): void;
+  openLightbox(id: string): void;
+  closeLightbox(): void;
 
   toggleReasoningDrawer: () => void;
   openReasoningDrawer: () => void;
@@ -63,6 +66,7 @@ const initial = {
   messageContextMenu: null as { x: number; y: number; messageId: string; role: 'user' | 'model' } | null,
   keyVaultOpen: false,
   keyVaultFocusTransport: null as 'anthropic' | 'openai' | 'gemini' | null,
+  lightboxAttachmentId: null as string | null,
 };
 
 function readBool(key: string, fallback: boolean): boolean {
@@ -117,6 +121,9 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   openKeyVault: (focus) => set({ keyVaultOpen: true, keyVaultFocusTransport: focus ?? null }),
   closeKeyVault: () => set({ keyVaultOpen: false, keyVaultFocusTransport: null }),
+
+  openLightbox: (id) => set({ lightboxAttachmentId: id }),
+  closeLightbox: () => set({ lightboxAttachmentId: null }),
 
   openPalette: () =>
     set({ paletteOpen: true, paletteMode: 'commands', searchQuery: '', searchResults: [] }),
