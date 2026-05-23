@@ -33,6 +33,8 @@ export interface ProviderRequest {
 
 export interface ProviderUsage {
   totalTokens?: number;
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 export interface ProviderFunctionCall {
