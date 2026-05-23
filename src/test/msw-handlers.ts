@@ -212,4 +212,15 @@ export const handlers = [
       { status: 201 },
     ),
   ),
+  http.get('http://localhost/api/attachments/:id', () => {
+    // 1x1 transparent PNG
+    const png = Uint8Array.from(
+      atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII='),
+      (c) => c.charCodeAt(0),
+    );
+    return new HttpResponse(png, {
+      status: 200,
+      headers: { 'Content-Type': 'image/png' },
+    });
+  }),
 ];
