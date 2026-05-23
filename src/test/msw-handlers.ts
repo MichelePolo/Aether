@@ -97,6 +97,24 @@ export const handlers = [
   http.post('http://localhost/api/mcp/cancel-call', () =>
     new HttpResponse(null, { status: 204 }),
   ),
+  http.get('http://localhost/api/mcp/builtin', () =>
+    HttpResponse.json({
+      builtins: [
+        { transport: 'filesystem', enabled: false, fsRoot: null },
+        { transport: 'terminal', enabled: false, fsRoot: null },
+      ],
+    }),
+  ),
+  http.put('http://localhost/api/mcp/builtin/:transport', async ({ params, request }) => {
+    const body = (await request.json()) as { enabled?: boolean; fsRoot?: string | null };
+    return HttpResponse.json({
+      state: {
+        transport: params.transport,
+        enabled: body.enabled ?? false,
+        fsRoot: body.fsRoot ?? null,
+      },
+    });
+  }),
   http.get('http://localhost/api/providers', () =>
     HttpResponse.json({
       providers: [

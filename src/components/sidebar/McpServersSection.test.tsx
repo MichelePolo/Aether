@@ -154,6 +154,23 @@ describe('McpServersSection', () => {
     expect(refreshSpy).toHaveBeenCalledWith('M1');
   });
 
+  it('does not render servers whose id starts with "builtin:"', () => {
+    useContextStore.setState((s) => ({
+      context: s.context
+        ? {
+            ...s.context,
+            mcpServers: [
+              { id: 'builtin:filesystem', name: 'Filesystem', transport: 'stdio', status: 'offline' },
+              { id: 'user-server-1', name: 'My MCP', url: 'http://my-mcp', status: 'offline' },
+            ],
+          }
+        : null,
+    }));
+    render(<McpServersSection />);
+    expect(screen.queryByText('Filesystem')).toBeNull();
+    expect(screen.getByText('My MCP')).toBeInTheDocument();
+  });
+
   it('when online, lists live tools and a Disconnect button', () => {
     useContextStore.setState({
       context: {

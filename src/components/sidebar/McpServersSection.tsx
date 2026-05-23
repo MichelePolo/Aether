@@ -10,7 +10,9 @@ const EMPTY_SERVERS: never[] = [];
 
 export function McpServersSection() {
   const context = useContextStore((s) => s.context);
-  const servers = context?.mcpServers ?? EMPTY_SERVERS;
+  const servers = (context?.mcpServers ?? EMPTY_SERVERS).filter(
+    (srv) => !srv.id.startsWith('builtin:'),
+  );
   const addMcpServer = useContextStore((s) => s.addMcpServer);
   const removeMcpServer = useContextStore((s) => s.removeMcpServer);
 
