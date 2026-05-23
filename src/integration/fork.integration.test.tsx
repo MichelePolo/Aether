@@ -71,7 +71,6 @@ describe('fork flow integration', () => {
 
     // Wait for the user bubble to appear in the DOM
     await waitFor(() => {
-      const bubbles = document.querySelectorAll('[onContextMenu], [data-testid]');
       // Find the user bubble by looking for divs that contain 'Hello' text
       const allDivs = document.querySelectorAll('div');
       const userBubble = Array.from(allDivs).find(
