@@ -1,6 +1,7 @@
 import { IconButton } from '@/src/components/ui/IconButton';
 import { ProfilesButton } from '@/src/components/profiles/ProfilesButton';
 import { ProviderSelector } from '@/src/components/providers/ProviderSelector';
+import { TokenChip } from './TokenChip';
 
 export interface TopBarProps {
   title: string;
@@ -24,6 +25,7 @@ export function TopBar({ title, sidebarOpen, onToggleSidebar }: TopBarProps) {
       </IconButton>
       <span className="ml-3 font-mono text-sm tracking-tight text-white font-bold">{title}</span>
       <ProfilesButton />
+      <TokenChip />
       <ProviderSelector />
     </header>
   );
