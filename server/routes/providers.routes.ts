@@ -6,6 +6,9 @@ import type {
   ProviderTransport,
   TransportStatus,
 } from '@/server/domain/providers/auth-status.types';
+import type { KeyVaultService } from '@/server/domain/providers/key-vault';
+import { VAULT_TRANSPORTS, type VaultTransport } from '@/server/domain/providers/key-vault.types';
+import { ValidationError } from '@/server/lib/errors';
 
 function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -15,9 +18,16 @@ function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => P
 
 const VALID_TRANSPORTS: readonly ProviderTransport[] = ['anthropic', 'openai', 'gemini', 'ollama'];
 
+export interface KeyVaultHooks {
+  setAnthropicEnv: (key: string | null) => void;
+}
+
 export function createProvidersRoutes(
   registry: ProviderRegistry,
   authStatusService?: AuthStatusService,
+  keyVault?: KeyVaultService,
+  hooks?: KeyVaultHooks,
+  buildInfoRowsCtx?: { anthropicCliPresent: boolean; ollamaHost: string },
 ): Router {
   const router = Router();
 
@@ -77,6 +87,100 @@ export function createProvidersRoutes(
       const merged = mergeReport(lastReport, fresh);
       lastReport = merged;
       res.json(merged);
+    }),
+  );
+
+  // ---------------------------------------------------------------------------
+  // Key Vault routes
+  // ---------------------------------------------------------------------------
+
+  router.get(
+    '/keys',
+    asyncHandler(async (_req, res) => {
+      if (!keyVault) {
+        res.status(503).json({ error: { code: 'NO_KEY_VAULT', message: 'Key vault not configured' } });
+        return;
+      }
+      const ctx = buildInfoRowsCtx ?? { anthropicCliPresent: false, ollamaHost: '' };
+      res.json({ vault: keyVault.listMasked(), info: keyVault.buildInfoRows(ctx) });
+    }),
+  );
+
+  router.get(
+    '/keys/:transport',
+    asyncHandler(async (req, res) => {
+      if (!keyVault) {
+        res.status(503).json({ error: { code: 'NO_KEY_VAULT', message: 'Key vault not configured' } });
+        return;
+      }
+      const { transport } = req.params;
+      if (!VAULT_TRANSPORTS.includes(transport as VaultTransport)) {
+        throw new ValidationError(`Invalid transport: ${transport}`);
+      }
+      if (req.query.reveal !== '1') {
+        throw new ValidationError('reveal=1 required');
+      }
+      const plaintext = keyVault.getKey(transport as VaultTransport);
+      if (plaintext === null) {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Key not set' } });
+        return;
+      }
+      res.json({ plaintext });
+    }),
+  );
+
+  router.put(
+    '/keys/:transport',
+    asyncHandler(async (req, res) => {
+      if (!keyVault) {
+        res.status(503).json({ error: { code: 'NO_KEY_VAULT', message: 'Key vault not configured' } });
+        return;
+      }
+      const { transport } = req.params;
+      if (!VAULT_TRANSPORTS.includes(transport as VaultTransport)) {
+        throw new ValidationError(`Invalid transport: ${transport}`);
+      }
+      const key: unknown = req.body?.key;
+      if (!key || typeof key !== 'string') {
+        throw new ValidationError('Key required');
+      }
+      keyVault.setKey(transport as VaultTransport, key);
+      if (transport === 'anthropic') {
+        hooks?.setAnthropicEnv(key);
+      }
+      await registry.refresh();
+      let status: TransportStatus | null = null;
+      if (authStatusService) {
+        const probe = await authStatusService.probe([transport as ProviderTransport]);
+        status = probe.statuses[0] ?? null;
+      }
+      const row = keyVault.listMasked().find((r) => r.transport === transport) ?? null;
+      res.json({ row, status });
+    }),
+  );
+
+  router.delete(
+    '/keys/:transport',
+    asyncHandler(async (req, res) => {
+      if (!keyVault) {
+        res.status(503).json({ error: { code: 'NO_KEY_VAULT', message: 'Key vault not configured' } });
+        return;
+      }
+      const { transport } = req.params;
+      if (!VAULT_TRANSPORTS.includes(transport as VaultTransport)) {
+        throw new ValidationError(`Invalid transport: ${transport}`);
+      }
+      keyVault.clearKey(transport as VaultTransport);
+      if (transport === 'anthropic') {
+        hooks?.setAnthropicEnv(null);
+      }
+      await registry.refresh();
+      let status: TransportStatus | null = null;
+      if (authStatusService) {
+        const probe = await authStatusService.probe([transport as ProviderTransport]);
+        status = probe.statuses[0] ?? null;
+      }
+      res.json({ status });
     }),
   );
 
