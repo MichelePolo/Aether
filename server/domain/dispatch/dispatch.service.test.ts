@@ -14,6 +14,8 @@ describe('DispatchService', () => {
     thoughtChunks?: string[];
     chunkDelayMs?: number;
     totalTokens?: number;
+    inputTokens?: number;
+    outputTokens?: number;
   }) {
     const provider = new FakeProvider({
       chunks: opts.chunks,
@@ -21,6 +23,8 @@ describe('DispatchService', () => {
       chunkDelayMs: opts.chunkDelayMs,
       model: 'fake-1',
       totalTokens: opts.totalTokens,
+      inputTokens: opts.inputTokens,
+      outputTokens: opts.outputTokens,
     });
     const db = makeTestDb();
     const historyStore = new HistoryStore(db);
@@ -344,5 +348,27 @@ describe('DispatchService', () => {
       expect(done).toBeDefined();
       expect((done!.data as { model: string }).model).toBe('fake-1');
     });
+  });
+
+  it('persists tokensIn and tokensOut on the assistant message from dispatchUsage', async () => {
+    const { service, historyStore, sessionId } = await makeService({
+      chunks: ['pong'],
+      inputTokens: 80,
+      outputTokens: 40,
+      totalTokens: 120,
+    });
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle({ sessionId, message: 'ping' }, emitter, new AbortController().signal);
+
+    // Assert persisted message has token counts
+    const msgs = await historyStore.read(sessionId);
+    const model = msgs!.find((m) => m.role === 'model')!;
+    expect(model.tokensIn).toBe(80);
+    expect(model.tokensOut).toBe(40);
+
+    // Assert done SSE event carries token counts
+    const done = events.find((e) => e.event === 'done')!;
+    expect((done.data as { tokensIn?: number }).tokensIn).toBe(80);
+    expect((done.data as { tokensOut?: number }).tokensOut).toBe(40);
   });
 });

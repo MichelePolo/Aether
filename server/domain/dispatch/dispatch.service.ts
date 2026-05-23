@@ -432,9 +432,17 @@ export class DispatchService {
       model: provider.model,
       interrupted,
       reasoningSteps,
+      tokensIn: dispatchUsage?.inputTokens,
+      tokensOut: dispatchUsage?.outputTokens,
     });
 
-    sse.event('done', { model: provider.model, interrupted, reasoningSteps });
+    sse.event('done', {
+      model: provider.model,
+      interrupted,
+      reasoningSteps,
+      tokensIn: dispatchUsage?.inputTokens,
+      tokensOut: dispatchUsage?.outputTokens,
+    });
     sse.end();
   }
 
@@ -594,9 +602,17 @@ export class DispatchService {
       model: provider.model,
       interrupted,
       reasoningSteps,
+      tokensIn: dispatchUsage?.inputTokens,
+      tokensOut: dispatchUsage?.outputTokens,
     });
 
-    sse.event('done', { model: provider.model, interrupted, reasoningSteps });
+    sse.event('done', {
+      model: provider.model,
+      interrupted,
+      reasoningSteps,
+      tokensIn: dispatchUsage?.inputTokens,
+      tokensOut: dispatchUsage?.outputTokens,
+    });
     sse.end();
   }
 }
