@@ -16,6 +16,7 @@ import { ChatView } from '@/src/components/chat/ChatView';
 import { ToolCallBanner } from '@/src/components/chat/ToolCallBanner';
 import { ReasoningDrawer } from '@/src/components/reasoning/ReasoningDrawer';
 import { ProfilesModal } from '@/src/components/profiles/ProfilesModal';
+import { KeyVaultModal } from '@/src/components/profiles/KeyVaultModal';
 import { SubAgentEditModal } from '@/src/components/subagents/SubAgentEditModal';
 import { CommandPalette } from '@/src/components/palette/CommandPalette';
 import { useContextStore } from '@/src/stores/context.store';
@@ -85,6 +86,7 @@ export default function App() {
       </AppShell>
       <ReasoningDrawer />
       <ProfilesModal />
+      <KeyVaultModal />
       <SubAgentEditModal />
       <CommandPalette />
       <DialogHost />

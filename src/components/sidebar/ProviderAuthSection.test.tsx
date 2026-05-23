@@ -3,9 +3,11 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ProviderAuthSection } from './ProviderAuthSection';
 import { useProviderAuthStore } from '@/src/stores/providerAuth.store';
+import { useUiStore } from '@/src/stores/ui.store';
 
 beforeEach(() => {
   useProviderAuthStore.getState()._reset();
+  useUiStore.getState()._reset();
 });
 
 const allStatuses = [
@@ -54,5 +56,37 @@ describe('ProviderAuthSection', () => {
     useProviderAuthStore.setState({ error: 'Network timeout' });
     render(<ProviderAuthSection />);
     expect(screen.getByText('Network timeout')).toBeInTheDocument();
+  });
+});
+
+describe('ProviderAuthSection — click-to-open vault', () => {
+  it('clicking an unconfigured or error row (openai, gemini) opens the vault for that transport', async () => {
+    useProviderAuthStore.setState({ statuses: allStatuses });
+    render(<ProviderAuthSection />);
+    const user = userEvent.setup();
+
+    const rows = screen.getAllByTestId('provider-auth-row');
+    // openai is unconfigured (index 1)
+    await user.click(rows[1]);
+    expect(useUiStore.getState().keyVaultOpen).toBe(true);
+    expect(useUiStore.getState().keyVaultFocusTransport).toBe('openai');
+
+    useUiStore.getState()._reset();
+
+    // gemini is error (index 2)
+    await user.click(rows[2]);
+    expect(useUiStore.getState().keyVaultOpen).toBe(true);
+    expect(useUiStore.getState().keyVaultFocusTransport).toBe('gemini');
+  });
+
+  it('clicking an ok row does NOT open the vault', async () => {
+    useProviderAuthStore.setState({ statuses: allStatuses });
+    render(<ProviderAuthSection />);
+    const user = userEvent.setup();
+
+    const rows = screen.getAllByTestId('provider-auth-row');
+    // anthropic is ok (index 0)
+    await user.click(rows[0]);
+    expect(useUiStore.getState().keyVaultOpen).toBe(false);
   });
 });
