@@ -28,26 +28,13 @@ Forward-looking slice plan. Each entry is a stub — when we pick one up, the fu
 | 18 | In-app provider key vault (AES-256-GCM) | `feat/slice-18-key-vault` | ✅ |
 | 19 | Conversation forking + token-only context meter | `feat/slice-19-fork-and-meter` | ✅ |
 | 20 | Message attachments (images + text files) | `feat/slice-20-attachments` | ✅ |
+| 21 | 1-click coding MCPs (Filesystem + Terminal) | `feat/slice-21-one-click-mcps` | ✅ |
 
 ## Planned
 
 ## Killer Features — agentic depth track
 
 Sequence chosen to build foundation (safety + zero-friction onboarding) before going wide with multi-agent orchestration. **RAG (codebase-aware vector + AST) deliberately excluded from this track** — it's a multi-slice arc that deserves its own future roadmap section.
-
-### Slice 21 — 1-click coding MCPs (Filesystem + Terminal)
-
-**Branch:** `feat/slice-21-one-click-mcps`
-
-**Scope:** a "Coding Tools" mini-section in the sidebar with two toggles — `Filesystem` and `Terminal` — that each launch a pre-configured, sandboxed MCP server with no JSON-config step. Filesystem MCP is rooted at the workspace (defaults to `cwd` until Slice 23 introduces real workspaces). Terminal MCP exposes a constrained shell. Each toggle handles connect/disconnect via the existing `mcpRegistry` flow.
-
-**Likely touch:** new `server/domain/mcp/builtin/{filesystem,terminal}.ts` (in-process or stdio adapter — TBD by brainstorming); FE preset definitions; new `<BuiltinMcpToggles>` component above `McpServersSection`; tests; Playwright smoke.
-
-**Estimate:** 1 medium slice. May introduce one MCP-server dependency.
-
-**Builds on:** Slice 7 (MCP) + 10 (HTTP transport + refresh + cancel).
-
----
 
 ### Slice 22 — Agentic Breakpoints + Dry-Run Sandboxing
 
