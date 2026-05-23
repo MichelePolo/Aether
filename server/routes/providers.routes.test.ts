@@ -18,9 +18,8 @@ function makeFake(model: string): AIProvider {
 async function makeApp() {
   const reg = new ProviderRegistry({
     ollamaHost: 'http://localhost:11434',
-    geminiApiKey: undefined,
-    anthropicAuth: 'none',
-    openAIApiKey: undefined,
+    resolveKey: () => undefined,
+    detectAnthropicAuth: async () => 'none',
     fakeProvider: makeFake('fake-1'),
     geminiBuilder: () => makeFake('g'),
     ollamaBuilder: () => makeFake('o'),

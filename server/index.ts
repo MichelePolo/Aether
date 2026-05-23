@@ -55,14 +55,14 @@ async function bootstrap() {
     console.log('[aether] Using FakeProvider (AETHER_FAKE_PROVIDER=1)');
   }
 
-  const anthropicAuth = await detectAnthropicAuth();
-  console.log(`[providers] anthropic: ${anthropicAuth}`);
-
   const providers = new ProviderRegistry({
     ollamaHost: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
-    geminiApiKey: cfg.geminiApiKey || undefined,
-    anthropicAuth,
-    openAIApiKey: cfg.openAIApiKey || undefined,
+    resolveKey: (transport) => {
+      if (transport === 'gemini') return cfg.geminiApiKey || undefined;
+      if (transport === 'openai') return cfg.openAIApiKey || undefined;
+      return undefined;
+    },
+    detectAnthropicAuth,
     fakeProvider,
     geminiBuilder: (model) => new GeminiProvider({ apiKey: cfg.geminiApiKey, model }),
     ollamaBuilder: (model) =>
@@ -88,8 +88,8 @@ async function bootstrap() {
 
   const authStatusService = new AuthStatusService({
     detectAnthropicAuth,
-    openAIApiKey: cfg.openAIApiKey || undefined,
-    geminiApiKey: cfg.geminiApiKey || undefined,
+    getOpenAIKey: () => cfg.openAIApiKey || undefined,
+    getGeminiKey: () => cfg.geminiApiKey || undefined,
     ollamaHost: process.env.OLLAMA_HOST ?? 'http://localhost:11434',
   });
 
