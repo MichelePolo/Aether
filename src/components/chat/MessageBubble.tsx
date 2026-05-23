@@ -17,6 +17,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
   const isThinkingNow = useChatStore(
     (s) => s.streamingId === id && s.currentReasoning.thinkingText.length > 0,
   );
+  const openContextMenu = useUiStore((s) => s.openMessageContextMenu);
   const { resume } = useStreamingDispatch();
 
   if (!message) return null;
@@ -29,9 +30,21 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
     useUiStore.getState().openReasoningDrawer();
   };
 
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    openContextMenu({ x: e.clientX, y: e.clientY, messageId: id, role: message.role });
+  };
+
+  const tooltip =
+    message.role === 'model' && message.tokensIn != null && message.tokensOut != null
+      ? `Prompt: ${message.tokensIn} / Reply: ${message.tokensOut} tokens`
+      : undefined;
+
   return (
     <div className={cn('flex', isUser ? 'justify-end' : 'justify-start')}>
       <div
+        onContextMenu={onContextMenu}
+        title={tooltip}
         className={cn(
           'max-w-[80%] rounded-lg px-3 py-2 text-sm',
           isUser
