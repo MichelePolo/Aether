@@ -13,9 +13,8 @@ export interface ProviderDescriptor {
 
 export interface ProviderRegistryDeps {
   ollamaHost: string;
-  geminiApiKey: string | undefined;
-  anthropicAuth: 'oauth' | 'apikey' | 'none';
-  openAIApiKey: string | undefined;
+  resolveKey: (transport: 'gemini' | 'openai' | 'anthropic') => string | undefined;
+  detectAnthropicAuth: () => Promise<'oauth' | 'apikey' | 'none'>;
   fakeProvider: AIProvider;
   geminiBuilder: (model: string) => AIProvider;
   ollamaBuilder: (model: string) => AIProvider;
@@ -56,7 +55,7 @@ export class ProviderRegistry {
     }
 
     // Gemini
-    if (this.deps.geminiApiKey) {
+    if (this.deps.resolveKey('gemini')) {
       for (const model of geminiHardcodedModels()) {
         const provider = this.deps.geminiBuilder(model);
         next.set(`gemini:${model}`, {
@@ -73,7 +72,8 @@ export class ProviderRegistry {
     }
 
     // Anthropic
-    if (this.deps.anthropicAuth !== 'none') {
+    const auth = await this.deps.detectAnthropicAuth();
+    if (auth !== 'none') {
       for (const model of anthropicHardcodedModels()) {
         const provider = this.deps.anthropicBuilder(model);
         next.set(`anthropic:${model}`, {
@@ -90,7 +90,7 @@ export class ProviderRegistry {
     }
 
     // OpenAI
-    if (this.deps.openAIApiKey) {
+    if (this.deps.resolveKey('openai')) {
       for (const model of openAIHardcodedModels()) {
         const provider = this.deps.openAIBuilder(model);
         next.set(`openai:${model}`, {
