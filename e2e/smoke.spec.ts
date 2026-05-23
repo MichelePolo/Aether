@@ -481,3 +481,26 @@ test('fork: send message, right-click → Branch from here', async ({ page }) =>
   // The forked session is now active and contains the user message
   await expect(page.getByRole('main').getByText('hello aether')).toBeVisible();
 });
+
+test('attachments: paperclip → pick file → chip → send', async ({ page }) => {
+  await page.goto('/');
+  const input = page.getByPlaceholder(/Scrivi un messaggio/i);
+
+  // Set the hidden file input directly (paperclip would open the picker)
+  const fileInput = page.locator('input[type="file"][accept*="image"]');
+  await fileInput.setInputFiles(path.resolve('e2e/fixtures/tiny.png'));
+
+  // Chip appears
+  await expect(page.getByText('tiny.png').first()).toBeVisible({ timeout: 3000 });
+
+  // Send
+  await input.fill('look');
+  await input.press('Enter');
+
+  // Wait for FakeProvider reply — round trip completed, attachment persisted
+  await expect(page.getByText('pong')).toBeVisible({ timeout: 5000 });
+
+  // The chip is cleared on `done` (queue reset). Persisted-render-after-dispatch
+  // requires a hydration roundtrip — exercised by reopening the session.
+  await expect(page.getByText('tiny.png').first()).not.toBeVisible({ timeout: 2000 });
+});

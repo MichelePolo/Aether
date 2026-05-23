@@ -52,7 +52,7 @@ describe('providers routes', () => {
   it('GET /api/providers includes capabilities + displayName', async () => {
     const res = await request(app).get('/api/providers');
     const fake = res.body.providers.find((p: { name: string }) => p.name === 'fake:default');
-    expect(fake.capabilities).toEqual({ thinking: true, toolCalling: true });
+    expect(fake.capabilities).toEqual({ thinking: true, toolCalling: true, vision: false });
     expect(fake.displayName).toMatch(/fake/i);
   });
 
