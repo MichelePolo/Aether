@@ -104,4 +104,19 @@ describe('sessionsApi', () => {
     );
     await expect(sessionsApi.importSession({})).rejects.toThrow(/nope/);
   });
+
+  it('forkSession POSTs to /:id/fork with fromMessageId body and returns SessionMeta', async () => {
+    let capturedBody: unknown = null;
+    const forkedMeta = { id: 'forked-1', title: 'Fork', createdAt: 10, updatedAt: 20 };
+    server.use(
+      http.post('http://localhost/api/sessions/:id/fork', async ({ request, params }) => {
+        expect(params.id).toBe('sess-1');
+        capturedBody = await request.json();
+        return HttpResponse.json({ meta: forkedMeta }, { status: 201 });
+      }),
+    );
+    const meta = await sessionsApi.forkSession('sess-1', 'msg-42');
+    expect(capturedBody).toEqual({ fromMessageId: 'msg-42' });
+    expect(meta).toMatchObject({ id: 'forked-1', title: 'Fork' });
+  });
 });
