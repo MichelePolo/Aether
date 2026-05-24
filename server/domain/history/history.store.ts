@@ -324,9 +324,9 @@ export class HistoryStore {
     const tx = this.db.transaction(() => {
       this.db
         .prepare(
-          'INSERT INTO sessions (id, title, created_at, updated_at, provider_name) VALUES (?, ?, ?, ?, ?)',
+          'INSERT INTO sessions (id, title, created_at, updated_at, provider_name, workspace_id) VALUES (?, ?, ?, ?, ?, ?)',
         )
-        .run(newSessionId, src.title, now, now, src.provider_name);
+        .run(newSessionId, src.title, now, now, src.provider_name, src.workspace_id);
 
       slice.forEach((msg, i) => {
         const newMsgId = randomUUID();
