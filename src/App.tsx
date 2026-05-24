@@ -101,7 +101,7 @@ export default function App() {
         }
       >
         <TopBar
-          title="Aether Dev Studio"
+          title="Aether Core"
           sidebarOpen={sidebarOpen}
           onToggleSidebar={toggleSidebar}
         />

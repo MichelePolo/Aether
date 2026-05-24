@@ -1,20 +1,104 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+<img width="1200" height="475" alt="Aether banner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# Aether Core
 
-This contains everything you need to run your app locally.
+A local-first, multi-provider **agentic LLM dev studio**. Aether pairs a React single-page app with an Express + SQLite backend so you can drive multiple model providers, wire up MCP tools, gate dangerous tool calls behind approvals, and keep a fully persisted, forkable history — all from one workspace running on your machine.
 
-View your app in AI Studio: https://ai.studio/apps/ef601a8c-e619-4019-aa18-908ea0eb40f7
+> The whole stack runs from a single Node process: in development, Express serves the API and proxies the Vite dev server in middleware mode, so there's no separate frontend/backend to start.
 
-## Run Locally
+## Features
 
-**Prerequisites:**  Node.js
+- **Multi-provider runtime** — switch between **Gemini**, **Anthropic (Claude)**, **OpenAI**, and **Ollama** (local). Selection is sticky per session and survives reloads; concurrent dispatches on different providers run independently. A built-in **Fake provider** powers tests and offline dev.
+- **Secure credential KeyVault** — store API keys encrypted in SQLite via the in-app Provider Auth pane, or supply them through environment variables. `KeyResolver` prefers env vars (12-factor) and falls back to the vault.
+- **MCP tools** — connect any Model Context Protocol server, plus **1-click built-ins** (filesystem, terminal) you can toggle on/off without touching the CLI.
+- **Agentic breakpoints** — let the agent run freely, but pause for an approval gate (with diff/preview) before irreversible actions.
+- **Cross-model subagents** — dispatch subagents that can target different providers than the parent session.
+- **Workspaces** — add and browse project folders through a GUI; Aether manages the underlying filesystem MCP for you.
+- **History you control** — persisted sessions with **forking** (time-travel from any message), **JSON export/import** of full conversation trees, full-text search, a token/usage meter, and attachments (images + text docs stored as BLOBs).
+- **Polished UX** — command palette, global keyboard shortcuts, reasoning drawer, profiles, and i18n.
 
+## Tech stack
+
+| Layer | Tools |
+| --- | --- |
+| Frontend | React 19, Vite 6, Zustand, Tailwind CSS 4, lucide-react, motion, react-markdown, cmdk |
+| Backend | Node.js, Express 4, better-sqlite3, Zod; `tsx` in dev, `esbuild` bundle for prod |
+| LLM / agents | `@anthropic-ai/claude-agent-sdk`, `@google/genai`, OpenAI & Ollama over HTTP |
+| MCP | `@modelcontextprotocol/server-filesystem` + custom servers |
+| Testing | Vitest, Testing Library, Playwright (e2e), MSW, supertest |
+
+## Architecture
+
+```
+React SPA (Zustand stores, SSE streaming)
+        │  REST + Server-Sent Events
+        ▼
+Express API  ──►  Domain layer
+                   ├─ dispatch      (agentic loop, attachment preprocessing)
+                   ├─ providers     (ProviderRegistry + KeyResolver + KeyVault)
+                   ├─ mcp           (registry, built-ins, breakpoints/policy)
+                   ├─ history       (sessions, forking, export/import)
+                   ├─ context · profiles · subagents · search · workspaces · reasoning
+                   ▼
+              SQLite (better-sqlite3, migrations 001–009, FTS, BLOB attachments)
+```
+
+Server entrypoint: [`server/index.ts`](server/index.ts). Frontend entrypoint: [`src/main.tsx`](src/main.tsx).
+
+## Run locally
+
+**Prerequisites:** Node.js 20+ (better-sqlite3 needs a native build) and npm.
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+   ```bash
+   npm install
+   ```
+2. Configure at least one provider — either set environment variables (see below) or add keys later through the in-app **Provider Auth** pane. To explore the UI with no keys, run with the Fake provider: `AETHER_FAKE_PROVIDER=1 npm run dev`.
+3. Start the app:
+   ```bash
+   npm run dev
+   ```
+   Then open http://localhost:3000.
+
+### Configuration
+
+These are the environment variables the code actually reads:
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `PORT` | HTTP port for the server | `3000` |
+| `AETHER_DATA_DIR` | Directory for the SQLite database | `./data` |
+| `GEMINI_API_KEY` | Enable the Gemini provider | — |
+| `ANTHROPIC_API_KEY` | Enable Anthropic/Claude (Claude CLI OAuth is also auto-detected) | — |
+| `OPENAI_API_KEY` | Enable the OpenAI provider | — |
+| `OLLAMA_HOST` | Ollama daemon URL (models are auto-discovered) | `http://localhost:11434` |
+| `AETHER_DEFAULT_PROVIDER` | Force the default provider (e.g. `gemini:gemini-1.5-pro`) | — |
+| `AETHER_FAKE_PROVIDER` | `1` to force the deterministic Fake provider | off |
+| `NODE_ENV` | `production` serves the prebuilt SPA from `dist/` instead of Vite | — |
+
+A provider only appears in the picker when its credential is present (or, for Ollama, when the daemon is reachable). Keys set in the in-app KeyVault are used when the matching env var is absent.
+
+## Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the dev server (Express + Vite middleware) |
+| `npm run build` | Build the SPA and bundle the server to `dist/server.cjs` |
+| `npm start` | Run the production bundle (`NODE_ENV=production`) |
+| `npm run lint` | Type-check with `tsc --noEmit` |
+| `npm test` | Run unit/integration tests in watch mode (Vitest) |
+| `npm run test:run` | Run tests once |
+| `npm run test:coverage` | Run tests with coverage |
+| `npm run test:e2e` | Run Playwright end-to-end tests |
+
+## Project layout
+
+```
+server/        Express app, domain services, SQLite db + migrations, MCP
+src/           React app — components, Zustand stores, hooks, types, i18n
+e2e/           Playwright tests
+docs/          Architecture audits and design notes
+data/          Local SQLite database (gitignored)
+```
