@@ -23,6 +23,34 @@ export const handlers = [
     HttpResponse.json({ id: params.id, title: 'renamed', createdAt: 0, updatedAt: 0 }),
   ),
   http.delete('http://localhost/api/sessions/:id', () => new HttpResponse(null, { status: 204 })),
+  http.get('http://localhost/api/workspaces', () =>
+    HttpResponse.json({ workspaces: [] }),
+  ),
+  http.post('http://localhost/api/workspaces', async ({ request }) => {
+    const body = (await request.json()) as { name: string; rootPath: string };
+    return HttpResponse.json(
+      { id: `w-${Date.now()}`, name: body.name, rootPath: body.rootPath, addedAt: Date.now() },
+      { status: 201 },
+    );
+  }),
+  http.patch('http://localhost/api/workspaces/:id', async ({ params, request }) => {
+    const body = (await request.json()) as { name: string };
+    return HttpResponse.json({
+      id: params.id,
+      name: body.name,
+      rootPath: '/tmp/p',
+      addedAt: Date.now(),
+    });
+  }),
+  http.delete('http://localhost/api/workspaces/:id', () =>
+    new HttpResponse(null, { status: 204 }),
+  ),
+  http.get('http://localhost/api/workspaces/browse', () =>
+    HttpResponse.json({ entries: [{ name: 'sub', isDir: true }] }),
+  ),
+  http.post('http://localhost/api/workspaces/activate-for-session', () =>
+    HttpResponse.json({ rooted: null }),
+  ),
   http.get('http://localhost/api/profiles', () => HttpResponse.json({ profiles: [] })),
   http.post('http://localhost/api/profiles', () =>
     HttpResponse.json(
