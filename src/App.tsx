@@ -10,6 +10,9 @@ import { SkillsSection } from '@/src/components/sidebar/SkillsSection';
 import { ToolsSection } from '@/src/components/sidebar/ToolsSection';
 import { McpServersSection } from '@/src/components/sidebar/McpServersSection';
 import { BuiltinMcpToggles } from '@/src/components/sidebar/BuiltinMcpToggles';
+import { BreakpointsSection } from '@/src/components/sidebar/BreakpointsSection';
+import { ApprovalGate } from '@/src/components/chat/ApprovalGate';
+import { useBreakpointsStore } from '@/src/stores/breakpoints.store';
 import { useBuiltinMcpStore } from '@/src/stores/builtinMcp.store';
 import { SubAgentsSection } from '@/src/components/sidebar/SubAgentsSection';
 import { ProviderAuthSection } from '@/src/components/sidebar/ProviderAuthSection';
@@ -43,6 +46,7 @@ export default function App() {
   const initProviders = useProvidersStore((s) => s.init);
   const initProviderAuth = useProviderAuthStore((s) => s.init);
   const initBuiltinMcp = useBuiltinMcpStore((s) => s.init);
+  const initBreakpoints = useBreakpointsStore((s) => s.init);
 
   useEffect(() => {
     initContext();
@@ -53,7 +57,8 @@ export default function App() {
     initProviders();
     initProviderAuth();
     initBuiltinMcp();
-  }, [initContext, initSessions, initUi, initProfiles, initSubAgents, initProviders, initProviderAuth, initBuiltinMcp]);
+    initBreakpoints();
+  }, [initContext, initSessions, initUi, initProfiles, initSubAgents, initProviders, initProviderAuth, initBuiltinMcp, initBreakpoints]);
 
   useGlobalShortcuts();
   useToolCallDecisions();
@@ -76,6 +81,7 @@ export default function App() {
             <SkillsSection />
             <ToolsSection />
             <BuiltinMcpToggles />
+            <BreakpointsSection />
             <McpServersSection />
             <SubAgentsSection />
             <ProviderAuthSection />
@@ -96,6 +102,7 @@ export default function App() {
       <SubAgentEditModal />
       <CommandPalette />
       <MessageContextMenu />
+      <ApprovalGate />
       <DialogHost />
       <HiddenImportInput />
     </>
