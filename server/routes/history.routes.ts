@@ -33,8 +33,11 @@ export function createHistoryRoutes(store: HistoryStore, workspaces?: Workspaces
 
   router.post(
     '/',
-    asyncHandler(async (_req, res) => {
-      const meta = await store.createEmpty();
+    asyncHandler(async (req, res) => {
+      const body = (req.body ?? {}) as { workspaceId?: string };
+      const meta = await store.createEmpty(
+        body.workspaceId ? { workspaceId: body.workspaceId } : undefined,
+      );
       res.status(201).json(meta);
     }),
   );

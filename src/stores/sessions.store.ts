@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { sessionsApi } from '@/src/lib/api/sessions.api';
 import { historyApi } from '@/src/lib/api/history.api';
+import { workspacesApi } from '@/src/lib/api/workspaces.api';
 import { useChatStore } from '@/src/stores/chat.store';
 import type { SessionMeta } from '@/src/types/session.types';
 
@@ -16,6 +17,7 @@ interface SessionsState {
   create: () => Promise<SessionMeta>;
   rename: (id: string, title: string) => Promise<void>;
   setProviderName: (id: string, providerName: string) => Promise<void>;
+  setSessionWorkspace: (sessionId: string, workspaceId: string | null) => Promise<void>;
   delete: (id: string) => Promise<void>;
   importSession: (file: File) => Promise<void>;
   forkSession: (fromMessageId: string) => Promise<void>;
@@ -106,7 +108,10 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
 
   create: async () => {
     try {
-      const meta = await sessionsApi.create();
+      const active = get().sessions.find((s) => s.id === get().activeSessionId);
+      const meta = await sessionsApi.create(
+        active?.workspaceId ? { workspaceId: active.workspaceId } : undefined,
+      );
       set((s) => ({ sessions: [meta, ...s.sessions], error: null }));
       get().setActive(meta.id);
       return meta;
@@ -158,6 +163,17 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     }
   },
 
+  setSessionWorkspace: async (sessionId, workspaceId) => {
+    // PATCH the server, then update locally, then trigger MCP reroot.
+    await sessionsApi.updateSession(sessionId, { workspaceId });
+    set((s) => ({
+      sessions: s.sessions.map((x) =>
+        x.id === sessionId ? { ...x, workspaceId: workspaceId ?? undefined } : x,
+      ),
+    }));
+    workspacesApi.activateForSession(sessionId).catch(() => {});
+  },
+
   setProviderName: async (id, providerName) => {
     const prev = get().sessions;
     const optimistic = prev.map((s) =>
@@ -197,6 +213,8 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     persistActive(id);
     set({ activeSessionId: id, error: null });
     useChatStore.getState().reset();
+    // Slice 23: reroot Filesystem MCP for this session's workspace (fire-and-forget).
+    workspacesApi.activateForSession(id).catch(() => {});
     const token = ++hydrationToken;
     historyApi
       .fetchById(id)

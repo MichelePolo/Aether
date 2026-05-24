@@ -27,8 +27,8 @@ export const sessionsApi = {
     const body = await asJson<{ sessions: SessionMeta[] }>(res);
     return body.sessions;
   },
-  create: async (): Promise<SessionMeta> => {
-    const res = await fetch(BASE, json('POST'));
+  create: async (opts?: { workspaceId?: string }): Promise<SessionMeta> => {
+    const res = await fetch(BASE, json('POST', opts ?? {}));
     return asJson<SessionMeta>(res);
   },
   rename: async (id: string, title: string): Promise<SessionMeta> => {
