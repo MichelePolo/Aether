@@ -38,11 +38,19 @@ export function ProviderSelector() {
             (unavailable) {activeName}
           </option>
         )}
-        {list.map((p) => (
-          <option key={p.name} value={p.name}>
-            {p.displayName}
-          </option>
-        ))}
+        {list.map((p) => {
+          const caps = p.capabilities;
+          const capsText = caps
+            ? [caps.thinking && 'thinking', caps.toolCalling && 'tools', caps.vision && 'vision']
+                .filter(Boolean)
+                .join(', ')
+            : '';
+          return (
+            <option key={p.name} value={p.name}>
+              {p.displayName}{capsText ? ` (${capsText})` : ''}
+            </option>
+          );
+        })}
       </select>
       <button
         type="button"

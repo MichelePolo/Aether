@@ -22,7 +22,9 @@ export interface StatusDotProps
 export function StatusDot({ status, label, className, ...rest }: StatusDotProps) {
   return (
     <span
+      role="img"
       title={`${label}: ${status}`}
+      aria-label={`${label}: ${status}`}
       className={cn(dotVariants({ status }), className)}
       {...rest}
     />

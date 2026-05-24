@@ -14,9 +14,10 @@ export function TokenChip() {
     <span
       data-testid="token-chip"
       title={tooltip}
+      aria-label={`Context size: ${ctx.total} tokens (prompt ${ctx.prompt}, reply ${ctx.reply})`}
       className="text-[10px] font-mono text-zinc-400 px-2 py-1 rounded border border-border-subtle bg-surface-3"
     >
-      ▵ {formatTokens(ctx.total)} tok
+      <span aria-hidden="true">▵ </span>{formatTokens(ctx.total)} tok
     </span>
   );
 }
