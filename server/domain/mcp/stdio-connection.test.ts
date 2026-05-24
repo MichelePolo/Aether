@@ -22,6 +22,12 @@ describe('StdioMcpConnection', () => {
     expect(conn.defaultAutoApprove).toBe(false);
   });
 
+  it('initialize sends a spec-compliant handshake (protocolVersion, capabilities, clientInfo)', async () => {
+    // The fixture rejects a handshake missing these params, mirroring the real
+    // @modelcontextprotocol/server-filesystem server.
+    await expect(conn.initialize()).resolves.toBeUndefined();
+  });
+
   it('initialize + listTools returns echo', async () => {
     await conn.initialize();
     const tools = await conn.listTools();

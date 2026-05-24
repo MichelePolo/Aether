@@ -32,9 +32,13 @@ describe('App', () => {
     });
   });
 
-  it('mounts ReasoningDrawer (closed by default)', () => {
-    render(<App />);
-    expect(screen.queryByRole('complementary', { name: /reasoning/i })).not.toBeInTheDocument();
+  it('mounts ReasoningDrawer inert (closed by default)', () => {
+    const { container } = render(<App />);
+    // The drawer stays mounted for the slide transition; when closed it is
+    // inert, which removes it from the tab order and the a11y tree in browsers.
+    const drawer = container.querySelector('aside[aria-labelledby="reasoning-heading"]');
+    expect(drawer).not.toBeNull();
+    expect(drawer!.hasAttribute('inert')).toBe(true);
   });
 
   it('opens ReasoningDrawer when ui.store flips', async () => {
@@ -85,7 +89,7 @@ describe('App', () => {
     render(<App />);
     await act(async () => {
       const { emitToolCallRequest } = await import('@/src/hooks/useToolCallDecisions');
-      emitToolCallRequest({ id: 'C1', qualifiedName: 'mock.fs', args: { path: '/tmp' } });
+      emitToolCallRequest({ callId: 'C1', qualifiedName: 'mock.fs', args: { path: '/tmp' } });
     });
     await waitFor(() => {
       expect(screen.getByText('mock.fs')).toBeInTheDocument();

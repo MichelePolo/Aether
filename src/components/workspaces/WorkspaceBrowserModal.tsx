@@ -38,9 +38,9 @@ export function WorkspaceBrowserModal() {
     setError(null);
     try {
       const r = await workspacesApi.browse(path);
-      setEntries(r);
+      setEntries(r.entries);
       setSelectedIndex(0);
-      if (path) setCurrentPath(path);
+      setCurrentPath(r.path);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Cannot list directory');
     }
@@ -72,9 +72,8 @@ export function WorkspaceBrowserModal() {
     return accum;
   }, [currentPath]);
 
-  const descend = useCallback((entry: BrowseEntry & { path?: string }) => {
-    const e = entry as BrowseEntry & { path?: string };
-    const next = e.path ?? (currentPath ? `${currentPath.replace(/\/+$/, '')}/${e.name}` : e.name);
+  const descend = useCallback((entry: BrowseEntry) => {
+    const next = currentPath ? `${currentPath.replace(/\/+$/, '')}/${entry.name}` : entry.name;
     void loadPath(next);
   }, [currentPath, loadPath]);
 
@@ -162,7 +161,7 @@ export function WorkspaceBrowserModal() {
         )}
         {entries.map((e, i) => (
           <button
-            key={(e as BrowseEntry & { path?: string }).path ?? e.name}
+            key={e.name}
             type="button"
             onClick={() => descend(e)}
             aria-current={i === selectedIndex ? 'true' : undefined}

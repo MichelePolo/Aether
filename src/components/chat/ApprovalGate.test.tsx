@@ -15,7 +15,7 @@ vi.mock('@/src/lib/api/breakpoints.api', () => ({
   },
 }));
 
-const ev = { id: 'call-1', qualifiedName: 'fs.write_file', args: { path: '/x', content: 'a' } };
+const ev = { callId: 'call-1', qualifiedName: 'fs.write_file', args: { path: '/x', content: 'a' } };
 
 describe('ApprovalGate', () => {
   beforeEach(() => {

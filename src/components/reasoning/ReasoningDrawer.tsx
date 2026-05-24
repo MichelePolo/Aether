@@ -33,7 +33,7 @@ export function ReasoningDrawer() {
       className={`fixed right-0 top-0 bottom-0 z-40 w-96 bg-surface-2 border-l border-border-subtle flex flex-col motion-safe:transition-transform motion-safe:duration-200 ${
         open ? 'translate-x-0' : 'translate-x-full'
       }`}
-      aria-hidden={!open}
+      inert={!open}
     >
       <h2 id="reasoning-heading" className="sr-only">Reasoning</h2>
       <header className="p-3 border-b border-border-subtle flex items-center justify-between">

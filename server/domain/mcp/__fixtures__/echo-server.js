@@ -23,7 +23,20 @@ function send(obj) { process.stdout.write(JSON.stringify(obj) + '\n'); }
 
 function respond(req) {
   const { id, method, params } = req;
-  if (method === 'initialize') return send({ jsonrpc: '2.0', id, result: {} });
+  if (method === 'initialize') {
+    // Mirror @modelcontextprotocol/server-filesystem: reject a handshake that
+    // omits the required initialize params.
+    const ok =
+      params &&
+      typeof params.protocolVersion === 'string' &&
+      params.capabilities && typeof params.capabilities === 'object' &&
+      params.clientInfo && typeof params.clientInfo === 'object';
+    if (!ok) {
+      return send({ jsonrpc: '2.0', id, error: { code: -32602, message: 'invalid initialize params' } });
+    }
+    return send({ jsonrpc: '2.0', id, result: { protocolVersion: params.protocolVersion, capabilities: {}, serverInfo: { name: 'echo', version: '0' } } });
+  }
+  if (method === 'notifications/initialized') return; // accept and ignore
   if (method === 'tools/list') {
     return send({
       jsonrpc: '2.0', id,

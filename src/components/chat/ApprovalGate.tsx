@@ -57,7 +57,7 @@ export function ApprovalGate() {
 
   const decide = async (action: 'approve' | 'reject') => {
     if (action === 'approve' && sticky) addSticky(event.qualifiedName);
-    await mcpApi.decide(event.id, action).catch(() => {});
+    await mcpApi.decide(event.callId, action).catch(() => {});
     closeApprovalGate();
   };
 

@@ -21,7 +21,7 @@ describe('useToolCallDecisions', () => {
     const { mcpApi } = await import('@/src/lib/api/mcp.api');
     useChatStore.getState().addStickyApproval('fs.write_file');
     renderHook(() => useToolCallDecisions());
-    act(() => emitToolCallRequest({ id: 'c1', qualifiedName: 'fs.write_file', args: {} }));
+    act(() => emitToolCallRequest({ callId: 'c1', qualifiedName: 'fs.write_file', args: {} }));
     await Promise.resolve();
     await Promise.resolve();
     expect(mcpApi.decide).toHaveBeenCalledWith('c1', 'approve');
@@ -31,7 +31,7 @@ describe('useToolCallDecisions', () => {
   it('non-sticky tool → fetches preview and opens approval gate', async () => {
     const { breakpointsApi } = await import('@/src/lib/api/breakpoints.api');
     renderHook(() => useToolCallDecisions());
-    act(() => emitToolCallRequest({ id: 'c2', qualifiedName: 'fs.write_file', args: { path: '/x' } }));
+    act(() => emitToolCallRequest({ callId: 'c2', qualifiedName: 'fs.write_file', args: { path: '/x' } }));
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
@@ -39,6 +39,6 @@ describe('useToolCallDecisions', () => {
       qualifiedName: 'fs.write_file',
       args: { path: '/x' },
     });
-    expect(useUiStore.getState().approvalGateState?.event.id).toBe('c2');
+    expect(useUiStore.getState().approvalGateState?.event.callId).toBe('c2');
   });
 });

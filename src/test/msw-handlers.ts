@@ -45,9 +45,10 @@ export const handlers = [
   http.delete('http://localhost/api/workspaces/:id', () =>
     new HttpResponse(null, { status: 204 }),
   ),
-  http.get('http://localhost/api/workspaces/browse', () =>
-    HttpResponse.json({ entries: [{ name: 'sub', isDir: true }] }),
-  ),
+  http.get('http://localhost/api/workspaces/browse', ({ request }) => {
+    const path = new URL(request.url).searchParams.get('path') ?? '/home/user';
+    return HttpResponse.json({ path, entries: [{ name: 'sub', isDir: true }] });
+  }),
   http.post('http://localhost/api/workspaces/activate-for-session', () =>
     HttpResponse.json({ rooted: null }),
   ),

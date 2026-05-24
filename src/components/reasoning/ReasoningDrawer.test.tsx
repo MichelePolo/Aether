@@ -16,20 +16,24 @@ beforeEach(() => {
 });
 
 describe('ReasoningDrawer', () => {
-  it('drawer is hidden when closed (translate-x-full)', () => {
+  it('drawer is hidden and inert when closed (no focusable descendants for AT)', () => {
     useUiStore.setState({ reasoningDrawerOpen: false });
     const { container } = render(<ReasoningDrawer />);
     const drawer = container.querySelector('aside');
     expect(drawer).not.toBeNull();
     expect(drawer!.className).toMatch(/translate-x-full/);
-    expect(drawer!.getAttribute('aria-hidden')).toBe('true');
+    // inert removes descendants from focus + the a11y tree, so aria-hidden
+    // (which would warn when a child holds focus) must not be used.
+    expect(drawer!.hasAttribute('inert')).toBe(true);
+    expect(drawer!.getAttribute('aria-hidden')).toBeNull();
   });
 
-  it('renders when open with empty state', () => {
+  it('renders when open with empty state and is not inert', () => {
     useUiStore.setState({ reasoningDrawerOpen: true });
-    render(<ReasoningDrawer />);
+    const { container } = render(<ReasoningDrawer />);
     expect(screen.getByRole('complementary', { name: /reasoning/i })).toBeInTheDocument();
     expect(screen.getByText(/No steps/i)).toBeInTheDocument();
+    expect(container.querySelector('aside')!.hasAttribute('inert')).toBe(false);
   });
 
   it('close button calls closeReasoningDrawer', async () => {
