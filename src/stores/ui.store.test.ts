@@ -269,3 +269,12 @@ describe('useUiStore.approvalGateState', () => {
     expect(useUiStore.getState().approvalGateState).toBeNull();
   });
 });
+
+describe('useUiStore.workspaceBrowserOpen', () => {
+  it('opens and closes', () => {
+    useUiStore.getState().openWorkspaceBrowser();
+    expect(useUiStore.getState().workspaceBrowserOpen).toBe(true);
+    useUiStore.getState().closeWorkspaceBrowser();
+    expect(useUiStore.getState().workspaceBrowserOpen).toBe(false);
+  });
+});

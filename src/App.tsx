@@ -11,6 +11,8 @@ import { ToolsSection } from '@/src/components/sidebar/ToolsSection';
 import { McpServersSection } from '@/src/components/sidebar/McpServersSection';
 import { BuiltinMcpToggles } from '@/src/components/sidebar/BuiltinMcpToggles';
 import { BreakpointsSection } from '@/src/components/sidebar/BreakpointsSection';
+import { WorkspacesSection } from '@/src/components/sidebar/WorkspacesSection';
+import { WorkspaceBrowserModal } from '@/src/components/workspaces/WorkspaceBrowserModal';
 import { ApprovalGate } from '@/src/components/chat/ApprovalGate';
 import { useBreakpointsStore } from '@/src/stores/breakpoints.store';
 import { useBuiltinMcpStore } from '@/src/stores/builtinMcp.store';
@@ -32,6 +34,7 @@ import { useProfilesStore } from '@/src/stores/profiles.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
 import { useProvidersStore } from '@/src/stores/providers.store';
 import { useProviderAuthStore } from '@/src/stores/providerAuth.store';
+import { useWorkspacesStore } from '@/src/stores/workspaces.store';
 import { useGlobalShortcuts } from '@/src/hooks/useGlobalShortcuts';
 import { useToolCallDecisions } from '@/src/hooks/useToolCallDecisions';
 
@@ -47,6 +50,7 @@ export default function App() {
   const initProviderAuth = useProviderAuthStore((s) => s.init);
   const initBuiltinMcp = useBuiltinMcpStore((s) => s.init);
   const initBreakpoints = useBreakpointsStore((s) => s.init);
+  const initWorkspaces = useWorkspacesStore((s) => s.init);
 
   useEffect(() => {
     initContext();
@@ -58,7 +62,8 @@ export default function App() {
     initProviderAuth();
     initBuiltinMcp();
     initBreakpoints();
-  }, [initContext, initSessions, initUi, initProfiles, initSubAgents, initProviders, initProviderAuth, initBuiltinMcp, initBreakpoints]);
+    initWorkspaces();
+  }, [initContext, initSessions, initUi, initProfiles, initSubAgents, initProviders, initProviderAuth, initBuiltinMcp, initBreakpoints, initWorkspaces]);
 
   useGlobalShortcuts();
   useToolCallDecisions();
@@ -82,6 +87,7 @@ export default function App() {
             <ToolsSection />
             <BuiltinMcpToggles />
             <BreakpointsSection />
+            <WorkspacesSection />
             <McpServersSection />
             <SubAgentsSection />
             <ProviderAuthSection />
@@ -103,6 +109,7 @@ export default function App() {
       <CommandPalette />
       <MessageContextMenu />
       <ApprovalGate />
+      <WorkspaceBrowserModal />
       <DialogHost />
       <HiddenImportInput />
     </>

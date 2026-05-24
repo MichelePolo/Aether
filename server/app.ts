@@ -2,6 +2,9 @@ import express, { type Express, type NextFunction, type Request, type Response }
 import { isAppError } from './lib/errors';
 import type { ContextStore } from './domain/context/context.store';
 import type { HistoryStore } from './domain/history/history.store';
+import type { WorkspacesStore } from '@/server/domain/workspaces/workspaces.store';
+import type { FilesystemBrowserService } from '@/server/domain/workspaces/filesystem-browser.service';
+import { createWorkspacesRoutes } from './routes/workspaces.routes';
 import type { DispatchService } from './domain/dispatch/dispatch.service';
 import type { ProfilesStore } from './domain/profiles/profiles.store';
 import type { SubAgentsStore } from './domain/subagents/subagents.store';
@@ -30,6 +33,8 @@ import { createBreakpointsRoutes } from './routes/breakpoints.routes';
 export interface AppDeps {
   contextStore?: ContextStore;
   historyStore?: HistoryStore;
+  workspacesStore?: WorkspacesStore;
+  filesystemBrowser?: FilesystemBrowserService;
   dispatcher?: DispatchService;
   profilesStore?: ProfilesStore;
   subAgentsStore?: SubAgentsStore;
@@ -81,7 +86,7 @@ export function createApp(
 
   if (deps.historyStore) {
     app.use('/api/attachments', createAttachmentsRoutes(deps.historyStore));
-    app.use('/api/sessions', createHistoryRoutes(deps.historyStore));
+    app.use('/api/sessions', createHistoryRoutes(deps.historyStore, deps.workspacesStore));
   }
 
   if (deps.profilesStore) {
@@ -123,6 +128,25 @@ export function createApp(
       createBreakpointsRoutes({
         policyStore: deps.policyStore,
         previewService: deps.previewService,
+      }),
+    );
+  }
+
+  if (
+    deps.workspacesStore &&
+    deps.filesystemBrowser &&
+    deps.historyStore &&
+    deps.builtinStore &&
+    deps.mcpRegistry
+  ) {
+    app.use(
+      '/api/workspaces',
+      createWorkspacesRoutes({
+        store: deps.workspacesStore,
+        browser: deps.filesystemBrowser,
+        historyStore: deps.historyStore,
+        builtinStore: deps.builtinStore,
+        mcpRegistry: deps.mcpRegistry,
       }),
     );
   }

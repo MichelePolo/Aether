@@ -27,8 +27,8 @@ export const sessionsApi = {
     const body = await asJson<{ sessions: SessionMeta[] }>(res);
     return body.sessions;
   },
-  create: async (): Promise<SessionMeta> => {
-    const res = await fetch(BASE, json('POST'));
+  create: async (opts?: { workspaceId?: string }): Promise<SessionMeta> => {
+    const res = await fetch(BASE, json('POST', opts ?? {}));
     return asJson<SessionMeta>(res);
   },
   rename: async (id: string, title: string): Promise<SessionMeta> => {
@@ -53,4 +53,19 @@ export const sessionsApi = {
     const body = await asJson<{ meta: SessionMeta }>(res);
     return body.meta;
   },
+  updateSession: async (
+    id: string,
+    patch: { title?: string; workspaceId?: string | null },
+  ): Promise<{ id: string; title: string; createdAt: number; updatedAt: number }> => {
+    const res = await fetch(`${BASE}/${id}`, json('PATCH', patch));
+    return asJson<{ id: string; title: string; createdAt: number; updatedAt: number }>(res);
+  },
 };
+
+export async function updateSession(
+  id: string,
+  patch: { title?: string; workspaceId?: string | null },
+): Promise<{ id: string; title: string; createdAt: number; updatedAt: number }> {
+  const res = await fetch(`${BASE}/${id}`, json('PATCH', patch));
+  return asJson<{ id: string; title: string; createdAt: number; updatedAt: number }>(res);
+}

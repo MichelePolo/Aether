@@ -14,6 +14,7 @@ type SessionRow = {
   created_at: number;
   updated_at: number;
   provider_name: string | null;
+  workspace_id: string | null;
 };
 
 type MessageRow = {
@@ -61,7 +62,7 @@ export class HistoryStore {
   async listSessions(): Promise<SessionMeta[]> {
     const rows = this.db
       .prepare(
-        'SELECT id, title, created_at, updated_at, provider_name FROM sessions ORDER BY updated_at DESC',
+        'SELECT id, title, created_at, updated_at, provider_name, workspace_id FROM sessions ORDER BY updated_at DESC',
       )
       .all() as SessionRow[];
     return rows.map((r) => ({
@@ -70,6 +71,7 @@ export class HistoryStore {
       createdAt: r.created_at,
       updatedAt: r.updated_at,
       providerName: r.provider_name ?? undefined,
+      workspaceId: r.workspace_id ?? undefined,
     }));
   }
 
@@ -81,21 +83,28 @@ export class HistoryStore {
     return this.readMessages(sessionId);
   }
 
-  async createEmpty(opts?: { providerName?: string }): Promise<SessionMeta> {
+  async createEmpty(opts?: { providerName?: string; workspaceId?: string }): Promise<SessionMeta> {
     const id = randomUUID();
     const now = Date.now();
     this.db
       .prepare(
-        'INSERT INTO sessions (id, title, created_at, updated_at, provider_name) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO sessions (id, title, created_at, updated_at, provider_name, workspace_id) VALUES (?, ?, ?, ?, ?, ?)',
       )
-      .run(id, '', now, now, opts?.providerName ?? null);
-    return { id, title: '', createdAt: now, updatedAt: now, providerName: opts?.providerName };
+      .run(id, '', now, now, opts?.providerName ?? null, opts?.workspaceId ?? null);
+    return {
+      id,
+      title: '',
+      createdAt: now,
+      updatedAt: now,
+      providerName: opts?.providerName,
+      workspaceId: opts?.workspaceId,
+    };
   }
 
   async readRecord(id: string): Promise<SessionRecord | null> {
     const row = this.db
       .prepare(
-        'SELECT id, title, created_at, updated_at, provider_name FROM sessions WHERE id = ?',
+        'SELECT id, title, created_at, updated_at, provider_name, workspace_id FROM sessions WHERE id = ?',
       )
       .get(id) as SessionRow | undefined;
     if (!row) return null;
@@ -119,6 +128,12 @@ export class HistoryStore {
       .prepare('UPDATE sessions SET provider_name = ? WHERE id = ?')
       .run(providerName, id);
     if (info.changes === 0) throw new NotFoundError(`session ${id}`);
+  }
+
+  async setSessionWorkspace(id: string, workspaceId: string | null): Promise<void> {
+    this.db
+      .prepare('UPDATE sessions SET workspace_id = ? WHERE id = ?')
+      .run(workspaceId, id);
   }
 
   async append(sessionId: string, message: Message): Promise<void> {
@@ -183,7 +198,7 @@ export class HistoryStore {
     if (info.changes === 0) throw new NotFoundError(`session ${sessionId}`);
     const row = this.db
       .prepare(
-        'SELECT id, title, created_at, updated_at, provider_name FROM sessions WHERE id = ?',
+        'SELECT id, title, created_at, updated_at, provider_name, workspace_id FROM sessions WHERE id = ?',
       )
       .get(sessionId) as SessionRow;
     return {
@@ -192,6 +207,7 @@ export class HistoryStore {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       providerName: row.provider_name ?? undefined,
+      workspaceId: row.workspace_id ?? undefined,
     };
   }
 
@@ -272,9 +288,9 @@ export class HistoryStore {
     // Read source session metadata
     const src = this.db
       .prepare(
-        'SELECT id, title, created_at, updated_at, provider_name FROM sessions WHERE id = ?',
+        'SELECT id, title, created_at, updated_at, provider_name, workspace_id FROM sessions WHERE id = ?',
       )
-      .get(sessionId) as { id: string; title: string; created_at: number; updated_at: number; provider_name: string | null } | undefined;
+      .get(sessionId) as { id: string; title: string; created_at: number; updated_at: number; provider_name: string | null; workspace_id: string | null } | undefined;
     if (!src) throw new NotFoundError(`session ${sessionId}`);
 
     // Read all messages with reasoning, in position order
@@ -308,9 +324,9 @@ export class HistoryStore {
     const tx = this.db.transaction(() => {
       this.db
         .prepare(
-          'INSERT INTO sessions (id, title, created_at, updated_at, provider_name) VALUES (?, ?, ?, ?, ?)',
+          'INSERT INTO sessions (id, title, created_at, updated_at, provider_name, workspace_id) VALUES (?, ?, ?, ?, ?, ?)',
         )
-        .run(newSessionId, src.title, now, now, src.provider_name);
+        .run(newSessionId, src.title, now, now, src.provider_name, src.workspace_id);
 
       slice.forEach((msg, i) => {
         const newMsgId = randomUUID();

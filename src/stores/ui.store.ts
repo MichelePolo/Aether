@@ -30,6 +30,10 @@ interface UiState {
   keyVaultFocusTransport: 'anthropic' | 'openai' | 'gemini' | null;
   openKeyVault(focus?: 'anthropic' | 'openai' | 'gemini'): void;
   closeKeyVault(): void;
+
+  workspaceBrowserOpen: boolean;
+  openWorkspaceBrowser(): void;
+  closeWorkspaceBrowser(): void;
   openLightbox(id: string): void;
   closeLightbox(): void;
 
@@ -74,6 +78,7 @@ const initial = {
   keyVaultFocusTransport: null as 'anthropic' | 'openai' | 'gemini' | null,
   lightboxAttachmentId: null as string | null,
   approvalGateState: null as { event: ToolCallRequestEvent; preview: PreviewResult } | null,
+  workspaceBrowserOpen: false,
 };
 
 function readBool(key: string, fallback: boolean): boolean {
@@ -128,6 +133,9 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   openKeyVault: (focus) => set({ keyVaultOpen: true, keyVaultFocusTransport: focus ?? null }),
   closeKeyVault: () => set({ keyVaultOpen: false, keyVaultFocusTransport: null }),
+
+  openWorkspaceBrowser: () => set({ workspaceBrowserOpen: true }),
+  closeWorkspaceBrowser: () => set({ workspaceBrowserOpen: false }),
 
   openLightbox: (id) => set({ lightboxAttachmentId: id }),
   closeLightbox: () => set({ lightboxAttachmentId: null }),

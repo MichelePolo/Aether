@@ -36,6 +36,7 @@ export interface SessionMeta {
   createdAt: number;
   updatedAt: number;
   providerName?: string;
+  workspaceId?: string;
 }
 
 export type SessionsFile = Record<string, SessionRecord>;

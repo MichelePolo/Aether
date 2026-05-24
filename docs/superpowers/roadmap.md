@@ -30,24 +30,13 @@ Forward-looking slice plan. Each entry is a stub — when we pick one up, the fu
 | 20 | Message attachments (images + text files) | `feat/slice-20-attachments` | ✅ |
 | 21 | 1-click coding MCPs (Filesystem + Terminal) | `feat/slice-21-one-click-mcps` | ✅ |
 | 22 | Agentic breakpoints + dry-run sandboxing | `feat/slice-22-breakpoints` | ✅ |
+| 23 | Native workspace management GUI | `feat/slice-23-workspaces` | ✅ |
 
 ## Planned
 
 ## Killer Features — agentic depth track
 
 Sequence chosen to build foundation (safety + zero-friction onboarding) before going wide with multi-agent orchestration. **RAG (codebase-aware vector + AST) deliberately excluded from this track** — it's a multi-slice arc that deserves its own future roadmap section.
-
-### Slice 23 — Native Workspace Management GUI
-
-**Branch:** `feat/slice-23-workspaces`
-
-**Scope:** a Workspaces sidebar pane with classic "Add Project / Open Folder" dialogs (server-side dialog via Electron-style native picker, OR a manual path-input fallback in the web). Each workspace = `{ id, name, rootPath, addedAt }` row. The Filesystem MCP from Slice 21 is parameterized by the active workspace's `rootPath`. Switching the active workspace re-targets the MCP server. SQLite-backed.
-
-**Likely touch:** migration `006_workspaces.sql`, `WorkspacesStore`, routes (`GET/POST/DELETE /api/workspaces`, `POST /api/workspaces/:id/activate`), FE `useWorkspacesStore` + `<WorkspacesSection>`, integration with slice 21's filesystem MCP.
-
-**Estimate:** 1 medium slice. Depends on Slice 21.
-
----
 
 ### Slice 24 — Headless Daemon + `aether-cli`
 

@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/src/test/msw-server';
 import { useSessionsStore } from './sessions.store';
 import { useChatStore } from './chat.store';
+import { workspacesApi } from '@/src/lib/api/workspaces.api';
 
 beforeEach(() => {
   useSessionsStore.getState()._reset();
@@ -528,5 +529,46 @@ describe('useSessionsStore edge cases', () => {
     }
     // Falls back to sessions[0] when localStorage read fails.
     expect(useSessionsStore.getState().activeSessionId).toBe('A');
+  });
+});
+
+describe('useSessionsStore — workspaces (slice 23)', () => {
+  beforeEach(() => useSessionsStore.getState()._reset?.());
+
+  it('setSessionWorkspace PATCHes then calls activateForSession', async () => {
+    const spy = vi.spyOn(workspacesApi, 'activateForSession').mockResolvedValue({ rooted: '/x' });
+    server.use(
+      http.patch('http://localhost/api/sessions/s1', () =>
+        HttpResponse.json({ id: 's1', title: 't', createdAt: 0, updatedAt: 1 }),
+      ),
+    );
+    useSessionsStore.setState({
+      sessions: [{ id: 's1', title: 't', createdAt: 0, updatedAt: 0 }],
+      activeSessionId: 's1',
+    } as Partial<ReturnType<typeof useSessionsStore.getState>>);
+    await useSessionsStore.getState().setSessionWorkspace('s1', 'w1');
+    expect(useSessionsStore.getState().sessions[0].workspaceId).toBe('w1');
+    expect(spy).toHaveBeenCalledWith('s1');
+    spy.mockRestore();
+  });
+
+  it('setActive calls workspacesApi.activateForSession (non-fatal on error)', async () => {
+    const spy = vi.spyOn(workspacesApi, 'activateForSession').mockRejectedValue(new Error('nope'));
+    server.use(
+      http.get('http://localhost/api/sessions/s2', () => HttpResponse.json({ messages: [] })),
+    );
+    useSessionsStore.setState({
+      sessions: [
+        { id: 's1', title: 't1', createdAt: 0, updatedAt: 0 },
+        { id: 's2', title: 't2', createdAt: 0, updatedAt: 0 },
+      ],
+      activeSessionId: 's1',
+    } as Partial<ReturnType<typeof useSessionsStore.getState>>);
+    useSessionsStore.getState().setActive('s2');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(spy).toHaveBeenCalledWith('s2');
+    expect(useSessionsStore.getState().activeSessionId).toBe('s2');
+    spy.mockRestore();
   });
 });

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { createApp } from '@/server/app';
 import { ContextStore } from '@/server/domain/context/context.store';
 import { HistoryStore } from '@/server/domain/history/history.store';
+import { WorkspacesStore } from '@/server/domain/workspaces/workspaces.store';
 import { makeTestDb } from '@/server/test/test-db';
 import type { DatabaseHandle } from '@/server/db/database';
 
@@ -130,5 +131,38 @@ describe('PATCH /api/history/:id providerName (slice-8)', () => {
     expect(res.body.title).toBe('new-title');
     const record = await historyStore.readRecord(meta.id);
     expect(record?.providerName).toBe('fake:default');
+  });
+});
+
+describe('PATCH /api/sessions/:id workspaceId (slice-23)', () => {
+  it('PATCH /:id accepts { workspaceId } and updates the row', async () => {
+    const db2 = makeTestDb();
+    db2
+      .prepare('INSERT INTO workspaces (id, name, root_path, added_at) VALUES (?, ?, ?, ?)')
+      .run('w1', 'proj', '/tmp/proj', Date.now());
+    const store = new HistoryStore(db2);
+    const workspaces = new WorkspacesStore(db2);
+    const meta = await store.createEmpty();
+    const app2 = createApp({ historyStore: store, workspacesStore: workspaces });
+    const res = await request(app2)
+      .patch(`/api/sessions/${meta.id}`)
+      .send({ workspaceId: 'w1' });
+    expect(res.status).toBe(200);
+    const list = await store.listSessions();
+    expect(list.find((s) => s.id === meta.id)?.workspaceId).toBe('w1');
+    db2.close();
+  });
+
+  it('PATCH /:id rejects { workspaceId } for unknown workspace with 400', async () => {
+    const db2 = makeTestDb();
+    const store = new HistoryStore(db2);
+    const workspaces = new WorkspacesStore(db2);
+    const meta = await store.createEmpty();
+    const app2 = createApp({ historyStore: store, workspacesStore: workspaces });
+    const res = await request(app2)
+      .patch(`/api/sessions/${meta.id}`)
+      .send({ workspaceId: 'ghost' });
+    expect(res.status).toBe(400);
+    db2.close();
   });
 });

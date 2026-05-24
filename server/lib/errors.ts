@@ -16,6 +16,11 @@ export class AppError extends Error {
     this.code = options.code ?? 'INTERNAL';
     this.cause = options.cause;
   }
+
+  // Alias used by some Express error middlewares.
+  get statusCode(): number {
+    return this.status;
+  }
 }
 
 export class ValidationError extends AppError {
