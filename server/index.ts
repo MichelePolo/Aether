@@ -13,6 +13,8 @@ import { ContextStore } from './domain/context/context.store';
 import { HistoryStore } from './domain/history/history.store';
 import { ProfilesStore } from './domain/profiles/profiles.store';
 import { SubAgentsStore } from './domain/subagents/subagents.store';
+import { WorkspacesStore } from './domain/workspaces/workspaces.store';
+import { FilesystemBrowserService } from './domain/workspaces/filesystem-browser.service';
 import { DispatchService } from './domain/dispatch/dispatch.service';
 import { FakeProvider } from './domain/dispatch/providers/fake.provider';
 import { GeminiProvider } from './domain/dispatch/providers/gemini.provider';
@@ -59,6 +61,9 @@ async function bootstrap() {
     },
   });
   const breakpointService = new BreakpointService({ mcpRegistry, policyStore });
+
+  const workspacesStore = new WorkspacesStore(db);
+  const filesystemBrowser = new FilesystemBrowserService();
 
   const fakeProvider = new FakeProvider({
     chunks: ['pong'],
@@ -173,6 +178,8 @@ async function bootstrap() {
     buildInfoRowsCtx,
     policyStore,
     previewService,
+    workspacesStore,
+    filesystemBrowser,
   });
 
   if (process.env.NODE_ENV !== 'production') {
