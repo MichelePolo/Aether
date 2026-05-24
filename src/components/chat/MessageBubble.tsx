@@ -49,7 +49,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
         onContextMenu={onContextMenu}
         title={tooltip}
         className={cn(
-          'max-w-[80%] rounded-lg px-3 py-2 text-sm',
+          'max-w-[65ch] rounded-lg px-3 py-2 text-sm',
           isUser
             ? 'bg-surface-4 text-zinc-100'
             : 'bg-surface-2 border border-border-subtle text-zinc-200',
@@ -59,10 +59,15 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
           <span className="whitespace-pre-wrap">{message.text}</span>
         ) : message.text.length === 0 && !isStreaming ? (
           <span className="italic text-zinc-500">{t('messageBubble.emptyResponse')}</span>
+        ) : isStreaming ? (
+          // Streaming-perf path: render plain text instead of re-parsing markdown per chunk.
+          <>
+            <span className="whitespace-pre-wrap">{message.text}</span>
+            <StreamingIndicator />
+          </>
         ) : (
           <div className="prose prose-invert prose-sm max-w-none">
             <ReactMarkdown>{message.text}</ReactMarkdown>
-            {isStreaming && <StreamingIndicator />}
           </div>
         )}
 
@@ -103,9 +108,10 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
             aria-label="Show reasoning"
             className="mt-2 text-[10px] text-zinc-500 hover:text-accent flex items-center gap-1"
           >
+            <span aria-hidden="true">{isThinkingNow ? '💭 ' : '🧠 '}</span>
             {isThinkingNow
-              ? `💭 ${t('messageBubble.thinkingNow')}`
-              : `🧠 ${t('messageBubble.stepsCount', { n: message.reasoningSteps!.length })}`}
+              ? t('messageBubble.thinkingNow')
+              : t('messageBubble.stepsCount', { n: message.reasoningSteps!.length })}
           </button>
         )}
 
