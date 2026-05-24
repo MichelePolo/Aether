@@ -67,6 +67,18 @@ describe('mcp routes', () => {
     expect(reg.policy('mock.echo')).toEqual({ autoApprove: false });
   });
 
+  it('PATCH /api/mcp/:id/tools/:name accepts { category } payload', async () => {
+    await request(app).post('/api/mcp/M1/connect');
+    const res = await request(app)
+      .patch('/api/mcp/M1/tools/echo')
+      .send({ category: 'dangerous' });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ category: 'dangerous' });
+    await request(app).post('/api/mcp/M1/disconnect');
+    await request(app).post('/api/mcp/M1/connect');
+    expect(reg.policy('mock.echo')).toEqual({ category: 'dangerous' });
+  });
+
   it('POST /api/mcp/decision resolves a pending decision', async () => {
     const decisionP = reg.awaitDecision('CID-1', 500);
     const res = await request(app)

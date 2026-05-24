@@ -35,6 +35,7 @@ type ProfilePolicyRow = {
   server_id: string;
   tool_name: string;
   auto_approve: number;
+  category: string | null;
 };
 
 function validateName(name: string): void {
@@ -85,14 +86,17 @@ export class ProfilesStore {
 
     const policyRows = this.db
       .prepare(
-        'SELECT server_id, tool_name, auto_approve FROM profile_mcp_tool_policies WHERE profile_id = ?',
+        'SELECT server_id, tool_name, auto_approve, category FROM profile_mcp_tool_policies WHERE profile_id = ?',
       )
       .all(id) as ProfilePolicyRow[];
 
     const policiesByServer = new Map<string, Record<string, McpToolPolicy>>();
     for (const p of policyRows) {
       const map = policiesByServer.get(p.server_id) ?? {};
-      map[p.tool_name] = { autoApprove: p.auto_approve === 1 };
+      const policy: McpToolPolicy = {};
+      if (p.auto_approve !== -1) policy.autoApprove = p.auto_approve === 1;
+      if (p.category) policy.category = p.category as McpToolPolicy['category'];
+      map[p.tool_name] = policy;
       policiesByServer.set(p.server_id, map);
     }
 
@@ -237,7 +241,7 @@ export class ProfilesStore {
       'INSERT INTO profile_mcp_servers (profile_id, server_id, name, transport, command, args, env, url, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     );
     const insertPolicy = this.db.prepare(
-      'INSERT INTO profile_mcp_tool_policies (profile_id, server_id, tool_name, auto_approve) VALUES (?, ?, ?, ?)',
+      'INSERT INTO profile_mcp_tool_policies (profile_id, server_id, tool_name, auto_approve, category) VALUES (?, ?, ?, ?, ?)',
     );
     for (const s of context.mcpServers) {
       insertServer.run(
@@ -253,7 +257,9 @@ export class ProfilesStore {
       );
       if (s.toolPolicies) {
         for (const [toolName, policy] of Object.entries(s.toolPolicies)) {
-          insertPolicy.run(profileId, s.id, toolName, policy.autoApprove ? 1 : 0);
+          const autoApprove = policy.autoApprove === undefined ? -1 : (policy.autoApprove ? 1 : 0);
+          const category = policy.category ?? null;
+          insertPolicy.run(profileId, s.id, toolName, autoApprove, category);
         }
       }
     }
