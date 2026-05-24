@@ -23,12 +23,17 @@ describe('BreakpointsSection', () => {
     expect(dangerousRow).toHaveTextContent(/gate/i);
   });
 
-  it('toggling a row dispatches setCategoryMode', async () => {
+  it('clicking AUTO on the dangerous radio group switches the mode', async () => {
     render(<BreakpointsSection />);
     const dangerousRow = screen.getAllByTestId('breakpoint-row')[1];
-    fireEvent.click(within(dangerousRow).getByRole('button'));
+    fireEvent.click(within(dangerousRow).getByRole('radio', { name: /auto/i }));
     await waitFor(() => {
       expect(useBreakpointsStore.getState().policy.dangerous).toBe('auto');
     });
+  });
+
+  it('renders a help tooltip trigger', () => {
+    render(<BreakpointsSection />);
+    expect(screen.getByLabelText(/what are breakpoints/i)).toBeInTheDocument();
   });
 });

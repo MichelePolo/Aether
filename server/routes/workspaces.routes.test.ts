@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpdir, homedir } from 'node:os';
 import express from 'express';
 import request from 'supertest';
 import { createWorkspacesRoutes } from './workspaces.routes';
@@ -106,12 +106,22 @@ describe('workspaces.routes', () => {
     expect(res.body.entries.map((e: { name: string }) => e.name)).toEqual(['a', 'b']);
   });
 
+  it('GET /api/workspaces/browse echoes the resolved absolute path it listed', async () => {
+    mkdirSync(join(dir, 'a'));
+    const db = makeTestDb();
+    const store = new WorkspacesStore(db);
+    const res = await request(makeApp({ store })).get('/api/workspaces/browse').query({ path: dir });
+    expect(res.status).toBe(200);
+    expect(res.body.path).toBe(dir);
+  });
+
   it('GET /api/workspaces/browse with no path uses homedir', async () => {
     const db = makeTestDb();
     const store = new WorkspacesStore(db);
     const res = await request(makeApp({ store })).get('/api/workspaces/browse');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.entries)).toBe(true);
+    expect(res.body.path).toBe(homedir());
   });
 
   it('GET /api/workspaces/browse with bad path returns 400', async () => {

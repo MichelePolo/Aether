@@ -1,8 +1,9 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/src/lib/cn';
+import { focusRing } from './focus';
 
-const iconButtonVariants = cva('icon-btn', {
+const iconButtonVariants = cva(`icon-btn ${focusRing}`, {
   variants: {
     variant: {
       default: '',

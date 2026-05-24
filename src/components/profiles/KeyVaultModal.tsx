@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useKeyVaultStore } from '@/src/stores/keyVault.store';
 import { useProviderAuthStore } from '@/src/stores/providerAuth.store';
 import { Modal } from '@/src/components/ui/Modal';
 import { cn } from '@/src/lib/cn';
+import { t } from '@/src/i18n/t';
 import type { VaultTransport } from '@/src/types/key-vault.types';
 import type { ProviderTransport } from '@/src/types/provider-auth.types';
 
@@ -58,13 +60,22 @@ function VaultRow({ transport, autoFocus, statusState }: VaultRowProps) {
   const [inputValue, setInputValue] = useState('');
   const [revealedText, setRevealedText] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [revealCountdown, setRevealCountdown] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-mask revealed text after 10s
+  // Auto-mask revealed text after 10s; surface a visible countdown.
   useEffect(() => {
-    if (!revealedText) return;
+    if (!revealedText) { setRevealCountdown(0); return; }
+    setRevealCountdown(10);
+    const tick = setInterval(() => setRevealCountdown((s) => Math.max(0, s - 1)), 1000);
     const timer = setTimeout(() => setRevealedText(null), 10_000);
-    return () => clearTimeout(timer);
+    return () => { clearInterval(tick); clearTimeout(timer); };
   }, [revealedText]);
+
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus();
+  }, [autoFocus]);
 
   // Revert "Confirm clear?" label after 4s
   useEffect(() => {
@@ -83,9 +94,14 @@ function VaultRow({ transport, autoFocus, statusState }: VaultRowProps) {
   const displayValue = revealedText ?? inputValue;
 
   const handleSave = async () => {
-    if (!inputValue.trim()) return;
-    await save(transport, inputValue.trim()).catch(() => {});
-    setInputValue('');
+    if (!inputValue.trim() || saving) return;
+    setSaving(true);
+    try {
+      await save(transport, inputValue.trim()).catch(() => {});
+      setInputValue('');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleClear = async () => {
@@ -123,9 +139,9 @@ function VaultRow({ transport, autoFocus, statusState }: VaultRowProps) {
       </div>
       <div className="flex items-center gap-1.5">
         <input
+          ref={inputRef}
           type={revealedText ? 'text' : 'password'}
           aria-label={`${LABEL[transport]} key`}
-          autoFocus={autoFocus}
           value={displayValue}
           onChange={(e) => {
             if (!revealedText) setInputValue(e.target.value);
@@ -133,11 +149,17 @@ function VaultRow({ transport, autoFocus, statusState }: VaultRowProps) {
           placeholder={masked || 'Enter API key…'}
           className="flex-1 min-w-0 bg-surface-2 border border-border-subtle rounded px-2 py-1 text-[11px] font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-accent/60"
         />
+        {revealedText && revealCountdown > 0 && (
+          <span className="text-[10px] font-mono text-zinc-600 whitespace-nowrap">
+            {t('keyVault.hidesIn', { seconds: revealCountdown })}
+          </span>
+        )}
         <button
           type="button"
           aria-label={`Save ${transport}`}
+          aria-busy={saving}
           onClick={handleSave}
-          disabled={!inputValue.trim()}
+          disabled={!inputValue.trim() || saving}
           className="px-2 py-1 rounded text-[10px] font-mono bg-accent/15 text-accent hover:bg-accent/25 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Save
@@ -146,11 +168,11 @@ function VaultRow({ transport, autoFocus, statusState }: VaultRowProps) {
           <>
             <button
               type="button"
-              aria-label={`Reveal ${transport}`}
+              aria-label={revealedText ? `Hide ${transport}` : `Reveal ${transport}`}
               onClick={handleReveal}
-              className="px-2 py-1 rounded text-[10px] font-mono bg-surface-2 text-zinc-400 hover:text-white border border-border-subtle"
+              className="px-2 py-1 rounded text-[10px] font-mono bg-surface-2 text-zinc-400 hover:text-white border border-border-subtle inline-flex items-center"
             >
-              {revealedText ? 'Hide' : 'Reveal'}
+              {revealedText ? <EyeOff size={12} aria-hidden="true" /> : <Eye size={12} aria-hidden="true" />}
             </button>
             <button
               type="button"

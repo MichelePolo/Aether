@@ -262,9 +262,9 @@ describe('useUiStore.lightbox', () => {
 
 describe('useUiStore.approvalGateState', () => {
   it('opens and closes', () => {
-    const ev = { id: 'c1', qualifiedName: 'fs.write_file', args: {} };
+    const ev = { callId: 'c1', qualifiedName: 'fs.write_file', args: {} };
     useUiStore.getState().openApprovalGate({ event: ev, preview: { kind: 'plain' } });
-    expect(useUiStore.getState().approvalGateState?.event.id).toBe('c1');
+    expect(useUiStore.getState().approvalGateState?.event.callId).toBe('c1');
     useUiStore.getState().closeApprovalGate();
     expect(useUiStore.getState().approvalGateState).toBeNull();
   });

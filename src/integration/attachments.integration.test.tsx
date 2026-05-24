@@ -103,7 +103,7 @@ describe('attachment flow integration', () => {
     );
 
     // Type a message and submit
-    const input = screen.getByPlaceholderText(/scrivi un messaggio/i);
+    const input = screen.getByPlaceholderText(/type a message/i);
     await user.type(input, 'see this');
     await user.keyboard('{Enter}');
 

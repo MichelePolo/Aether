@@ -14,9 +14,16 @@ export function CommandItem({ label, shortcut, icon: Icon }: CommandItemProps) {
       {shortcut && (
         <span
           data-testid="command-item-shortcut"
-          className="font-mono text-[10px] text-zinc-500 ml-2"
+          className="ml-2 inline-flex gap-1"
         >
-          {shortcut}
+          {shortcut.split('+').map((k, i) => (
+            <kbd
+              key={i}
+              className="px-1 py-0.5 text-[9px] font-mono bg-zinc-800 border border-border-subtle rounded text-zinc-400"
+            >
+              {k}
+            </kbd>
+          ))}
         </span>
       )}
     </div>

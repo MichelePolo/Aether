@@ -50,6 +50,8 @@ export function BuiltinMcpToggles() {
               {t !== 'filesystem' && <span className="flex-1" />}
               <button
                 type="button"
+                role="switch"
+                aria-checked={row.enabled}
                 aria-label={`Toggle ${LABEL[t]}`}
                 onClick={() => void toggle(t)}
                 className={cn(

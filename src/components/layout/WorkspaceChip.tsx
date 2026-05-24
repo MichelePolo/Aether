@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSessionsStore } from '@/src/stores/sessions.store';
 import { useWorkspacesStore } from '@/src/stores/workspaces.store';
+import { t } from '@/src/i18n/t';
 
 export function WorkspaceChip() {
   const activeId = useSessionsStore((s) => s.activeSessionId);
@@ -13,7 +14,7 @@ export function WorkspaceChip() {
   const ws = session?.workspaceId
     ? workspaces.find((w) => w.id === session.workspaceId)
     : undefined;
-  const label = ws ? ws.name : 'no workspace';
+  const label = ws ? ws.name : t('workspaceChip.noWorkspace');
 
   const pick = (id: string | null) => {
     setOpen(false);
@@ -25,7 +26,7 @@ export function WorkspaceChip() {
     <div className="relative">
       <button
         type="button"
-        aria-label="active workspace"
+        aria-label={t('workspaceChip.label')}
         onClick={() => setOpen((v) => !v)}
         className="px-2 py-1 text-[11px] font-mono text-zinc-300 border border-border-subtle rounded hover:bg-zinc-800"
       >
@@ -39,7 +40,7 @@ export function WorkspaceChip() {
             onClick={() => pick(null)}
             className="block w-full text-left px-2 py-1.5 text-[11px] text-zinc-500 hover:bg-zinc-800 italic"
           >
-            (no workspace)
+            {t('workspaceChip.noWorkspaceItalic')}
           </button>
           {workspaces.map((w) => (
             <button

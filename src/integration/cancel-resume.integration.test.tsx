@@ -68,16 +68,16 @@ describe('cancel + resume integration', () => {
 
     await waitFor(() => expect(useSessionsStore.getState().activeSessionId).toBeTruthy());
 
-    const input = screen.getByPlaceholderText(/scrivi un messaggio/i);
+    const input = screen.getByPlaceholderText(/type a message/i);
     await user.type(input, 'ciao');
     await user.keyboard('{Enter}');
 
     await waitFor(() => {
-      expect(screen.getByText(/Interrotto/)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /riprendi la risposta/i })).toBeInTheDocument();
+      expect(screen.getByText(/Interrupted/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: /riprendi la risposta/i }));
+    await user.click(screen.getByRole('button', { name: /resume/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/rest of the answer/)).toBeInTheDocument();

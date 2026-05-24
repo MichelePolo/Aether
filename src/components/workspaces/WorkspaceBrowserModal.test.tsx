@@ -14,10 +14,13 @@ vi.mock('@/src/lib/api/workspaces.api', () => ({
 
 describe('WorkspaceBrowserModal', () => {
   beforeEach(() => {
-    vi.mocked(workspacesApi.browse).mockReset().mockResolvedValue([
-      { name: 'sub-a', isDir: true },
-      { name: 'sub-b', isDir: true },
-    ]);
+    vi.mocked(workspacesApi.browse).mockReset().mockImplementation(async (path?: string) => ({
+      path: path ?? '/start',
+      entries: [
+        { name: 'sub-a', isDir: true },
+        { name: 'sub-b', isDir: true },
+      ],
+    }));
     vi.mocked(workspacesApi.create).mockReset().mockResolvedValue({
       id: 'w1', name: 'sub-a', rootPath: '/start/sub-a', addedAt: 0,
     });
@@ -25,9 +28,9 @@ describe('WorkspaceBrowserModal', () => {
     useWorkspacesStore.getState()._reset();
   });
 
-  it('renders null when closed', () => {
+  it('dialog has no open attribute when closed', () => {
     const { container } = render(<WorkspaceBrowserModal />);
-    expect(container.firstChild).toBeNull();
+    expect(container.querySelector('dialog')?.hasAttribute('open')).toBe(false);
   });
 
   it('lists browse entries when open', async () => {

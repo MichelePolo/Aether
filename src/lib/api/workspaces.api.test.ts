@@ -21,9 +21,10 @@ describe('workspacesApi (against MSW defaults)', () => {
     await expect(workspacesApi.remove('w1')).resolves.toBeUndefined();
   });
 
-  it('browse returns entries', async () => {
+  it('browse returns the resolved path and entries', async () => {
     const r = await workspacesApi.browse('/tmp');
-    expect(Array.isArray(r)).toBe(true);
+    expect(r.path).toBe('/tmp');
+    expect(Array.isArray(r.entries)).toBe(true);
   });
 
   it('activateForSession returns rooted', async () => {

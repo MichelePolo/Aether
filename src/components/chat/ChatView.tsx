@@ -7,6 +7,7 @@ import { MessageInput } from './MessageInput';
 import { AttachmentDropZone } from './AttachmentDropZone';
 import { AttachmentLightbox } from './AttachmentLightbox';
 import { AttachmentChips } from './AttachmentChips';
+import { t } from '@/src/i18n/t';
 
 export function ChatView() {
   const { send, abort, isStreaming } = useStreamingDispatch();
@@ -30,7 +31,7 @@ export function ChatView() {
   if (!activeSessionId) {
     return (
       <div className="flex-1 flex items-center justify-center text-zinc-500 text-sm p-4 text-center">
-        Nessuna sessione attiva. Crea una nuova sessione dalla sidebar.
+        {t('chatView.emptyState')}
       </div>
     );
   }

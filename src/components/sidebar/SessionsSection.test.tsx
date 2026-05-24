@@ -52,12 +52,12 @@ describe('SessionsSection', () => {
     expect(screen.getByText('second')).toBeInTheDocument();
   });
 
-  it('falls back to "Nuova sessione" when title is empty', () => {
+  it('falls back to "New session" when title is empty', () => {
     useSessionsStore.setState({
       sessions: [meta('A', '', 1)], activeSessionId: 'A', hydrated: true,
     });
     renderWithDialog();
-    expect(screen.getByText('Nuova sessione')).toBeInTheDocument();
+    expect(screen.getByText('New session')).toBeInTheDocument();
   });
 
   it('clicking a row calls setActive', async () => {

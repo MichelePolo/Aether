@@ -21,6 +21,7 @@ interface PendingCall {
 
 const INITIALIZE_TIMEOUT_MS = 5_000;
 const TOOLS_CALL_TIMEOUT_MS = 30_000;
+const MCP_PROTOCOL_VERSION = '2025-06-18';
 
 export class StdioMcpConnection implements McpConnection {
   readonly defaultAutoApprove = false;
@@ -55,7 +56,27 @@ export class StdioMcpConnection implements McpConnection {
     this.proc.stderr.on('data', (chunk: string) => {
       this.stderrBuf = (this.stderrBuf + chunk).slice(-4096);
     });
-    await this.rpc('initialize', {}, INITIALIZE_TIMEOUT_MS);
+    await this.rpc(
+      'initialize',
+      {
+        protocolVersion: MCP_PROTOCOL_VERSION,
+        capabilities: {},
+        clientInfo: { name: 'aether', version: '0.0.0' },
+      },
+      INITIALIZE_TIMEOUT_MS,
+    );
+    // Per the MCP lifecycle, the client confirms readiness after the response.
+    this.notify('notifications/initialized');
+  }
+
+  private notify(method: string, params?: unknown): void {
+    if (!this.proc) return;
+    const payload = JSON.stringify({ jsonrpc: '2.0', method, params }) + '\n';
+    try {
+      this.proc.stdin.write(payload);
+    } catch {
+      // best-effort
+    }
   }
 
   async listTools(): Promise<McpTool[]> {

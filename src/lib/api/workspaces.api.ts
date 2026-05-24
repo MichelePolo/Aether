@@ -34,12 +34,11 @@ export const workspacesApi = {
     if (!res.ok) throw new Error(`Request failed: ${res.status}`);
   },
 
-  browse: async (path?: string): Promise<BrowseEntry[]> => {
+  browse: async (path?: string): Promise<{ path: string; entries: BrowseEntry[] }> => {
     const qs = path ? `?path=${encodeURIComponent(path)}` : '';
-    const r = await jsonOrThrow<{ entries: BrowseEntry[] }>(
+    return jsonOrThrow<{ path: string; entries: BrowseEntry[] }>(
       await fetch(`/api/workspaces/browse${qs}`),
     );
-    return r.entries;
   },
 
   activateForSession: async (sessionId: string): Promise<{ rooted: string | null }> =>

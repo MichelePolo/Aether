@@ -11,6 +11,11 @@ export interface MentionPopoverProps {
 export function MentionPopover({ open, items, onSelect, onClose }: MentionPopoverProps) {
   const [index, setIndex] = useState(0);
   const indexRef = useRef(0);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  useEffect(() => {
+    itemRefs.current[index]?.scrollIntoView({ block: 'nearest' });
+  }, [index]);
 
   const updateIndex = (next: number) => {
     indexRef.current = next;
@@ -61,6 +66,7 @@ export function MentionPopover({ open, items, onSelect, onClose }: MentionPopove
       {items.map((item, i) => (
         <button
           key={item.id}
+          ref={(el) => { itemRefs.current[i] = el; }}
           type="button"
           role="option"
           aria-selected={i === index}

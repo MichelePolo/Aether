@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type ChangeEvent } from 'react';
 import { Send, Square, Brain, Paperclip } from 'lucide-react';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
@@ -9,11 +9,19 @@ import { isImageMime } from '@/src/types/attachment.types';
 import { cn } from '@/src/lib/cn';
 import { computeMentionState, type MentionState } from '@/src/hooks/useMentionAutocomplete';
 import { MentionPopover } from './MentionPopover';
+import { t } from '@/src/i18n/t';
 
 export interface MessageInputProps {
   onSend: (text: string) => void;
   onStop: () => void;
   isStreaming: boolean;
+}
+
+function autoGrow(el: HTMLTextAreaElement): void {
+  el.style.height = 'auto';
+  const maxRows = 12;
+  const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20;
+  el.style.height = `${Math.min(el.scrollHeight, maxRows * lineHeight)}px`;
 }
 
 export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps) {
@@ -41,9 +49,14 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
 
   const onChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setValue(e.target.value);
+    autoGrow(e.target);
     const caret = e.target.selectionStart ?? e.target.value.length;
     setMention(computeMentionState(e.target.value, caret));
   };
+
+  useEffect(() => {
+    if (textareaRef.current) autoGrow(textareaRef.current);
+  }, [value]);
 
   const submit = () => {
     const trimmed = value.trim();
@@ -133,8 +146,8 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
           onClick={() => setThinkingEnabled(!thinkingEnabled)}
           title={
             thinkingSupported
-              ? (thinkingEnabled ? 'Thinking enabled (slower, shows reasoning)' : 'Thinking disabled')
-              : `Thinking not supported by ${activeProviderName ?? 'this provider'}`
+              ? (thinkingEnabled ? t('messageInput.thinkingEnabled') : t('messageInput.thinkingDisabled'))
+              : t('messageInput.thinkingUnsupported', { provider: activeProviderName ?? 'this provider' })
           }
           className={cn(
             'p-2 rounded transition-colors',
@@ -149,6 +162,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
+            id="message-input"
             value={value}
             onChange={onChange}
             onKeyDown={onKey}
@@ -156,8 +170,8 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
             disabled={isStreaming}
             placeholder={
               isStreaming
-                ? 'Streaming…'
-                : 'Scrivi un messaggio. Enter per inviare, Shift+Enter per a capo.'
+                ? t('messageInput.streaming')
+                : t('messageInput.placeholder')
             }
             rows={2}
             className="w-full bg-surface-1 border border-border-subtle rounded text-sm p-2 resize-none focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
@@ -168,6 +182,13 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
             onSelect={handleMentionSelect}
             onClose={handleMentionClose}
           />
+          <span
+            data-testid="input-token-chip"
+            aria-live="polite"
+            className="absolute bottom-1 right-2 text-[9px] font-mono text-zinc-600 pointer-events-none"
+          >
+            ~{Math.ceil(value.length / 4)} tokens
+          </span>
         </div>
         {isStreaming ? (
           <button
@@ -183,7 +204,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
             type="button"
             aria-label="Send"
             onClick={submit}
-            title={visionBlocked ? 'Selected provider does not support images' : undefined}
+            title={visionBlocked ? t('messageInput.visionUnsupported') : undefined}
             disabled={!canSend}
             className="p-2 rounded bg-accent/20 hover:bg-accent/30 text-accent disabled:opacity-30"
           >

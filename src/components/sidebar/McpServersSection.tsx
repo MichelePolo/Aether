@@ -1,4 +1,4 @@
-import { RefreshCw } from 'lucide-react';
+import { Power, PowerOff, RefreshCw, X } from 'lucide-react';
 import { addMcpFlow } from '@/src/lib/context/addFlows';
 import { useContextStore } from '@/src/stores/context.store';
 import { useMcpStore } from '@/src/stores/mcp.store';
@@ -64,7 +64,7 @@ export function McpServersSection() {
                   <span className="text-[10px] font-mono text-zinc-500">{server.name}</span>
                   <div className="flex items-center gap-2">
                     {isReconnecting ? (
-                      <span className="text-[10px] font-mono text-zinc-400">
+                      <span aria-live="polite" className="text-[10px] font-mono text-zinc-400">
                         reconnecting{recon ? ` (${recon.attempt}/${recon.max})` : ''}
                       </span>
                     ) : isOnline ? (
@@ -73,17 +73,17 @@ export function McpServersSection() {
                           type="button"
                           onClick={() => disconnect(server.id).catch(() => {})}
                           aria-label={`Disconnect ${server.name}`}
-                          className="text-[10px] text-zinc-400 hover:text-white"
+                          className="text-zinc-400 hover:text-white w-6 h-6 inline-flex items-center justify-center"
                         >
-                          Disconnect
+                          <PowerOff size={14} aria-hidden="true" />
                         </button>
                         <button
                           type="button"
                           onClick={() => refreshServer(server.id).catch(() => {})}
                           aria-label={`Refresh ${server.name}`}
-                          className="text-zinc-400 hover:text-white"
+                          className="text-zinc-400 hover:text-white w-6 h-6 inline-flex items-center justify-center"
                         >
-                          <RefreshCw size={10} />
+                          <RefreshCw size={14} aria-hidden="true" />
                         </button>
                       </>
                     ) : (
@@ -92,17 +92,17 @@ export function McpServersSection() {
                         onClick={() => connect(server.id).catch(() => {})}
                         disabled={state === 'connecting'}
                         aria-label={`Connect ${server.name}`}
-                        className="text-[10px] text-accent hover:text-white disabled:opacity-50"
+                        className="text-accent hover:text-white disabled:opacity-50 w-6 h-6 inline-flex items-center justify-center"
                       >
-                        {state === 'connecting' ? '…' : 'Connect'}
+                        {state === 'connecting' ? '…' : <Power size={14} aria-hidden="true" />}
                       </button>
                     )}
                     <button
                       onClick={() => handleRemove(server.id, server.name)}
                       aria-label={`Remove ${server.name}`}
-                      className="hidden group-hover:inline hover:text-red-400 text-zinc-500"
+                      className="hidden group-hover:inline hover:text-red-400 text-zinc-500 w-6 h-6 items-center justify-center"
                     >
-                      ×
+                      <X size={12} aria-hidden="true" />
                     </button>
                     <StatusDot
                       status={state === 'online' ? 'online' : state === 'connecting' ? 'connecting' : state === 'error' ? 'error' : 'offline'}
@@ -114,7 +114,7 @@ export function McpServersSection() {
                   <div className="text-[9px] font-mono text-zinc-600 truncate">{String(server.url)}</div>
                 )}
                 {err && (
-                  <div className="text-[9px] font-mono text-status-error flex items-center gap-1">
+                  <div role="alert" className="text-[9px] font-mono text-status-error flex items-center gap-1">
                     <span className="flex-1">⚠ {err}</span>
                     <button
                       type="button"
@@ -135,6 +135,11 @@ export function McpServersSection() {
                         onPolicyChange={(policy) => setPolicy(server.id, t.tool.name, policy).catch(() => {})}
                       />
                     ))}
+                  </div>
+                )}
+                {isOnline && tools.length === 0 && (
+                  <div className="mt-1 text-[9px] font-mono text-zinc-600 italic">
+                    (no tools available)
                   </div>
                 )}
               </div>

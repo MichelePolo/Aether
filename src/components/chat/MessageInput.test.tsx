@@ -106,7 +106,7 @@ describe('MessageInput', () => {
     });
     const user = userEvent.setup();
     render(<MessageInput onSend={() => {}} onStop={() => {}} isStreaming={false} />);
-    const ta = screen.getByPlaceholderText(/scrivi un messaggio/i);
+    const ta = screen.getByPlaceholderText(/type a message/i);
     await user.click(ta);
     await user.keyboard('@d');
     expect(screen.getByText('designer')).toBeInTheDocument();
@@ -119,7 +119,7 @@ describe('MessageInput', () => {
     });
     const user = userEvent.setup();
     render(<MessageInput onSend={() => {}} onStop={() => {}} isStreaming={false} />);
-    const ta = screen.getByPlaceholderText(/scrivi un messaggio/i) as HTMLTextAreaElement;
+    const ta = screen.getByPlaceholderText(/type a message/i) as HTMLTextAreaElement;
     await user.click(ta);
     await user.keyboard('@des');
     await user.keyboard('{Enter}');
@@ -185,7 +185,7 @@ describe('MessageInput — attachments', () => {
     const queueSpy = vi.fn(async () => {});
     useChatStore.setState({ queueAttachments: queueSpy });
     render(<MessageInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />);
-    const textarea = screen.getByPlaceholderText(/scrivi un messaggio/i);
+    const textarea = screen.getByPlaceholderText(/type a message/i);
     const file = new File(['x'], 'a.png', { type: 'image/png' });
     fireEvent.paste(textarea, { clipboardData: { files: [file] } });
     expect(queueSpy).toHaveBeenCalledWith([file]);
@@ -209,7 +209,7 @@ describe('MessageInput — attachments', () => {
   it('Send button enabled when only text in textarea (no attachments)', async () => {
     const user = userEvent.setup();
     render(<MessageInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />);
-    const textarea = screen.getByPlaceholderText(/scrivi un messaggio/i);
+    const textarea = screen.getByPlaceholderText(/type a message/i);
     await user.type(textarea, 'hello');
     const sendBtn = screen.getByLabelText(/^Send$/i);
     expect(sendBtn).not.toBeDisabled();

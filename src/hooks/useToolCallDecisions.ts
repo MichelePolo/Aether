@@ -5,7 +5,7 @@ import { breakpointsApi } from '@/src/lib/api/breakpoints.api';
 import { mcpApi } from '@/src/lib/api/mcp.api';
 
 export interface ToolCallRequestEvent {
-  id: string;
+  callId: string;
   qualifiedName: string;
   args: Record<string, unknown>;
 }
@@ -22,7 +22,7 @@ export function useToolCallDecisions(): void {
     const handler: Listener = (ev) => {
       const sticky = useChatStore.getState().stickyApprovals;
       if (sticky.has(ev.qualifiedName)) {
-        void mcpApi.decide(ev.id, 'approve').catch(() => {});
+        void mcpApi.decide(ev.callId, 'approve').catch(() => {});
         return;
       }
       void (async () => {

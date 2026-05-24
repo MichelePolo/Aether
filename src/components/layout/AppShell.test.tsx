@@ -13,17 +13,20 @@ describe('AppShell', () => {
     expect(screen.getByText('MAIN')).toBeInTheDocument();
   });
 
-  it('omits sidebar when closed', () => {
+  it('hides sidebar when closed (kept mounted so scroll state persists)', () => {
     render(
       <AppShell sidebarOpen={false} sidebar={<div>SIDE</div>}>
         <div>MAIN</div>
       </AppShell>,
     );
-    expect(screen.queryByText('SIDE')).not.toBeInTheDocument();
+    // Sidebar element is still in the DOM but its <aside> wrapper carries `hidden`.
+    expect(screen.getByText('SIDE')).toBeInTheDocument();
+    const aside = screen.getByLabelText('Sidebar');
+    expect(aside.className).toContain('hidden');
     expect(screen.getByText('MAIN')).toBeInTheDocument();
   });
 
-  it('renders main region with landmark role', () => {
+  it('renders main region with main landmark', () => {
     render(
       <AppShell sidebarOpen sidebar={<div />}>
         <div>main content</div>

@@ -29,10 +29,18 @@ export function MessageList({ onRetry }: MessageListProps) {
   return (
     <div
       ref={containerRef}
+      role="log"
+      aria-live="polite"
+      aria-label="Conversation"
       className="flex-1 overflow-y-auto p-4 flex flex-col gap-3"
     >
       {ids.map((id) => (
-        <MessageBubble key={id} id={id} onRetry={onRetry} />
+        <div
+          key={id}
+          style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 200px' } as React.CSSProperties}
+        >
+          <MessageBubble id={id} onRetry={onRetry} />
+        </div>
       ))}
     </div>
   );

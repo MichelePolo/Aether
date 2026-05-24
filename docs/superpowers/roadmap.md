@@ -31,6 +31,7 @@ Forward-looking slice plan. Each entry is a stub — when we pick one up, the fu
 | 21 | 1-click coding MCPs (Filesystem + Terminal) | `feat/slice-21-one-click-mcps` | ✅ |
 | 22 | Agentic breakpoints + dry-run sandboxing | `feat/slice-22-breakpoints` | ✅ |
 | 23 | Native workspace management GUI | `feat/slice-23-workspaces` | ✅ |
+| 24-ux | UX/a11y fixes (dialog, tooltip, focus-visible, ApprovalGate hardening, i18n) | `feat/slice-24-ux-fixes` | ✅ |
 
 ## Planned
 

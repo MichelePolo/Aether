@@ -35,12 +35,15 @@ beforeEach(() => {
 
 describe('workspaces integration', () => {
   it('add workspace → browser modal → create → row appears in sidebar', async () => {
+    let createdRootPath = '';
     server.use(
-      http.get('http://localhost/api/workspaces/browse', () =>
-        HttpResponse.json({ entries: [{ name: 'project-a', isDir: true }] }),
-      ),
+      http.get('http://localhost/api/workspaces/browse', ({ request }) => {
+        const path = new URL(request.url).searchParams.get('path') ?? '/home/user';
+        return HttpResponse.json({ path, entries: [{ name: 'project-a', isDir: true }] });
+      }),
       http.post('http://localhost/api/workspaces', async ({ request }) => {
         const body = (await request.json()) as { name: string; rootPath: string };
+        createdRootPath = body.rootPath;
         return HttpResponse.json(
           { id: 'w-int-1', name: body.name, rootPath: body.rootPath, addedAt: Date.now() },
           { status: 201 },
@@ -70,5 +73,7 @@ describe('workspaces integration', () => {
     await waitFor(() =>
       expect(useWorkspacesStore.getState().workspaces.length).toBe(1),
     );
+    // Descending must build an absolute path from the server-echoed base, not a bare entry name.
+    expect(createdRootPath).toBe('/home/user/project-a');
   });
 });

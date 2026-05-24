@@ -60,7 +60,7 @@ export function createWorkspacesRoutes(deps: WorkspacesRoutesDeps): Router {
         : (os.homedir?.() ?? process.cwd());
       try {
         const entries = await deps.browser.browse(path);
-        res.json({ entries });
+        res.json({ path, entries });
       } catch (e: unknown) {
         throw new ValidationError(
           `Cannot list directory: ${(e as { message?: string }).message ?? String(e)}`,

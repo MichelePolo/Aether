@@ -210,9 +210,16 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
   setActive: (id) => {
     if (useChatStore.getState().streamingId !== null) return;
     if (get().activeSessionId === id) return;
-    persistActive(id);
-    set({ activeSessionId: id, error: null });
-    useChatStore.getState().reset();
+    const run = () => {
+      persistActive(id);
+      set({ activeSessionId: id, error: null });
+      useChatStore.getState().reset();
+    };
+    if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+      (document as Document & { startViewTransition: (cb: () => void) => unknown }).startViewTransition(run);
+    } else {
+      run();
+    }
     // Slice 23: reroot Filesystem MCP for this session's workspace (fire-and-forget).
     workspacesApi.activateForSession(id).catch(() => {});
     const token = ++hydrationToken;
