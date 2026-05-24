@@ -1,6 +1,6 @@
 import { useCallback, useState, type DragEvent, type PropsWithChildren } from 'react';
 import { useChatStore } from '@/src/stores/chat.store';
-import { cn } from '@/src/lib/cn';
+import { t } from '@/src/i18n/t';
 
 export function AttachmentDropZone({ children }: PropsWithChildren) {
   const queueAttachments = useChatStore((s) => s.queueAttachments);
@@ -39,12 +39,19 @@ export function AttachmentDropZone({ children }: PropsWithChildren) {
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className={cn(
-        'relative h-full',
-        active && 'outline outline-2 outline-accent/40 outline-offset-[-4px]',
-      )}
+      className="relative h-full"
     >
       {children}
+      {active && (
+        <div
+          data-testid="drop-overlay"
+          className="absolute inset-0 z-40 flex items-center justify-center bg-accent/10 border-2 border-dashed border-accent pointer-events-none"
+        >
+          <div className="bg-surface-2 border border-accent/40 rounded px-4 py-3 text-sm font-mono text-accent">
+            {t('attachmentDropZone.dropHere')}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
