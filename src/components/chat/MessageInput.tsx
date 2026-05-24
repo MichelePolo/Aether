@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type ChangeEvent } from 'react';
 import { Send, Square, Brain, Paperclip } from 'lucide-react';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
@@ -15,6 +15,13 @@ export interface MessageInputProps {
   onSend: (text: string) => void;
   onStop: () => void;
   isStreaming: boolean;
+}
+
+function autoGrow(el: HTMLTextAreaElement): void {
+  el.style.height = 'auto';
+  const maxRows = 12;
+  const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20;
+  el.style.height = `${Math.min(el.scrollHeight, maxRows * lineHeight)}px`;
 }
 
 export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps) {
@@ -42,9 +49,14 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
 
   const onChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setValue(e.target.value);
+    autoGrow(e.target);
     const caret = e.target.selectionStart ?? e.target.value.length;
     setMention(computeMentionState(e.target.value, caret));
   };
+
+  useEffect(() => {
+    if (textareaRef.current) autoGrow(textareaRef.current);
+  }, [value]);
 
   const submit = () => {
     const trimmed = value.trim();
@@ -170,6 +182,13 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
             onSelect={handleMentionSelect}
             onClose={handleMentionClose}
           />
+          <span
+            data-testid="input-token-chip"
+            aria-live="polite"
+            className="absolute bottom-1 right-2 text-[9px] font-mono text-zinc-600 pointer-events-none"
+          >
+            ~{Math.ceil(value.length / 4)} tokens
+          </span>
         </div>
         {isStreaming ? (
           <button
