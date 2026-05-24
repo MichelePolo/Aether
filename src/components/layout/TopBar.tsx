@@ -3,6 +3,7 @@ import { ProfilesButton } from '@/src/components/profiles/ProfilesButton';
 import { ProviderSelector } from '@/src/components/providers/ProviderSelector';
 import { TokenChip } from './TokenChip';
 import { WorkspaceChip } from './WorkspaceChip';
+import { useUiStore } from '@/src/stores/ui.store';
 
 export interface TopBarProps {
   title: string;
@@ -11,8 +12,9 @@ export interface TopBarProps {
 }
 
 export function TopBar({ title, sidebarOpen, onToggleSidebar }: TopBarProps) {
+  const openPalette = useUiStore((s) => s.openPalette);
   return (
-    <header className="h-12 border-b border-border-subtle flex items-center px-4 bg-surface-2 sticky top-0 z-10">
+    <header className="h-12 border-b border-border-subtle flex items-center gap-2 px-4 bg-surface-2 sticky top-0 z-10">
       <IconButton
         label="Toggle sidebar"
         onClick={onToggleSidebar}
@@ -25,10 +27,20 @@ export function TopBar({ title, sidebarOpen, onToggleSidebar }: TopBarProps) {
         </svg>
       </IconButton>
       <span className="ml-3 font-mono text-sm tracking-tight text-white font-bold">{title}</span>
-      <ProfilesButton />
-      <TokenChip />
-      <WorkspaceChip />
-      <ProviderSelector />
+      <button
+        type="button"
+        aria-label="Open command palette"
+        onClick={openPalette}
+        className="ml-2 px-1.5 py-0.5 rounded border border-border-subtle text-zinc-500 hover:text-zinc-300"
+      >
+        <kbd className="font-mono text-[9px]">⌘K</kbd>
+      </button>
+      <div className="ml-auto flex items-center gap-2">
+        <ProfilesButton />
+        <TokenChip />
+        <WorkspaceChip />
+        <ProviderSelector />
+      </div>
     </header>
   );
 }
