@@ -3,6 +3,7 @@ import { useProfilesStore } from '@/src/stores/profiles.store';
 import { useDialog } from '@/src/hooks/useDialog';
 import { useExportImport } from '@/src/hooks/useExportImport';
 import { Modal } from '@/src/components/ui/Modal';
+import { Button } from '@/src/components/ui/Button';
 import { ProfilesTable } from './ProfilesTable';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -56,7 +57,7 @@ export function ProfilesModal() {
   const handleDelete = async (id: string, name: string) => {
     const ok = await dialog.confirm({
       title: 'Delete profile',
-      message: `Delete "${name}"?`,
+      message: `Delete "${name}"? This will delete the profile's system instruction, skills, tools, and MCP server configuration.`,
       destructive: true,
     });
     if (ok) await remove(id).catch(() => {});
@@ -73,25 +74,17 @@ export function ProfilesModal() {
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleSaveCurrent}
-              className="px-2 py-1 rounded text-[10px] uppercase tracking-widest font-bold bg-accent/15 text-accent hover:bg-accent/25"
-            >
+            <Button variant="primary" size="sm" onClick={handleSaveCurrent}>
               + Save current as new
-            </button>
-            <button
-              type="button"
-              onClick={handleImport}
-              className="px-2 py-1 rounded text-[10px] uppercase tracking-widest font-bold bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-            >
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleImport}>
               ↑ Import
-            </button>
+            </Button>
           </div>
         </div>
 
         {error && (
-          <div className="p-1.5 rounded bg-status-error/10 border border-status-error/40 text-status-error text-[10px] flex items-center gap-2">
+          <div role="alert" className="p-1.5 rounded bg-status-error/10 border border-status-error/40 text-status-error text-[10px] flex items-center gap-2">
             <span className="flex-1">⚠ {error}</span>
             <button
               type="button"
@@ -104,15 +97,21 @@ export function ProfilesModal() {
           </div>
         )}
 
-        <ProfilesTable
-          profiles={profiles}
-          activeId={activeId}
-          onApply={handleApply}
-          onSaveHere={handleSaveHere}
-          onRename={handleRename}
-          onExport={(id) => exportProfile(id).catch(() => {})}
-          onDelete={handleDelete}
-        />
+        {profiles.length === 0 ? (
+          <div className="text-zinc-500 text-sm text-center py-8">
+            No profiles yet. Save your current context as a profile to switch between setups.
+          </div>
+        ) : (
+          <ProfilesTable
+            profiles={profiles}
+            activeId={activeId}
+            onApply={handleApply}
+            onSaveHere={handleSaveHere}
+            onRename={handleRename}
+            onExport={(id) => exportProfile(id).catch(() => {})}
+            onDelete={handleDelete}
+          />
+        )}
       </div>
     </Modal>
   );
