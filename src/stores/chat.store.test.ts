@@ -206,3 +206,22 @@ describe('chat.store.queuedAttachments', () => {
     expect(useChatStore.getState().queuedAttachments).toHaveLength(0);
   });
 });
+
+describe('useChatStore stickyApprovals', () => {
+  beforeEach(() => useChatStore.getState()._reset());
+
+  it('starts empty', () => {
+    expect(useChatStore.getState().stickyApprovals.size).toBe(0);
+  });
+
+  it('addStickyApproval adds the tool name', () => {
+    useChatStore.getState().addStickyApproval('fs.write_file');
+    expect(useChatStore.getState().stickyApprovals.has('fs.write_file')).toBe(true);
+  });
+
+  it('reset clears stickyApprovals', () => {
+    useChatStore.getState().addStickyApproval('fs.write_file');
+    useChatStore.getState().reset();
+    expect(useChatStore.getState().stickyApprovals.size).toBe(0);
+  });
+});
