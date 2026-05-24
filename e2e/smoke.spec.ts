@@ -520,3 +520,20 @@ test('builtin MCPs: 2 toggle rows visible, click Filesystem twice to toggle on/o
 
   await expect(rows).toHaveCount(2);
 });
+
+test('breakpoints: sidebar shows 3 rows + toggling dangerous flips its mode', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('AETHER_CORE').waitFor();
+
+  await expect(page.getByText('Breakpoints')).toBeVisible();
+  const rows = page.getByTestId('breakpoint-row');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(1)).toContainText('gate');
+
+  await page.getByLabel('Toggle Dangerous mode').click();
+  await expect(rows.nth(1)).toContainText('auto', { timeout: 3000 });
+
+  // Flip back so this test leaves no side effects on the shared dev server.
+  await page.getByLabel('Toggle Dangerous mode').click();
+  await expect(rows.nth(1)).toContainText('gate', { timeout: 3000 });
+});

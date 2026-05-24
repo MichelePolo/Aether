@@ -29,26 +29,13 @@ Forward-looking slice plan. Each entry is a stub — when we pick one up, the fu
 | 19 | Conversation forking + token-only context meter | `feat/slice-19-fork-and-meter` | ✅ |
 | 20 | Message attachments (images + text files) | `feat/slice-20-attachments` | ✅ |
 | 21 | 1-click coding MCPs (Filesystem + Terminal) | `feat/slice-21-one-click-mcps` | ✅ |
+| 22 | Agentic breakpoints + dry-run sandboxing | `feat/slice-22-breakpoints` | ✅ |
 
 ## Planned
 
 ## Killer Features — agentic depth track
 
 Sequence chosen to build foundation (safety + zero-friction onboarding) before going wide with multi-agent orchestration. **RAG (codebase-aware vector + AST) deliberately excluded from this track** — it's a multi-slice arc that deserves its own future roadmap section.
-
-### Slice 22 — Agentic Breakpoints + Dry-Run Sandboxing
-
-**Branch:** `feat/slice-22-breakpoints`
-
-**Scope:** generalize the existing per-tool `autoApprove` flag (slice 7) into a per-category breakpoints policy. Categories include `dangerous` (irreversible filesystem writes / git rebase / DB drops), `external` (production API calls), and `safe` (everything else; default auto-approve). Before any `dangerous` tool call, the dispatch loop pauses and surfaces a diff/plan + `Y/N` approval gate in a new `<ApprovalGate>` modal. Approval decisions can be made per-call or sticky-per-session.
-
-**Likely touch:** `ContextStore` schema for breakpoint policies; `mcpRegistry.callTool` honors the new category; new SSE event `tool_call_approval_required`; FE `<ApprovalGate>` modal + `useChatStore` pending-approval state; useToolCallDecisions extension; tests.
-
-**Estimate:** 1 medium slice. **Pairs naturally with Slice 21** if you want one bundle.
-
-**Builds on:** Slice 7 (MCP tool loop) + slice 9 (sub-agents — they inherit the same policy).
-
----
 
 ### Slice 23 — Native Workspace Management GUI
 
