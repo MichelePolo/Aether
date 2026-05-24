@@ -1,9 +1,10 @@
 import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/src/lib/cn';
+import { focusRing } from './focus';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center font-mono rounded transition-colors disabled:opacity-30 disabled:pointer-events-none',
+  `inline-flex items-center justify-center font-mono rounded transition-colors disabled:opacity-30 disabled:pointer-events-none ${focusRing}`,
   {
     variants: {
       variant: {
