@@ -16,17 +16,20 @@ beforeEach(() => {
 });
 
 describe('ReasoningDrawer', () => {
-  it('renders nothing when drawer is closed', () => {
+  it('drawer is hidden when closed (translate-x-full)', () => {
     useUiStore.setState({ reasoningDrawerOpen: false });
     const { container } = render(<ReasoningDrawer />);
-    expect(container.firstChild).toBeNull();
+    const drawer = container.querySelector('aside');
+    expect(drawer).not.toBeNull();
+    expect(drawer!.className).toMatch(/translate-x-full/);
+    expect(drawer!.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('renders when open with empty state', () => {
     useUiStore.setState({ reasoningDrawerOpen: true });
     render(<ReasoningDrawer />);
     expect(screen.getByRole('complementary', { name: /reasoning/i })).toBeInTheDocument();
-    expect(screen.getByText(/Nessuno step/i)).toBeInTheDocument();
+    expect(screen.getByText(/No steps/i)).toBeInTheDocument();
   });
 
   it('close button calls closeReasoningDrawer', async () => {
