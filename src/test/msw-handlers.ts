@@ -46,7 +46,7 @@ export const handlers = [
     new HttpResponse(null, { status: 204 }),
   ),
   http.get('http://localhost/api/workspaces/browse', () =>
-    HttpResponse.json({ entries: [{ name: 'sub', isDir: true }] }),
+    HttpResponse.json({ entries: [{ name: 'sub', path: '/home/sub', isDir: true }] }),
   ),
   http.post('http://localhost/api/workspaces/activate-for-session', () =>
     HttpResponse.json({ rooted: null }),

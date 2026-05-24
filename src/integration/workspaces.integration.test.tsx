@@ -37,7 +37,7 @@ describe('workspaces integration', () => {
   it('add workspace → browser modal → create → row appears in sidebar', async () => {
     server.use(
       http.get('http://localhost/api/workspaces/browse', () =>
-        HttpResponse.json({ entries: [{ name: 'project-a', isDir: true }] }),
+        HttpResponse.json({ entries: [{ name: 'project-a', path: '/home/project-a', isDir: true }] }),
       ),
       http.post('http://localhost/api/workspaces', async ({ request }) => {
         const body = (await request.json()) as { name: string; rootPath: string };

@@ -28,6 +28,16 @@ describe('StdioMcpConnection', () => {
     expect(tools.map((t) => t.name)).toEqual(['echo', 'slow']);
   });
 
+  it('performs a spec-compliant handshake (params + initialized) so strict servers accept it', async () => {
+    // The fixture (like the real MCP SDK) rejects initialize without
+    // protocolVersion/capabilities/clientInfo, and refuses tools/list until it
+    // receives notifications/initialized. Reaching tools here proves the client
+    // sends a complete handshake — the gap that made server-filesystem 500.
+    await conn.initialize();
+    const tools = await conn.listTools();
+    expect(tools.map((t) => t.name)).toContain('echo');
+  });
+
   it('callTool echo returns text content', async () => {
     await conn.initialize();
     const res = await conn.callTool('echo', { message: 'hello' });

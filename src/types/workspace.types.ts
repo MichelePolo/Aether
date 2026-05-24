@@ -7,5 +7,7 @@ export interface Workspace {
 
 export interface BrowseEntry {
   name: string;
+  /** Absolute path to the entry, used by the client to descend without relative resolution. */
+  path: string;
   isDir: boolean;
 }

@@ -15,8 +15,8 @@ vi.mock('@/src/lib/api/workspaces.api', () => ({
 describe('WorkspaceBrowserModal', () => {
   beforeEach(() => {
     vi.mocked(workspacesApi.browse).mockReset().mockResolvedValue([
-      { name: 'sub-a', isDir: true },
-      { name: 'sub-b', isDir: true },
+      { name: 'sub-a', path: '/start/sub-a', isDir: true },
+      { name: 'sub-b', path: '/start/sub-b', isDir: true },
     ]);
     vi.mocked(workspacesApi.create).mockReset().mockResolvedValue({
       id: 'w1', name: 'sub-a', rootPath: '/start/sub-a', addedAt: 0,

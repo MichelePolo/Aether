@@ -21,6 +21,9 @@ interface PendingCall {
 
 const INITIALIZE_TIMEOUT_MS = 5_000;
 const TOOLS_CALL_TIMEOUT_MS = 30_000;
+// A version we support per @modelcontextprotocol/sdk SUPPORTED_PROTOCOL_VERSIONS.
+// The server negotiates from this; we don't gate behaviour on the result.
+const MCP_PROTOCOL_VERSION = '2025-06-18';
 
 export class StdioMcpConnection implements McpConnection {
   readonly defaultAutoApprove = false;
@@ -55,7 +58,33 @@ export class StdioMcpConnection implements McpConnection {
     this.proc.stderr.on('data', (chunk: string) => {
       this.stderrBuf = (this.stderrBuf + chunk).slice(-4096);
     });
-    await this.rpc('initialize', {}, INITIALIZE_TIMEOUT_MS);
+    await this.rpc(
+      'initialize',
+      {
+        protocolVersion: MCP_PROTOCOL_VERSION,
+        capabilities: {},
+        clientInfo: { name: 'aether', version: '1.0.0' },
+      },
+      INITIALIZE_TIMEOUT_MS,
+    );
+    // Per the MCP spec the client must confirm readiness before issuing further
+    // requests; strict servers (e.g. server-filesystem) reject tools/list until
+    // they receive this notification.
+    this.notify('notifications/initialized');
+  }
+
+  private notify(method: string, params?: unknown): void {
+    if (!this.proc) return;
+    try {
+      const payload = JSON.stringify({
+        jsonrpc: '2.0',
+        method,
+        ...(params !== undefined ? { params } : {}),
+      });
+      this.proc.stdin.write(payload + '\n');
+    } catch {
+      // best-effort: a dropped notification must not crash initialization
+    }
   }
 
   async listTools(): Promise<McpTool[]> {

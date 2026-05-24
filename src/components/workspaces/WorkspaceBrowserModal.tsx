@@ -60,9 +60,10 @@ export function WorkspaceBrowserModal() {
 
   if (!open) return null;
 
-  const descend = (subName: string) => {
-    const next = currentPath ? `${currentPath.replace(/\/+$/, '')}/${subName}` : subName;
-    void loadPath(next);
+  const descend = (entry: BrowseEntry) => {
+    // entry.path is absolute (server-resolved), so descent never depends on
+    // currentPath being set — the bug that broke the first hop out of home.
+    void loadPath(entry.path);
   };
 
   const goUp = () => {
@@ -111,9 +112,9 @@ export function WorkspaceBrowserModal() {
           )}
           {entries.map((e) => (
             <button
-              key={e.name}
+              key={e.path}
               type="button"
-              onClick={() => descend(e.name)}
+              onClick={() => descend(e)}
               className="block w-full text-left px-2 py-1 text-zinc-300 hover:bg-zinc-800 font-mono text-[11px]"
             >
               📁 {e.name}

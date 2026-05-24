@@ -24,6 +24,13 @@ describe('FilesystemBrowserService', () => {
     expect(r.every((e) => e.isDir)).toBe(true);
   });
 
+  it('includes the absolute path of each entry so descent never goes relative', async () => {
+    mkdirSync(join(dir, 'sub'));
+    const svc = new FilesystemBrowserService();
+    const r = await svc.browse(dir);
+    expect(r).toEqual([{ name: 'sub', path: join(dir, 'sub'), isDir: true }]);
+  });
+
   it('filters out files (only dirs returned)', async () => {
     mkdirSync(join(dir, 'sub'));
     writeFileSync(join(dir, 'file.txt'), 'x');
