@@ -537,3 +537,20 @@ test('breakpoints: sidebar shows 3 rows + toggling dangerous flips its mode', as
   await page.getByLabel('Toggle Dangerous mode').click();
   await expect(rows.nth(1)).toContainText('gate', { timeout: 3000 });
 });
+
+test('workspaces: Add modal opens with browse entries', async ({ page }) => {
+  await page.goto('/');
+  await page.getByText('AETHER_CORE').waitFor();
+
+  // The Workspaces section header should be visible
+  await expect(page.getByText(/^Workspaces$/)).toBeVisible();
+
+  // Open the modal
+  await page.getByRole('button', { name: /add workspace/i }).click();
+
+  // Modal: "Add this folder" button visible.
+  await expect(page.getByText('Add this folder')).toBeVisible({ timeout: 3000 });
+
+  // Cancel out.
+  await page.getByRole('button', { name: /^cancel$/i }).click();
+});

@@ -53,8 +53,9 @@ describe('WorkspaceBrowserModal', () => {
     await waitFor(() => screen.getByText(/sub-a/));
     // First descend so currentPath is non-empty (button is disabled at root)
     fireEvent.click(screen.getByText(/sub-a/));
-    await waitFor(() => expect(workspacesApi.browse).toHaveBeenCalledTimes(2));
-    fireEvent.click(screen.getByText('Add this folder'));
+    const addButton = await screen.findByRole('button', { name: 'Add this folder' });
+    await waitFor(() => expect(addButton).not.toBeDisabled());
+    fireEvent.click(addButton);
     await waitFor(() => expect(workspacesApi.create).toHaveBeenCalled());
     expect(useUiStore.getState().workspaceBrowserOpen).toBe(false);
   });
