@@ -83,7 +83,7 @@ describe('ChatView', () => {
   it('shows fallback message when no active session', () => {
     useSessionsStore.setState({ sessions: [], activeSessionId: null, hydrated: true });
     render(<ChatView />);
-    expect(screen.getByText(/Nessuna sessione attiva/i)).toBeInTheDocument();
+    expect(screen.getByText(/No active session/i)).toBeInTheDocument();
   });
 
   it('event:thinking auto-opens reasoning drawer', async () => {

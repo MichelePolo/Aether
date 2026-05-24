@@ -55,7 +55,7 @@ describe('subagent integration', () => {
       expect(useSubAgentsStore.getState().hydrated).toBe(true),
     );
 
-    const ta = screen.getByPlaceholderText(/scrivi un messaggio/i);
+    const ta = screen.getByPlaceholderText(/type a message/i);
     await user.click(ta);
     // Type "@designer" — popover opens; then type " ciao" — space closes the popover
     await user.type(ta, '@designer ciao');

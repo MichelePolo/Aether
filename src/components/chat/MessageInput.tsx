@@ -9,6 +9,7 @@ import { isImageMime } from '@/src/types/attachment.types';
 import { cn } from '@/src/lib/cn';
 import { computeMentionState, type MentionState } from '@/src/hooks/useMentionAutocomplete';
 import { MentionPopover } from './MentionPopover';
+import { t } from '@/src/i18n/t';
 
 export interface MessageInputProps {
   onSend: (text: string) => void;
@@ -133,8 +134,8 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
           onClick={() => setThinkingEnabled(!thinkingEnabled)}
           title={
             thinkingSupported
-              ? (thinkingEnabled ? 'Thinking enabled (slower, shows reasoning)' : 'Thinking disabled')
-              : `Thinking not supported by ${activeProviderName ?? 'this provider'}`
+              ? (thinkingEnabled ? t('messageInput.thinkingEnabled') : t('messageInput.thinkingDisabled'))
+              : t('messageInput.thinkingUnsupported', { provider: activeProviderName ?? 'this provider' })
           }
           className={cn(
             'p-2 rounded transition-colors',
@@ -156,8 +157,8 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
             disabled={isStreaming}
             placeholder={
               isStreaming
-                ? 'Streaming…'
-                : 'Scrivi un messaggio. Enter per inviare, Shift+Enter per a capo.'
+                ? t('messageInput.streaming')
+                : t('messageInput.placeholder')
             }
             rows={2}
             className="w-full bg-surface-1 border border-border-subtle rounded text-sm p-2 resize-none focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
@@ -183,7 +184,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
             type="button"
             aria-label="Send"
             onClick={submit}
-            title={visionBlocked ? 'Selected provider does not support images' : undefined}
+            title={visionBlocked ? t('messageInput.visionUnsupported') : undefined}
             disabled={!canSend}
             className="p-2 rounded bg-accent/20 hover:bg-accent/30 text-accent disabled:opacity-30"
           >

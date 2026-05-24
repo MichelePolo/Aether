@@ -4,8 +4,9 @@ import { useDialog } from '@/src/hooks/useDialog';
 import type { SessionMeta } from '@/src/types/session.types';
 import { cn } from '@/src/lib/cn';
 import { sessionsApi } from '@/src/lib/api/sessions.api';
+import { t } from '@/src/i18n/t';
 
-const FALLBACK_TITLE = 'Nuova sessione';
+const FALLBACK_TITLE = t('sessionsSection.fallbackTitle');
 
 interface SessionRowProps {
   session: SessionMeta;

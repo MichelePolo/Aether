@@ -28,7 +28,7 @@ describe('App', () => {
     expect(screen.getByText('AETHER_CORE')).toBeInTheDocument();
     expect(screen.getByText(/Sessions/i)).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByPlaceholderText(/Scrivi un messaggio/i)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/Type a message/i)).toBeInTheDocument();
     });
   });
 

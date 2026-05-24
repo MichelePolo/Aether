@@ -6,6 +6,7 @@ import { useStreamingDispatch } from '@/src/hooks/useStreamingDispatch';
 import { StreamingIndicator } from './StreamingIndicator';
 import { isImageMime } from '@/src/types/attachment.types';
 import { cn } from '@/src/lib/cn';
+import { t } from '@/src/i18n/t';
 
 export interface MessageBubbleProps {
   id: string;
@@ -57,7 +58,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
         {isUser ? (
           <span className="whitespace-pre-wrap">{message.text}</span>
         ) : message.text.length === 0 && !isStreaming ? (
-          <span className="italic text-zinc-500">(empty response)</span>
+          <span className="italic text-zinc-500">{t('messageBubble.emptyResponse')}</span>
         ) : (
           <div className="prose prose-invert prose-sm max-w-none">
             <ReactMarkdown>{message.text}</ReactMarkdown>
@@ -103,14 +104,14 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
             className="mt-2 text-[10px] text-zinc-500 hover:text-accent flex items-center gap-1"
           >
             {isThinkingNow
-              ? '💭 thinking…'
-              : `🧠 ${message.reasoningSteps!.length} steps`}
+              ? `💭 ${t('messageBubble.thinkingNow')}`
+              : `🧠 ${t('messageBubble.stepsCount', { n: message.reasoningSteps!.length })}`}
           </button>
         )}
 
         {message.error && (
           <div className="mt-2 pt-2 border-t border-status-error/40 text-status-error text-xs flex items-center gap-2">
-            <span>⚠ Stream interrotto: {message.error}</span>
+            <span>⚠ {t('messageBubble.streamInterrupted', { error: message.error })}</span>
             {message.retryable && onRetry && (
               <button
                 type="button"
@@ -126,7 +127,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
         {!message.error && message.interrupted && (
           <div className="mt-2 pt-2 border-t border-border-subtle flex items-center justify-between gap-2 text-zinc-500 text-xs">
             <span>
-              ⏸ Interrotto · ~{Math.ceil(message.text.length / 4)} token
+              ⏸ {t('messageBubble.interrupted', { tokens: Math.ceil(message.text.length / 4) })}
             </span>
             {message.text.length > 0 && (
               <button
@@ -135,10 +136,10 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
                   resume(message.id).catch(() => {});
                 }}
                 disabled={isAnyStreaming}
-                aria-label="Riprendi la risposta"
+                aria-label={t('messageBubble.resume')}
                 className="px-2 py-0.5 text-[10px] uppercase tracking-widest font-bold rounded bg-accent/20 hover:bg-accent/30 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Riprendi
+                {t('messageBubble.resume')}
               </button>
             )}
           </div>
