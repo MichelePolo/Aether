@@ -150,6 +150,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
+            id="message-input"
             value={value}
             onChange={onChange}
             onKeyDown={onKey}
