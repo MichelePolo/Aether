@@ -31,6 +31,7 @@ type PolicyRow = {
   server_id: string;
   tool_name: string;
   auto_approve: number;
+  category: string | null;
 };
 
 export class ContextStore {
@@ -150,13 +151,16 @@ export class ContextStore {
       .all() as ServerRow[];
 
     const policyRows = this.db
-      .prepare('SELECT server_id, tool_name, auto_approve FROM context_mcp_tool_policies')
+      .prepare('SELECT server_id, tool_name, auto_approve, category FROM context_mcp_tool_policies')
       .all() as PolicyRow[];
 
     const policiesByServer = new Map<string, Record<string, McpToolPolicy>>();
     for (const p of policyRows) {
       const map = policiesByServer.get(p.server_id) ?? {};
-      map[p.tool_name] = { autoApprove: p.auto_approve === 1 };
+      const policy: McpToolPolicy = {};
+      if (p.auto_approve !== -1) policy.autoApprove = p.auto_approve === 1;
+      if (p.category) policy.category = p.category as McpToolPolicy['category'];
+      map[p.tool_name] = policy;
       policiesByServer.set(p.server_id, map);
     }
 
@@ -202,7 +206,7 @@ export class ContextStore {
         'INSERT INTO context_mcp_servers (id, name, transport, command, args, env, url, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       );
       const insertPolicy = this.db.prepare(
-        'INSERT INTO context_mcp_tool_policies (server_id, tool_name, auto_approve) VALUES (?, ?, ?)',
+        'INSERT INTO context_mcp_tool_policies (server_id, tool_name, auto_approve, category) VALUES (?, ?, ?, ?)',
       );
       for (const s of next.mcpServers) {
         insertServer.run(
@@ -217,7 +221,9 @@ export class ContextStore {
         );
         if (s.toolPolicies) {
           for (const [toolName, policy] of Object.entries(s.toolPolicies)) {
-            insertPolicy.run(s.id, toolName, policy.autoApprove ? 1 : 0);
+            const autoApprove = policy.autoApprove === undefined ? -1 : (policy.autoApprove ? 1 : 0);
+            const category = policy.category ?? null;
+            insertPolicy.run(s.id, toolName, autoApprove, category);
           }
         }
       }

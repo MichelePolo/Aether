@@ -10,7 +10,13 @@ function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => P
   };
 }
 
-const PolicyBody = z.object({ autoApprove: z.boolean() });
+const PolicyBody = z.object({
+  autoApprove: z.boolean().optional(),
+  category: z.enum(['safe', 'dangerous', 'external']).optional(),
+}).refine(
+  (v) => v.autoApprove !== undefined || v.category !== undefined,
+  { message: 'must provide at least one of autoApprove or category' },
+);
 const DecisionBody = z.object({
   callId: z.string().min(1),
   action: z.enum(['approve', 'reject']),

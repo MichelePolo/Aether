@@ -23,7 +23,7 @@ export function McpServersSection() {
   const connect = useMcpStore((s) => s.connect);
   const disconnect = useMcpStore((s) => s.disconnect);
   const refreshServer = useMcpStore((s) => s.refreshServer);
-  const togglePolicy = useMcpStore((s) => s.togglePolicy);
+  const setPolicy = useMcpStore((s) => s.setPolicy);
   const clearError = useMcpStore((s) => s.clearError);
 
   const dialog = useDialog();
@@ -132,7 +132,7 @@ export function McpServersSection() {
                       <McpToolCard
                         key={t.qualifiedName}
                         tool={t}
-                        onToggle={(v) => togglePolicy(server.id, t.tool.name, v).catch(() => {})}
+                        onPolicyChange={(policy) => setPolicy(server.id, t.tool.name, policy).catch(() => {})}
                       />
                     ))}
                   </div>

@@ -74,11 +74,13 @@ describe('App', () => {
     expect(screen.getAllByText(/sub-agents/i).length).toBeGreaterThan(0);
   });
 
-  it('useToolCallDecisions is mounted (dialog opens when emitToolCallRequest fires for non-auto-approve)', async () => {
+  it('useToolCallDecisions is mounted (ApprovalGate opens when emitToolCallRequest fires)', async () => {
     useMcpStore.setState({
       liveTools: [{ qualifiedName: 'mock.fs', serverId: 'M1', serverName: 'mock', tool: { name: 'fs', inputSchema: {} }, autoApprove: false }],
       connectStates: { M1: 'online' },
       errors: {},
+      inFlightCalls: {},
+      reconnectInfo: {},
     });
     render(<App />);
     await act(async () => {
@@ -86,7 +88,8 @@ describe('App', () => {
       emitToolCallRequest({ id: 'C1', qualifiedName: 'mock.fs', args: { path: '/tmp' } });
     });
     await waitFor(() => {
-      expect(screen.getByText(/tool call request/i)).toBeInTheDocument();
+      expect(screen.getByText('mock.fs')).toBeInTheDocument();
+      expect(screen.getByText('Approve')).toBeInTheDocument();
     });
   });
 });

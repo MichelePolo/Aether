@@ -18,6 +18,9 @@ import { FakeProvider } from './domain/dispatch/providers/fake.provider';
 import { GeminiProvider } from './domain/dispatch/providers/gemini.provider';
 import { McpRegistry } from './domain/mcp/registry';
 import { BuiltinMcpStore } from './domain/mcp/builtin/builtin.store';
+import { BreakpointPolicyStore } from './domain/mcp/breakpoints/policy.store';
+import { PreviewService } from './domain/mcp/breakpoints/preview.service';
+import { BreakpointService } from './domain/mcp/breakpoints/breakpoints.service';
 import { ProviderRegistry } from './domain/providers/registry';
 import { OllamaProvider } from './domain/dispatch/providers/ollama.provider';
 import { AnthropicProvider } from './domain/dispatch/providers/anthropic.provider';
@@ -47,6 +50,15 @@ async function bootstrap() {
 
   const builtinStore = new BuiltinMcpStore(db);
   const mcpRegistry = new McpRegistry(contextStore, builtinStore);
+
+  const policyStore = new BreakpointPolicyStore(db);
+  const previewService = new PreviewService({
+    safeRoots: () => {
+      const fsRoot = builtinStore.read().find((r) => r.transport === 'filesystem')?.fsRoot;
+      return [process.cwd(), ...(fsRoot ? [fsRoot] : [])];
+    },
+  });
+  const breakpointService = new BreakpointService({ mcpRegistry, policyStore });
 
   const fakeProvider = new FakeProvider({
     chunks: ['pong'],
@@ -136,7 +148,14 @@ async function bootstrap() {
     },
   };
 
-  const dispatcher = new DispatchService({ providers, historyStore, contextStore, subAgentsStore, mcpRegistry });
+  const dispatcher = new DispatchService({
+    providers,
+    historyStore,
+    contextStore,
+    subAgentsStore,
+    mcpRegistry,
+    breakpointService,
+  });
 
   const app = createApp({
     contextStore,
@@ -152,6 +171,8 @@ async function bootstrap() {
     keyVault,
     keyVaultHooks,
     buildInfoRowsCtx,
+    policyStore,
+    previewService,
   });
 
   if (process.env.NODE_ENV !== 'production') {

@@ -259,3 +259,13 @@ describe('useUiStore.lightbox', () => {
     expect(useUiStore.getState().lightboxAttachmentId).toBeNull();
   });
 });
+
+describe('useUiStore.approvalGateState', () => {
+  it('opens and closes', () => {
+    const ev = { id: 'c1', qualifiedName: 'fs.write_file', args: {} };
+    useUiStore.getState().openApprovalGate({ event: ev, preview: { kind: 'plain' } });
+    expect(useUiStore.getState().approvalGateState?.event.id).toBe('c1');
+    useUiStore.getState().closeApprovalGate();
+    expect(useUiStore.getState().approvalGateState).toBeNull();
+  });
+});

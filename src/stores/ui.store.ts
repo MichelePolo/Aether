@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import type { SessionHits } from '@/src/types/search.types';
+import type { ToolCallRequestEvent } from '@/src/hooks/useToolCallDecisions';
+import type { PreviewResult } from '@/src/types/breakpoints.types';
 
 const THINKING_KEY = 'aether.thinkingEnabled';
 const SIDEBAR_KEY = 'aether.sidebarOpen';
@@ -30,6 +32,10 @@ interface UiState {
   closeKeyVault(): void;
   openLightbox(id: string): void;
   closeLightbox(): void;
+
+  approvalGateState: { event: ToolCallRequestEvent; preview: PreviewResult } | null;
+  openApprovalGate(payload: { event: ToolCallRequestEvent; preview: PreviewResult }): void;
+  closeApprovalGate(): void;
 
   toggleReasoningDrawer: () => void;
   openReasoningDrawer: () => void;
@@ -67,6 +73,7 @@ const initial = {
   keyVaultOpen: false,
   keyVaultFocusTransport: null as 'anthropic' | 'openai' | 'gemini' | null,
   lightboxAttachmentId: null as string | null,
+  approvalGateState: null as { event: ToolCallRequestEvent; preview: PreviewResult } | null,
 };
 
 function readBool(key: string, fallback: boolean): boolean {
@@ -124,6 +131,9 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   openLightbox: (id) => set({ lightboxAttachmentId: id }),
   closeLightbox: () => set({ lightboxAttachmentId: null }),
+
+  openApprovalGate: (payload) => set({ approvalGateState: payload }),
+  closeApprovalGate: () => set({ approvalGateState: null }),
 
   openPalette: () =>
     set({ paletteOpen: true, paletteMode: 'commands', searchQuery: '', searchResults: [] }),

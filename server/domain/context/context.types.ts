@@ -1,3 +1,5 @@
+import type { ToolCategory } from '@/server/domain/mcp/breakpoints/breakpoints.types';
+
 export interface Tool {
   id: string;
   name: string;
@@ -14,7 +16,8 @@ export type McpConnectionState =
   | 'error';
 
 export interface McpToolPolicy {
-  autoApprove: boolean;
+  autoApprove?: boolean;
+  category?: ToolCategory;
 }
 
 export interface McpServerConfig {

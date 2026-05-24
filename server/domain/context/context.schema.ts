@@ -7,7 +7,10 @@ export const ToolSchema = z.object({
   status: z.enum(['online', 'offline']),
 });
 
-const McpToolPolicySchema = z.object({ autoApprove: z.boolean() });
+const McpToolPolicySchema = z.object({
+  autoApprove: z.boolean().optional(),
+  category: z.enum(['safe', 'dangerous', 'external']).optional(),
+});
 
 /** Loose stored shape — accepts both legacy and slice-7 entries. The registry validates
  *  transport-specific requirements (e.g. `command` for stdio) at connect-time. */

@@ -104,7 +104,7 @@ describe('applyMigrations', () => {
       const versions = (fullDb
         .prepare('SELECT version FROM _migrations ORDER BY version')
         .all() as { version: number }[]).map((r) => r.version);
-      expect(versions).toEqual([1, 2, 3, 4, 5, 6]);
+      expect(versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
     } finally {
       fullDb.close();
     }

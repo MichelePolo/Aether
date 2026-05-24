@@ -97,6 +97,28 @@ export const handlers = [
   http.post('http://localhost/api/mcp/cancel-call', () =>
     new HttpResponse(null, { status: 204 }),
   ),
+  http.get('http://localhost/api/breakpoints/policy', () =>
+    HttpResponse.json({ safe: 'auto', dangerous: 'gate', external: 'gate' }),
+  ),
+  http.put('http://localhost/api/breakpoints/policy/:category', async ({ params, request }) => {
+    const body = (await request.json()) as { mode: 'auto' | 'gate' };
+    const base: Record<string, 'auto' | 'gate'> = { safe: 'auto', dangerous: 'gate', external: 'gate' };
+    base[params.category as string] = body.mode;
+    return HttpResponse.json(base);
+  }),
+  http.post('http://localhost/api/breakpoints/preview', () =>
+    HttpResponse.json({ kind: 'plain' }),
+  ),
+  http.get('http://localhost/api/breakpoints/classify', ({ request }) => {
+    const url = new URL(request.url);
+    const qn = url.searchParams.get('qualifiedName') ?? '';
+    const isWrite = /\.(write|edit|delete|move|create|remove|rename|drop|truncate)_/.test(qn);
+    return HttpResponse.json({
+      qualifiedName: qn,
+      category: isWrite ? 'dangerous' : 'safe',
+      source: 'heuristic',
+    });
+  }),
   http.get('http://localhost/api/mcp/builtin', () =>
     HttpResponse.json({
       builtins: [

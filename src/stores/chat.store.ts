@@ -59,6 +59,7 @@ interface ChatState {
   currentReasoning: CurrentReasoning;
   queuedAttachments: QueuedAttachment[];
   error: string | null;
+  stickyApprovals: Set<string>;
 
   hydrate: (messages: Message[]) => void;
   appendUser: (text: string) => { id: string };
@@ -78,6 +79,8 @@ interface ChatState {
   queueAttachments: (files: File[]) => Promise<void>;
   removeQueuedAttachment: (id: string) => void;
   clearQueuedAttachments: () => void;
+  addStickyApproval: (qualifiedName: string) => void;
+  clearStickyApprovals: () => void;
 }
 
 const emptyReasoning: CurrentReasoning = { thinkingText: '', steps: [] };
@@ -90,12 +93,20 @@ const initial = {
   currentReasoning: emptyReasoning,
   queuedAttachments: [] as QueuedAttachment[],
   error: null as string | null,
+  stickyApprovals: new Set<string>(),
 };
+
+function freshState() {
+  return { ...initial, stickyApprovals: new Set<string>() };
+}
 
 export const useChatStore = create<ChatState>((set, get) => ({
   ...initial,
-  _reset: () => set(initial),
-  reset: () => set(initial),
+  _reset: () => set(freshState()),
+  reset: () => set(freshState()),
+  addStickyApproval: (qualifiedName) =>
+    set((s) => ({ stickyApprovals: new Set(s.stickyApprovals).add(qualifiedName) })),
+  clearStickyApprovals: () => set({ stickyApprovals: new Set<string>() }),
 
   hydrate: (messages) => set({ messages, hydrated: true }),
 

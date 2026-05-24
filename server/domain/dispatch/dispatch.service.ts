@@ -18,6 +18,7 @@ import { parseLeadingMention } from './subagent-parser';
 import { assemble } from './prompt-assembler';
 import type { McpRegistry } from '@/server/domain/mcp/registry';
 import type { McpToolResult } from '@/server/domain/mcp/mcp.types';
+import type { BreakpointService } from '@/server/domain/mcp/breakpoints/breakpoints.service';
 import type { ProviderRegistry } from '@/server/domain/providers/registry';
 import { classifyAttachment, MAX_ATTACHMENTS, MAX_TOTAL_BYTES } from './attachment.types';
 import { AppError, ValidationError } from '@/server/lib/errors';
@@ -85,6 +86,7 @@ export interface DispatchServiceDeps {
   contextStore: ContextStore;
   subAgentsStore?: SubAgentsStore;
   mcpRegistry?: McpRegistry;
+  breakpointService?: BreakpointService;
 }
 
 interface RunDispatchLoopOpts {
@@ -222,8 +224,17 @@ export class DispatchService {
             toolCallsCount += 1;
 
             sse.event('tool_call_request', pendingCall);
-            const policy = this.deps.mcpRegistry?.policy(pendingCall.qualifiedName) ?? { autoApprove: false };
-            const decision: 'approve' | 'reject' = policy.autoApprove
+            let mode: 'auto' | 'gate';
+            if (this.deps.breakpointService) {
+              mode = await this.deps.breakpointService.resolveDecision({
+                qualifiedName: pendingCall.qualifiedName,
+                args: pendingCall.args,
+              });
+            } else {
+              const policy = this.deps.mcpRegistry?.policy(pendingCall.qualifiedName) ?? {};
+              mode = policy.autoApprove ? 'auto' : 'gate';
+            }
+            const decision: 'approve' | 'reject' = mode === 'auto'
               ? 'approve'
               : await (this.deps.mcpRegistry?.awaitDecision(pendingCall.callId, 60_000) ?? Promise.resolve('reject' as const))
                   .catch(() => 'reject' as const);
