@@ -1,5 +1,6 @@
 import type { ContextStore } from '@/server/domain/context/context.store';
 import type { McpServerConfig } from '@/server/domain/context/context.types';
+import type { ToolCategory } from './breakpoints/breakpoints.types';
 import type { CallToolOpts, McpConnection } from './connection.types';
 import type {
   McpTool,
@@ -30,6 +31,7 @@ export interface LiveTool {
   serverName: string;
   tool: McpTool;
   autoApprove: boolean;
+  category?: ToolCategory;
 }
 
 export class McpRegistry {
@@ -127,12 +129,14 @@ export class McpRegistry {
     const out: LiveTool[] = [];
     for (const entry of this.live.values()) {
       for (const tool of entry.tools) {
+        const policy = this.resolvePolicy(entry, tool.name);
         out.push({
           qualifiedName: `${entry.serverName}.${tool.name}`,
           serverId: entry.serverId,
           serverName: entry.serverName,
           tool,
-          autoApprove: this.resolvePolicy(entry, tool.name).autoApprove === true,
+          autoApprove: policy.autoApprove === true,
+          ...(policy.category ? { category: policy.category } : {}),
         });
       }
     }

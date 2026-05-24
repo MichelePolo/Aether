@@ -8,28 +8,32 @@ async function jsonOrThrow<T>(res: Response): Promise<T> {
 }
 
 export const breakpointsApi = {
-  getPolicy: (): Promise<BreakpointPolicy> =>
-    fetch('/api/breakpoints/policy').then(jsonOrThrow),
+  getPolicy: async (): Promise<BreakpointPolicy> =>
+    jsonOrThrow<BreakpointPolicy>(await fetch('/api/breakpoints/policy')),
 
-  setCategoryMode: (category: ToolCategory, mode: CategoryMode): Promise<BreakpointPolicy> =>
-    fetch(`/api/breakpoints/policy/${category}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode }),
-    }).then(jsonOrThrow),
+  setCategoryMode: async (category: ToolCategory, mode: CategoryMode): Promise<BreakpointPolicy> =>
+    jsonOrThrow<BreakpointPolicy>(
+      await fetch(`/api/breakpoints/policy/${category}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      }),
+    ),
 
-  preview: (input: { qualifiedName: string; args: Record<string, unknown> }): Promise<PreviewResult> =>
-    fetch('/api/breakpoints/preview', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    }).then(jsonOrThrow),
+  preview: async (input: { qualifiedName: string; args: Record<string, unknown> }): Promise<PreviewResult> =>
+    jsonOrThrow<PreviewResult>(
+      await fetch('/api/breakpoints/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      }),
+    ),
 
-  classify: (input: { qualifiedName: string; args: Record<string, unknown> }): Promise<ClassifiedTool> => {
+  classify: async (input: { qualifiedName: string; args: Record<string, unknown> }): Promise<ClassifiedTool> => {
     const params = new URLSearchParams({
       qualifiedName: input.qualifiedName,
       argsJson: JSON.stringify(input.args ?? {}),
     });
-    return fetch(`/api/breakpoints/classify?${params.toString()}`).then(jsonOrThrow);
+    return jsonOrThrow<ClassifiedTool>(await fetch(`/api/breakpoints/classify?${params.toString()}`));
   },
 };

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { mcpApi } from '@/src/lib/api/mcp.api';
 import type { LiveTool, McpConnectionState } from '@/src/types/mcp.types';
+import type { McpToolPolicy } from '@/server/domain/context/context.types';
 
 export interface InFlightCall {
   callId: string;
@@ -19,6 +20,7 @@ interface McpState {
   connect: (id: string) => Promise<void>;
   disconnect: (id: string) => Promise<void>;
   togglePolicy: (serverId: string, name: string, autoApprove: boolean) => Promise<void>;
+  setPolicy: (serverId: string, name: string, policy: McpToolPolicy) => Promise<void>;
   refresh: () => Promise<void>;
   refreshServer: (id: string) => Promise<void>;
   applyServerStateEvent: (
@@ -91,6 +93,20 @@ export const useMcpStore = create<McpState>((set) => ({
       liveTools: s.liveTools.map((t) =>
         t.serverId === serverId && t.tool.name === name ? { ...t, autoApprove } : t,
       ),
+    }));
+  },
+
+  setPolicy: async (serverId, name, policy) => {
+    await mcpApi.togglePolicy(serverId, name, policy);
+    set((s) => ({
+      liveTools: s.liveTools.map((t) => {
+        if (!(t.serverId === serverId && t.tool.name === name)) return t;
+        const autoApprove = policy.autoApprove === true;
+        const next: LiveTool = { ...t, autoApprove };
+        if (policy.category) next.category = policy.category;
+        else delete next.category;
+        return next;
+      }),
     }));
   },
 
