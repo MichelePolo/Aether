@@ -25,9 +25,9 @@ describe('WorkspaceBrowserModal', () => {
     useWorkspacesStore.getState()._reset();
   });
 
-  it('renders null when closed', () => {
+  it('dialog has no open attribute when closed', () => {
     const { container } = render(<WorkspaceBrowserModal />);
-    expect(container.firstChild).toBeNull();
+    expect(container.querySelector('dialog')?.hasAttribute('open')).toBe(false);
   });
 
   it('lists browse entries when open', async () => {
