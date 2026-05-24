@@ -1,3 +1,4 @@
+import { Download, Pencil, Trash2 } from 'lucide-react';
 import { useSessionsStore } from '@/src/stores/sessions.store';
 import { useChatStore } from '@/src/stores/chat.store';
 import { useDialog } from '@/src/hooks/useDialog';
@@ -34,18 +35,19 @@ function SessionRow({ session, active, disabled, onSelect, onExport, onRename, o
         type="button"
         onClick={disabled ? undefined : onSelect}
         disabled={disabled}
+        aria-current={active ? 'true' : undefined}
         className="flex-1 text-left truncate disabled:cursor-not-allowed"
       >
         {label}
       </button>
-      <div className="hidden group-hover:flex gap-1">
+      <div className="hidden group-hover:flex group-focus-within:flex gap-1">
         <button
           onClick={onExport}
           disabled={disabled}
           aria-label={`Export ${label}`}
           className="hover:text-white disabled:opacity-50"
         >
-          ↓
+          <Download size={12} aria-hidden="true" />
         </button>
         <button
           onClick={onRename}
@@ -53,7 +55,7 @@ function SessionRow({ session, active, disabled, onSelect, onExport, onRename, o
           aria-label={`Rename ${label}`}
           className="hover:text-white disabled:opacity-50"
         >
-          ✎
+          <Pencil size={12} aria-hidden="true" />
         </button>
         <button
           onClick={onDelete}
@@ -61,7 +63,7 @@ function SessionRow({ session, active, disabled, onSelect, onExport, onRename, o
           aria-label={`Delete ${label}`}
           className="hover:text-red-400 disabled:opacity-50"
         >
-          ×
+          <Trash2 size={12} aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -97,7 +99,7 @@ export function SessionsSection() {
   const handleDelete = async (id: string, label: string) => {
     const ok = await dialog.confirm({
       title: 'Delete session',
-      message: `Delete "${label}"?`,
+      message: `Delete "${label}"? ${t('sessionsSection.deleteIrreversible')}`,
       destructive: true,
     });
     if (ok) await remove(id).catch(() => {});
@@ -115,7 +117,7 @@ export function SessionsSection() {
       </div>
 
       {error && (
-        <div className="mb-2 p-1.5 rounded bg-status-error/10 border border-status-error/40 text-status-error text-[10px] flex items-center gap-2">
+        <div role="alert" className="mb-2 p-1.5 rounded bg-status-error/10 border border-status-error/40 text-status-error text-[10px] flex items-center gap-2">
           <span className="flex-1">⚠ {error}</span>
           <button
             type="button"
