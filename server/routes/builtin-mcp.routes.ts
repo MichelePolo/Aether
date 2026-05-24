@@ -56,8 +56,16 @@ export function createBuiltinMcpRoutes(store: BuiltinMcpStore, registry: McpRegi
 
       if ('enabled' in body && typeof body.enabled === 'boolean') {
         if (body.enabled && !wasEnabled) {
+          // startBuiltin reads enabled rows via toConfigs, so the flag must be
+          // set first — but if the connection fails, roll it back so the DB
+          // never advertises a server that isn't actually running.
           store.setEnabled(transport, true);
-          await registry.startBuiltin(transport);
+          try {
+            await registry.startBuiltin(transport);
+          } catch (err) {
+            store.setEnabled(transport, false);
+            throw err;
+          }
         } else if (!body.enabled && wasEnabled) {
           await registry.stopBuiltin(transport);
           store.setEnabled(transport, false);

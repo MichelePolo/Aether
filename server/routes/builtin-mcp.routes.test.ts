@@ -53,6 +53,13 @@ describe('builtin MCP routes', () => {
     expect(registry.startBuiltin).toHaveBeenCalledWith('filesystem');
   });
 
+  it('rolls back enabled when startBuiltin fails so the DB never claims a dead server is on', async () => {
+    vi.mocked(registry.startBuiltin).mockRejectedValueOnce(new Error('handshake failed'));
+    const res = await request(app).put('/api/mcp/builtin/filesystem').send({ enabled: true });
+    expect(res.status).toBe(500);
+    expect(store.read().find((r) => r.transport === 'filesystem')?.enabled).toBe(false);
+  });
+
   it('PUT disable triggers stopBuiltin then writes DB', async () => {
     store.setEnabled('terminal', true);
     const res = await request(app).put('/api/mcp/builtin/terminal').send({ enabled: false });
