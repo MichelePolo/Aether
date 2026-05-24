@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { useDialog } from './useDialog';
-import { useMcpStore } from '@/src/stores/mcp.store';
+import { useChatStore } from '@/src/stores/chat.store';
+import { useUiStore } from '@/src/stores/ui.store';
+import { breakpointsApi } from '@/src/lib/api/breakpoints.api';
 import { mcpApi } from '@/src/lib/api/mcp.api';
 
 export interface ToolCallRequestEvent {
@@ -17,28 +18,21 @@ export function emitToolCallRequest(ev: ToolCallRequestEvent): void {
 }
 
 export function useToolCallDecisions(): void {
-  const dialog = useDialog();
-
   useEffect(() => {
     const handler: Listener = (ev) => {
-      const tool = useMcpStore.getState().liveTools.find((t) => t.qualifiedName === ev.qualifiedName);
-      if (tool?.autoApprove) {
-        // No dialog needed; backend auto-approves on its side too.
+      const sticky = useChatStore.getState().stickyApprovals;
+      if (sticky.has(ev.qualifiedName)) {
+        void mcpApi.decide(ev.id, 'approve').catch(() => {});
         return;
       }
       void (async () => {
-        const ok = await dialog.confirm({
-          title: 'Tool call request',
-          message: `${ev.qualifiedName}\n\n${JSON.stringify(ev.args, null, 2)}`,
-          confirmLabel: 'Approve',
-          cancelLabel: 'Reject',
-        });
-        await mcpApi.decide(ev.id, ok ? 'approve' : 'reject').catch(() => {});
+        const preview = await breakpointsApi
+          .preview({ qualifiedName: ev.qualifiedName, args: ev.args })
+          .catch(() => ({ kind: 'plain' as const }));
+        useUiStore.getState().openApprovalGate({ event: ev, preview });
       })();
     };
     listeners.add(handler);
-    return () => {
-      listeners.delete(handler);
-    };
-  }, [dialog]);
+    return () => { listeners.delete(handler); };
+  }, []);
 }
