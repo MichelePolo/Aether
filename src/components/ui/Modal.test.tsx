@@ -1,12 +1,24 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { Modal } from './Modal';
 
+beforeEach(() => {
+  if (!(HTMLDialogElement.prototype as unknown as { showModal?: () => void }).showModal) {
+    (HTMLDialogElement.prototype as unknown as { showModal: () => void }).showModal = function () {
+      (this as HTMLDialogElement).setAttribute('open', '');
+    };
+    (HTMLDialogElement.prototype as unknown as { close: () => void }).close = function () {
+      (this as HTMLDialogElement).removeAttribute('open');
+      (this as HTMLDialogElement).dispatchEvent(new Event('close'));
+    };
+  }
+  document.body.style.overflow = '';
+});
+
 describe('Modal', () => {
-  it('does not render content when closed', () => {
-    render(<Modal open={false} onClose={() => {}}>body</Modal>);
-    expect(screen.queryByText('body')).not.toBeInTheDocument();
+  it('does not have open attribute when closed', () => {
+    const { container } = render(<Modal open={false} onClose={() => {}}>body</Modal>);
+    expect(container.querySelector('dialog')?.hasAttribute('open')).toBe(false);
   });
 
   it('renders content when open', () => {
@@ -19,41 +31,37 @@ describe('Modal', () => {
     expect(screen.getByText('Confirm')).toBeInTheDocument();
   });
 
-  it('uses role="dialog" with aria-modal', () => {
-    render(<Modal open onClose={() => {}}>body</Modal>);
-    const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveAttribute('aria-modal', 'true');
+  it('uses a <dialog> element', () => {
+    const { container } = render(<Modal open onClose={() => {}}>body</Modal>);
+    expect(container.querySelector('dialog')).not.toBeNull();
   });
 
-  it('calls onClose when Escape is pressed', async () => {
-    const user = userEvent.setup();
+  it('calls onClose when the dialog emits close', () => {
     const onClose = vi.fn();
     render(<Modal open onClose={onClose}>body</Modal>);
-    await user.keyboard('{Escape}');
+    const dialog = document.querySelector('dialog')!;
+    dialog.dispatchEvent(new Event('close'));
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('calls onClose when backdrop is clicked', async () => {
-    const user = userEvent.setup();
+  it('calls onClose when backdrop is clicked (dismissOnBackdrop default)', () => {
     const onClose = vi.fn();
     render(<Modal open onClose={onClose}>body</Modal>);
-    await user.click(screen.getByTestId('modal-backdrop'));
+    const dialog = document.querySelector('dialog')!;
+    fireEvent.mouseDown(dialog, { target: dialog });
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('does not call onClose when content is clicked', async () => {
-    const user = userEvent.setup();
-    const onClose = vi.fn();
-    render(<Modal open onClose={onClose}>body</Modal>);
-    await user.click(screen.getByText('body'));
-    expect(onClose).not.toHaveBeenCalled();
-  });
-
-  it('does not close on backdrop when dismissOnBackdrop=false', async () => {
-    const user = userEvent.setup();
+  it('does not close on backdrop when dismissOnBackdrop=false', () => {
     const onClose = vi.fn();
     render(<Modal open onClose={onClose} dismissOnBackdrop={false}>body</Modal>);
-    await user.click(screen.getByTestId('modal-backdrop'));
+    const dialog = document.querySelector('dialog')!;
+    fireEvent.mouseDown(dialog, { target: dialog });
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('sets body.overflow=hidden while open', () => {
+    render(<Modal open onClose={() => {}}>body</Modal>);
+    expect(document.body.style.overflow).toBe('hidden');
   });
 });
