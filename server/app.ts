@@ -23,6 +23,9 @@ import { createSessionsRoutes } from './routes/sessions.routes';
 import { createAttachmentsRoutes } from './routes/attachments.routes';
 import type { BuiltinMcpStore } from '@/server/domain/mcp/builtin/builtin.store';
 import { createBuiltinMcpRoutes } from './routes/builtin-mcp.routes';
+import type { BreakpointPolicyStore } from '@/server/domain/mcp/breakpoints/policy.store';
+import type { PreviewService } from '@/server/domain/mcp/breakpoints/preview.service';
+import { createBreakpointsRoutes } from './routes/breakpoints.routes';
 
 export interface AppDeps {
   contextStore?: ContextStore;
@@ -38,6 +41,8 @@ export interface AppDeps {
   keyVault?: KeyVaultService;
   keyVaultHooks?: KeyVaultHooks;
   buildInfoRowsCtx?: { anthropicCliPresent: boolean; ollamaHost: string };
+  policyStore?: BreakpointPolicyStore;
+  previewService?: PreviewService;
 }
 
 // In Express l'error middleware DEVE essere registrato dopo le route per
@@ -110,6 +115,16 @@ export function createApp(
 
   if (deps.searchService) {
     app.use('/api/search', createSearchRoutes(deps.searchService));
+  }
+
+  if (deps.policyStore && deps.previewService) {
+    app.use(
+      '/api/breakpoints',
+      createBreakpointsRoutes({
+        policyStore: deps.policyStore,
+        previewService: deps.previewService,
+      }),
+    );
   }
 
   extraRoutes?.(app);
