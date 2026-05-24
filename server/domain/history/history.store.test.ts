@@ -674,3 +674,40 @@ describe('HistoryStore.forkSession — clones attachments', () => {
     expect(origBytes).not.toBeNull();
   });
 });
+
+describe('HistoryStore — workspaces (slice 23)', () => {
+  it('createEmpty({workspaceId}) writes the FK', async () => {
+    const db = makeTestDb();
+    db.prepare('INSERT INTO workspaces (id, name, root_path, added_at) VALUES (?, ?, ?, ?)')
+      .run('w1', 'proj', '/tmp/proj', Date.now());
+    const store = new HistoryStore(db);
+    const meta = await store.createEmpty({ workspaceId: 'w1' });
+    expect(meta.workspaceId).toBe('w1');
+    const row = db.prepare('SELECT workspace_id FROM sessions WHERE id = ?').get(meta.id) as { workspace_id: string };
+    expect(row.workspace_id).toBe('w1');
+  });
+
+  it('setSessionWorkspace updates the FK', async () => {
+    const db = makeTestDb();
+    db.prepare('INSERT INTO workspaces (id, name, root_path, added_at) VALUES (?, ?, ?, ?)')
+      .run('w1', 'proj', '/tmp/proj', Date.now());
+    const store = new HistoryStore(db);
+    const meta = await store.createEmpty();
+    await store.setSessionWorkspace(meta.id, 'w1');
+    const list = await store.listSessions();
+    expect(list.find((s) => s.id === meta.id)?.workspaceId).toBe('w1');
+    await store.setSessionWorkspace(meta.id, null);
+    const list2 = await store.listSessions();
+    expect(list2.find((s) => s.id === meta.id)?.workspaceId).toBeUndefined();
+  });
+
+  it('listSessions includes workspaceId when set', async () => {
+    const db = makeTestDb();
+    db.prepare('INSERT INTO workspaces (id, name, root_path, added_at) VALUES (?, ?, ?, ?)')
+      .run('w1', 'proj', '/tmp/proj', Date.now());
+    const store = new HistoryStore(db);
+    await store.createEmpty({ workspaceId: 'w1' });
+    const list = await store.listSessions();
+    expect(list[0].workspaceId).toBe('w1');
+  });
+});
