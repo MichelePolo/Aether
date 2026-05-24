@@ -74,11 +74,15 @@ export function ProviderAuthSection() {
                 clickable && 'cursor-pointer hover:bg-surface-3',
               )}
             >
-              <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', {
-                'bg-status-ok': state === 'ok',
-                'bg-status-error': state === 'error',
-                'bg-zinc-500': state === 'unconfigured',
-              })} />
+              <span
+                role="img"
+                aria-label={`${TRANSPORT_LABELS[transport]} status: ${state}`}
+                className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', {
+                  'bg-status-ok': state === 'ok',
+                  'bg-status-error': state === 'error',
+                  'bg-zinc-500': state === 'unconfigured',
+                })}
+              />
               <span className={cn('flex-shrink-0', dotClass(state))}>
                 {TRANSPORT_LABELS[transport]}
               </span>
