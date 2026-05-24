@@ -2,6 +2,7 @@ import express, { type Express, type NextFunction, type Request, type Response }
 import { isAppError } from './lib/errors';
 import type { ContextStore } from './domain/context/context.store';
 import type { HistoryStore } from './domain/history/history.store';
+import type { WorkspacesStore } from '@/server/domain/workspaces/workspaces.store';
 import type { DispatchService } from './domain/dispatch/dispatch.service';
 import type { ProfilesStore } from './domain/profiles/profiles.store';
 import type { SubAgentsStore } from './domain/subagents/subagents.store';
@@ -30,6 +31,7 @@ import { createBreakpointsRoutes } from './routes/breakpoints.routes';
 export interface AppDeps {
   contextStore?: ContextStore;
   historyStore?: HistoryStore;
+  workspacesStore?: WorkspacesStore;
   dispatcher?: DispatchService;
   profilesStore?: ProfilesStore;
   subAgentsStore?: SubAgentsStore;
@@ -81,7 +83,7 @@ export function createApp(
 
   if (deps.historyStore) {
     app.use('/api/attachments', createAttachmentsRoutes(deps.historyStore));
-    app.use('/api/sessions', createHistoryRoutes(deps.historyStore));
+    app.use('/api/sessions', createHistoryRoutes(deps.historyStore, deps.workspacesStore));
   }
 
   if (deps.profilesStore) {
