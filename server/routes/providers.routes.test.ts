@@ -23,12 +23,12 @@ function makeFake(model: string): AIProvider {
 
 async function makeApp() {
   const reg = new ProviderRegistry({
-    ollamaHost: 'http://localhost:11434',
     resolveKey: () => undefined,
     detectAnthropicAuth: async () => 'none',
     fakeProvider: makeFake('fake-1'),
     geminiBuilder: () => makeFake('g'),
-    ollamaBuilder: () => makeFake('o'),
+    listOllamaEndpoints: () => [{ id: 'local', label: 'local', baseUrl: 'http://localhost:11434' }],
+    ollamaBuilder: (_baseUrl: string, model: string) => makeFake(model),
     anthropicBuilder: (model) => makeFake(model),
     openAIBuilder: (model) => makeFake(model),
   });

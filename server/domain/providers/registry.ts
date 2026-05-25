@@ -12,12 +12,12 @@ export interface ProviderDescriptor {
 }
 
 export interface ProviderRegistryDeps {
-  ollamaHost: string;
   resolveKey: (transport: 'gemini' | 'openai' | 'anthropic') => string | undefined;
   detectAnthropicAuth: () => Promise<'oauth' | 'apikey' | 'none'>;
   fakeProvider: AIProvider;
   geminiBuilder: (model: string) => AIProvider;
-  ollamaBuilder: (model: string) => AIProvider;
+  listOllamaEndpoints: () => Array<{ id: string; label: string; baseUrl: string; token?: string }>;
+  ollamaBuilder: (baseUrl: string, model: string, token?: string) => AIProvider;
   anthropicBuilder: (model: string) => AIProvider;
   openAIBuilder: (model: string) => AIProvider;
   defaultOverride?: string;
@@ -106,20 +106,24 @@ export class ProviderRegistry {
       }
     }
 
-    // Ollama (discovery)
-    const tags = await discoverOllama(this.deps.ollamaHost);
-    for (const tag of tags) {
-      const provider = this.deps.ollamaBuilder(tag);
-      next.set(`ollama:${tag}`, {
-        provider,
-        descriptor: {
-          name: `ollama:${tag}`,
-          transport: 'ollama',
-          model: tag,
-          capabilities: provider.capabilities,
-          displayName: displayNameFor('ollama', tag),
-        },
-      });
+    // Ollama (per-endpoint discovery). Local endpoint keeps `ollama:<model>`
+    // for backward-compatibility with sessions saved before multi-endpoint.
+    for (const ep of this.deps.listOllamaEndpoints()) {
+      const tags = await discoverOllama(ep.baseUrl, ep.token);
+      for (const tag of tags) {
+        const provider = this.deps.ollamaBuilder(ep.baseUrl, tag, ep.token);
+        const name = ep.id === 'local' ? `ollama:${tag}` : `ollama:${ep.id}:${tag}`;
+        next.set(name, {
+          provider,
+          descriptor: {
+            name,
+            transport: 'ollama',
+            model: tag,
+            capabilities: provider.capabilities,
+            displayName: `Ollama (${ep.label}) / ${tag}`,
+          },
+        });
+      }
     }
 
     this.entries = next;

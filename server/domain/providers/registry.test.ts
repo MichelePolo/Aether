@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ProviderRegistry } from './registry';
 import type { AIProvider } from '@/server/domain/dispatch/providers/provider.types';
 
@@ -14,12 +14,12 @@ function baseDeps(
   overrides: Partial<ConstructorParameters<typeof ProviderRegistry>[0]> = {},
 ): ConstructorParameters<typeof ProviderRegistry>[0] {
   return {
-    ollamaHost: 'http://localhost:11434',
     resolveKey: () => undefined,
     detectAnthropicAuth: async () => 'none' as const,
     fakeProvider: makeFake('fake-1'),
     geminiBuilder: () => makeFake('g'),
-    ollamaBuilder: () => makeFake('o'),
+    listOllamaEndpoints: () => [{ id: 'local', label: 'local', baseUrl: 'http://localhost:11434' }],
+    ollamaBuilder: (_baseUrl: string, model: string) => makeFake(model),
     anthropicBuilder: (model: string) => makeFake(model),
     openAIBuilder: (model: string) => makeFake(model),
     ...overrides,
@@ -136,5 +136,32 @@ describe('ProviderRegistry', () => {
     await reg.refresh();
     expect(reg.describe('openai:gpt-5')?.capabilities).toEqual({ thinking: false, toolCalling: true, vision: true });
     expect(reg.describe('openai:o3')?.capabilities).toEqual({ thinking: true, toolCalling: true, vision: true });
+  });
+
+  it('registers local Ollama models as ollama:<model> (backward compatible)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, json: () => Promise.resolve({ models: [{ name: 'llama3:latest' }] }),
+    } as Response));
+    const reg = new ProviderRegistry(baseDeps());
+    await reg.refresh();
+    expect(reg.describe('ollama:llama3:latest')?.displayName).toBe('Ollama (local) / llama3:latest');
+    vi.unstubAllGlobals();
+  });
+
+  it('namespaces remote endpoint models as ollama:<id>:<model> with no collision', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, json: () => Promise.resolve({ models: [{ name: 'llama3' }] }),
+    } as Response));
+    const reg = new ProviderRegistry(baseDeps({
+      listOllamaEndpoints: () => [
+        { id: 'local', label: 'local', baseUrl: 'http://localhost:11434' },
+        { id: 'abc', label: 'gpu', baseUrl: 'http://gpu.lan:11434', token: 'tok' },
+      ],
+    }));
+    await reg.refresh();
+    expect(reg.get('ollama:llama3')).not.toBeNull();
+    expect(reg.get('ollama:abc:llama3')).not.toBeNull();
+    expect(reg.describe('ollama:abc:llama3')?.displayName).toBe('Ollama (gpu) / llama3');
+    vi.unstubAllGlobals();
   });
 });
