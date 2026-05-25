@@ -219,7 +219,9 @@ export const handlers = [
         { transport: 'anthropic', state: 'unconfigured', reason: 'no api key' },
         { transport: 'openai', state: 'unconfigured', reason: 'no api key' },
         { transport: 'gemini', state: 'unconfigured', reason: 'no api key' },
-        { transport: 'ollama', state: 'unconfigured', reason: 'no api key' },
+      ],
+      ollama: [
+        { id: 'local', label: 'local', fixed: true, state: 'unconfigured', reason: 'no api key' },
       ],
     }),
   ),
@@ -230,7 +232,9 @@ export const handlers = [
         { transport: 'anthropic', state: 'unconfigured', reason: 'no api key' },
         { transport: 'openai', state: 'unconfigured', reason: 'no api key' },
         { transport: 'gemini', state: 'unconfigured', reason: 'no api key' },
-        { transport: 'ollama', state: 'unconfigured', reason: 'no api key' },
+      ],
+      ollama: [
+        { id: 'local', label: 'local', fixed: true, state: 'unconfigured', reason: 'no api key' },
       ],
     }),
   ),

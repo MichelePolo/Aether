@@ -3,9 +3,11 @@ import { providersApi } from '@/src/lib/api/providers.api';
 import type {
   AuthStatusReport, ProviderTransport, TransportStatus,
 } from '@/src/types/provider-auth.types';
+import type { OllamaEndpointStatus } from '@/src/types/ollama-endpoints.types';
 
 interface ProviderAuthState {
   statuses: TransportStatus[];
+  ollama: OllamaEndpointStatus[];
   checkedAt: number | null;
   loading: boolean;
   error: string | null;
@@ -16,6 +18,7 @@ interface ProviderAuthState {
 
 const initial = {
   statuses: [] as TransportStatus[],
+  ollama: [] as OllamaEndpointStatus[],
   checkedAt: null as number | null,
   loading: false,
   error: null as string | null,
@@ -35,7 +38,7 @@ export const useProviderAuthStore = create<ProviderAuthState>((set) => ({
     set({ loading: true, error: null });
     try {
       const report = await providersApi.fetchAuthStatus();
-      set({ statuses: report.statuses, checkedAt: report.checkedAt, loading: false, error: null });
+      set({ statuses: report.statuses, ollama: report.ollama, checkedAt: report.checkedAt, loading: false, error: null });
     } catch (e) {
       set({ loading: false, error: errMsg(e) });
     }
@@ -49,7 +52,7 @@ export const useProviderAuthStore = create<ProviderAuthState>((set) => ({
     inflight.set(key, promise);
     try {
       const report = await promise;
-      set({ statuses: report.statuses, checkedAt: report.checkedAt, loading: false, error: null });
+      set({ statuses: report.statuses, ollama: report.ollama, checkedAt: report.checkedAt, loading: false, error: null });
     } catch (e) {
       set({ loading: false, error: errMsg(e) });
     } finally {

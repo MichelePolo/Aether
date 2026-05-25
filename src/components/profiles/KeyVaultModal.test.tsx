@@ -15,8 +15,8 @@ vi.mock('@/src/lib/api/providers.api', () => ({
     }),
     clearKey: vi.fn().mockResolvedValue(undefined),
     revealKey: vi.fn().mockResolvedValue('sk-ant-plaintext'),
-    fetchAuthStatus: vi.fn().mockResolvedValue({ statuses: [], checkedAt: 0 }),
-    refreshAuthStatus: vi.fn().mockResolvedValue({ statuses: [], checkedAt: 0 }),
+    fetchAuthStatus: vi.fn().mockResolvedValue({ statuses: [], ollama: [], checkedAt: 0 }),
+    refreshAuthStatus: vi.fn().mockResolvedValue({ statuses: [], ollama: [], checkedAt: 0 }),
   },
 }));
 

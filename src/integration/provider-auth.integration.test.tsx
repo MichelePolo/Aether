@@ -35,7 +35,9 @@ describe('provider-auth integration', () => {
             { transport: 'anthropic', state: 'ok', reason: '' },
             { transport: 'openai', state: 'unconfigured', reason: 'no api key' },
             { transport: 'gemini', state: 'unconfigured', reason: 'no api key' },
-            { transport: 'ollama', state: 'ok', reason: '' },
+          ],
+          ollama: [
+            { id: 'local', label: 'local', fixed: true, state: 'ok', reason: '' },
           ],
         }),
       ),

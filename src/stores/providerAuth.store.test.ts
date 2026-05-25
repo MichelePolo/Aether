@@ -13,6 +13,7 @@ const makeReport = (overrides: Partial<{ checkedAt: number }> = {}) => ({
     { transport: 'anthropic' as const, state: 'ok' as const, reason: 'Key found' },
     { transport: 'openai' as const, state: 'unconfigured' as const, reason: 'No key' },
   ],
+  ollama: [] as import('@/src/types/ollama-endpoints.types').OllamaEndpointStatus[],
   checkedAt: overrides.checkedAt ?? 1000,
 });
 
@@ -81,5 +82,26 @@ describe('useProviderAuthStore', () => {
     const state = useProviderAuthStore.getState();
     expect(state.error).toBe('Network down');
     expect(state.loading).toBe(false);
+  });
+
+  it('stores the ollama endpoint statuses from the report', async () => {
+    vi.spyOn(providersApi, 'fetchAuthStatus').mockResolvedValue({
+      statuses: [],
+      ollama: [{ id: 'local', label: 'local', fixed: true, state: 'ok', reason: '2 models' }],
+      checkedAt: 1,
+    });
+    await useProviderAuthStore.getState().init();
+    expect(useProviderAuthStore.getState().ollama).toHaveLength(1);
+  });
+
+  it('stores ollama statuses from a refresh()', async () => {
+    vi.spyOn(providersApi, 'refreshAuthStatus').mockResolvedValue({
+      statuses: [],
+      ollama: [{ id: 'abc', label: 'gpu', fixed: false, state: 'error', reason: '401' }],
+      checkedAt: 2,
+    });
+    await useProviderAuthStore.getState().refresh('ollama');
+    expect(useProviderAuthStore.getState().ollama).toHaveLength(1);
+    expect(useProviderAuthStore.getState().ollama[0].id).toBe('abc');
   });
 });

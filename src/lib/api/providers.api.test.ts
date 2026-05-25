@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/src/test/msw-server';
 import { providersApi } from './providers.api';
+import type { AuthStatusReport } from '@/src/types/provider-auth.types';
 
 describe('providersApi', () => {
   it('list returns descriptors', async () => {
@@ -43,11 +44,12 @@ describe('providersApi', () => {
   });
 
   it('fetchAuthStatus GETs and returns parsed report', async () => {
-    const report = {
+    const report: AuthStatusReport = {
       statuses: [
         { transport: 'anthropic', state: 'ok', reason: 'API key present' },
         { transport: 'openai', state: 'unconfigured', reason: 'No API key' },
       ],
+      ollama: [],
       checkedAt: 1234567890,
     };
     server.use(
@@ -63,7 +65,7 @@ describe('providersApi', () => {
 
   it('refreshAuthStatus POSTs without transport= query when no transport given', async () => {
     let capturedUrl = '';
-    const report = { statuses: [], checkedAt: 9999 };
+    const report: AuthStatusReport = { statuses: [], ollama: [], checkedAt: 9999 };
     server.use(
       http.post('http://localhost/api/providers/auth-status/refresh', ({ request }) => {
         capturedUrl = request.url;
@@ -77,8 +79,9 @@ describe('providersApi', () => {
 
   it('refreshAuthStatus POSTs WITH transport=openai query when transport given', async () => {
     let capturedUrl = '';
-    const report = {
+    const report: AuthStatusReport = {
       statuses: [{ transport: 'openai', state: 'ok', reason: 'Key found' }],
+      ollama: [],
       checkedAt: 8888,
     };
     server.use(
