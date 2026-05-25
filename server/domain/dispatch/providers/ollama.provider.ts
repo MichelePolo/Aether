@@ -24,6 +24,7 @@ interface OllamaChatChunk {
 export interface OllamaProviderOpts {
   host: string;
   model: string;
+  token?: string;
 }
 
 export class OllamaProvider implements AIProvider {
@@ -38,9 +39,12 @@ export class OllamaProvider implements AIProvider {
     const url = `${this.opts.host.replace(/\/$/, '')}/api/chat`;
     const body = buildBody(this.model, req);
 
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (this.opts.token) headers.Authorization = `Bearer ${this.opts.token}`;
+
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
       signal,
     });

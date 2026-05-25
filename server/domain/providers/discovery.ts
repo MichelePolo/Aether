@@ -4,9 +4,11 @@ const TagsResponse = z.object({
   models: z.array(z.object({ name: z.string() })),
 });
 
-export async function discoverOllama(host: string): Promise<string[]> {
+export async function discoverOllama(host: string, token?: string): Promise<string[]> {
   try {
-    const res = await fetch(`${host.replace(/\/$/, '')}/api/tags`);
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${host.replace(/\/$/, '')}/api/tags`, { headers });
     if (!res.ok) return [];
     const body = await res.json();
     const parsed = TagsResponse.safeParse(body);
