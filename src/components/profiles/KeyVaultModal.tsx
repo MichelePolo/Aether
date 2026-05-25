@@ -231,6 +231,7 @@ export function KeyVaultModal() {
   const focusTransport = useUiStore((s) => s.keyVaultFocusTransport);
   const error = useKeyVaultStore((s) => s.error);
   const statuses = useProviderAuthStore((s) => s.statuses);
+  const ollamaStatuses = useProviderAuthStore((s) => s.ollama);
   const initVault = useKeyVaultStore((s) => s.init);
 
   const statusMap = Object.fromEntries(statuses.map((s) => [s.transport, s]));
@@ -253,7 +254,12 @@ export function KeyVaultModal() {
         )}
         {ROW_ORDER.map((transport) => {
           const providerT = TO_PROVIDER_TRANSPORT[transport];
-          const statusState = providerT ? statusMap[providerT]?.state : undefined;
+          const statusState =
+            transport === 'ollama'
+              ? ollamaStatuses.find((e) => e.id === 'local')?.state
+              : providerT
+                ? statusMap[providerT]?.state
+                : undefined;
 
           if (VAULT_TRANSPORTS.has(transport)) {
             return (
