@@ -52,7 +52,13 @@ export const useProviderAuthStore = create<ProviderAuthState>((set) => ({
     inflight.set(key, promise);
     try {
       const report = await promise;
-      set({ statuses: report.statuses, ollama: report.ollama, checkedAt: report.checkedAt, loading: false, error: null });
+      set((s) => ({
+        statuses: report.statuses.length ? report.statuses : s.statuses,
+        ollama: report.ollama.length ? report.ollama : s.ollama,
+        checkedAt: report.checkedAt,
+        loading: false,
+        error: null,
+      }));
     } catch (e) {
       set({ loading: false, error: errMsg(e) });
     } finally {

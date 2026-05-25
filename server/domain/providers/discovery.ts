@@ -8,7 +8,10 @@ export async function discoverOllama(host: string, token?: string): Promise<stri
   try {
     const headers: Record<string, string> = {};
     if (token) headers.Authorization = `Bearer ${token}`;
-    const res = await fetch(`${host.replace(/\/$/, '')}/api/tags`, { headers });
+    const res = await fetch(`${host.replace(/\/$/, '')}/api/tags`, {
+      headers,
+      signal: AbortSignal.timeout(5000),
+    });
     if (!res.ok) return [];
     const body = await res.json();
     const parsed = TagsResponse.safeParse(body);

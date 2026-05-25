@@ -108,8 +108,11 @@ export class ProviderRegistry {
 
     // Ollama (per-endpoint discovery). Local endpoint keeps `ollama:<model>`
     // for backward-compatibility with sessions saved before multi-endpoint.
-    for (const ep of this.deps.listOllamaEndpoints()) {
-      const tags = await discoverOllama(ep.baseUrl, ep.token);
+    const ollamaEndpoints = this.deps.listOllamaEndpoints();
+    const discovered = await Promise.all(
+      ollamaEndpoints.map(async (ep) => ({ ep, tags: await discoverOllama(ep.baseUrl, ep.token) })),
+    );
+    for (const { ep, tags } of discovered) {
       for (const tag of tags) {
         const provider = this.deps.ollamaBuilder(ep.baseUrl, tag, ep.token);
         const name = ep.id === 'local' ? `ollama:${tag}` : `ollama:${ep.id}:${tag}`;

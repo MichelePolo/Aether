@@ -104,4 +104,23 @@ describe('useProviderAuthStore', () => {
     expect(useProviderAuthStore.getState().ollama).toHaveLength(1);
     expect(useProviderAuthStore.getState().ollama[0].id).toBe('abc');
   });
+
+  it('refresh() keeps prior keyed statuses when a targeted ollama refresh returns empty statuses', async () => {
+    vi.spyOn(providersApi, 'fetchAuthStatus').mockResolvedValue({
+      statuses: [{ transport: 'anthropic', state: 'ok', reason: 'oauth' }],
+      ollama: [],
+      checkedAt: 1,
+    });
+    await useProviderAuthStore.getState().init();
+    expect(useProviderAuthStore.getState().statuses).toHaveLength(1);
+
+    vi.spyOn(providersApi, 'refreshAuthStatus').mockResolvedValue({
+      statuses: [],
+      ollama: [{ id: 'local', label: 'local', fixed: true, state: 'ok', reason: '1 model' }],
+      checkedAt: 2,
+    });
+    await useProviderAuthStore.getState().refresh('ollama');
+    expect(useProviderAuthStore.getState().statuses).toHaveLength(1); // preserved
+    expect(useProviderAuthStore.getState().ollama).toHaveLength(1);   // updated
+  });
 });

@@ -53,7 +53,7 @@ describe('discoverOllama', () => {
     await discoverOllama('http://gpu.lan:11434', 'tok-123');
     expect(fetchMock).toHaveBeenCalledWith(
       'http://gpu.lan:11434/api/tags',
-      { headers: { Authorization: 'Bearer tok-123' } },
+      expect.objectContaining({ headers: { Authorization: 'Bearer tok-123' } }),
     );
   });
 
@@ -64,7 +64,7 @@ describe('discoverOllama', () => {
       json: () => Promise.resolve({ models: [] }),
     } as Response);
     await discoverOllama('http://localhost:11434');
-    expect(fetchMock).toHaveBeenCalledWith('http://localhost:11434/api/tags', { headers: {} });
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:11434/api/tags', expect.objectContaining({ headers: {} }));
   });
 });
 
