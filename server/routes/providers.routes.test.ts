@@ -10,6 +10,7 @@ import type { AuthStatusReport } from '@/server/domain/providers/auth-status.typ
 import { KeyVaultService } from '@/server/domain/providers/key-vault';
 import type { TransportStatus } from '@/server/domain/providers/auth-status.types';
 import { makeTestDb } from '@/server/test/test-db';
+import { OllamaEndpointStore } from '@/server/domain/providers/ollama-endpoints.store';
 import { isAppError } from '@/server/lib/errors';
 import { createProvidersRoutes } from './providers.routes';
 
@@ -33,7 +34,16 @@ async function makeApp() {
     openAIBuilder: (model) => makeFake(model),
   });
   await reg.refresh();
-  return { app: createApp({ providers: reg }), reg };
+  const db = makeTestDb();
+  const ollamaEndpointStore = new OllamaEndpointStore(db);
+  return {
+    app: createApp({
+      providers: reg,
+      ollamaEndpointStore,
+      buildInfoRowsCtx: { anthropicCliPresent: false, ollamaHost: 'http://localhost:11434' },
+    }),
+    reg,
+  };
 }
 
 describe('providers routes', () => {
@@ -277,5 +287,62 @@ describe('providers routes — key vault', () => {
 
     const revealKey = await request(app).get('/api/providers/keys/openai?reveal=1');
     expect(revealKey.status).toBe(503);
+  });
+});
+
+describe('ollama-endpoints routes', () => {
+  it('GET returns the fixed local endpoint first', async () => {
+    const { app } = await makeApp();
+    const res = await request(app).get('/api/providers/ollama-endpoints');
+    expect(res.status).toBe(200);
+    expect(res.body.endpoints[0]).toMatchObject({ id: 'local', fixed: true });
+  });
+
+  it('POST creates a remote endpoint', async () => {
+    const { app } = await makeApp();
+    const res = await request(app)
+      .post('/api/providers/ollama-endpoints')
+      .send({ label: 'gpu', baseUrl: 'http://gpu.lan:11434' });
+    expect(res.status).toBe(201);
+    expect(res.body.endpoint).toMatchObject({ label: 'gpu', fixed: false, hasToken: false });
+  });
+
+  it('POST rejects an invalid base URL', async () => {
+    const { app } = await makeApp();
+    const res = await request(app)
+      .post('/api/providers/ollama-endpoints')
+      .send({ label: 'bad', baseUrl: 'not-a-url' });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST rejects a duplicate label', async () => {
+    const { app } = await makeApp();
+    await request(app).post('/api/providers/ollama-endpoints').send({ label: 'dup', baseUrl: 'http://a' });
+    const res = await request(app).post('/api/providers/ollama-endpoints').send({ label: 'dup', baseUrl: 'http://b' });
+    expect(res.status).toBe(400);
+  });
+
+  it('PUT and DELETE reject the fixed local id', async () => {
+    const { app } = await makeApp();
+    const put = await request(app).put('/api/providers/ollama-endpoints/local').send({ label: 'x' });
+    expect(put.status).toBe(400);
+    const del = await request(app).delete('/api/providers/ollama-endpoints/local');
+    expect(del.status).toBe(400);
+  });
+
+  it('DELETE removes a created endpoint', async () => {
+    const { app } = await makeApp();
+    const created = await request(app).post('/api/providers/ollama-endpoints').send({ label: 'tmp', baseUrl: 'http://a' });
+    const id = created.body.endpoint.id;
+    const del = await request(app).delete(`/api/providers/ollama-endpoints/${id}`);
+    expect(del.status).toBe(200);
+  });
+
+  it('PUT returns 404 for a non-existent id', async () => {
+    const { app } = await makeApp();
+    const res = await request(app)
+      .put('/api/providers/ollama-endpoints/00000000-0000-0000-0000-000000000000')
+      .send({ label: 'x' });
+    expect(res.status).toBe(404);
   });
 });

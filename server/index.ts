@@ -32,6 +32,7 @@ import { SearchService } from './domain/search/search.service';
 import { AuthStatusService } from './domain/providers/auth-status';
 import { KeyVaultService } from './domain/providers/key-vault';
 import { KeyResolver } from './domain/providers/key-resolver';
+import { OllamaEndpointStore } from './domain/providers/ollama-endpoints.store';
 
 dotenv.config();
 
@@ -96,13 +97,19 @@ async function bootstrap() {
 
   const ollamaHost = process.env.OLLAMA_HOST ?? 'http://localhost:11434';
 
+  const ollamaEndpointStore = new OllamaEndpointStore(db);
+  const listOllamaEndpoints = () => [
+    { id: 'local', label: 'local', baseUrl: ollamaHost },
+    ...ollamaEndpointStore.listResolved(),
+  ];
+
   const providers = new ProviderRegistry({
-    ollamaHost,
     resolveKey: (t) => resolver.get(t),
     detectAnthropicAuth,
     fakeProvider,
     geminiBuilder: (model) => new GeminiProvider({ apiKey: resolver.get('gemini') ?? '', model }),
-    ollamaBuilder: (model) => new OllamaProvider({ host: ollamaHost, model }),
+    listOllamaEndpoints,
+    ollamaBuilder: (baseUrl, model, token) => new OllamaProvider({ host: baseUrl, model, token }),
     anthropicBuilder: (model) =>
       new AnthropicProvider({
         model: model as 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5',
@@ -135,7 +142,7 @@ async function bootstrap() {
     detectAnthropicAuth,
     getOpenAIKey: () => resolver.get('openai'),
     getGeminiKey: () => resolver.get('gemini'),
-    ollamaHost,
+    listOllamaEndpoints,
   });
 
   // Detect whether the claude CLI is present (for the info row label).
@@ -176,6 +183,7 @@ async function bootstrap() {
     keyVault,
     keyVaultHooks,
     buildInfoRowsCtx,
+    ollamaEndpointStore,
     policyStore,
     previewService,
     workspacesStore,
