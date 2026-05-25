@@ -7,7 +7,7 @@ function makeService(overrides: Partial<ConstructorParameters<typeof AuthStatusS
     detectAnthropicAuth: async () => 'none',
     getOpenAIKey: () => undefined,
     getGeminiKey: () => undefined,
-    ollamaHost: 'http://localhost:11434',
+    listOllamaEndpoints: () => [{ id: 'local', label: 'local', baseUrl: 'http://localhost:11434' }],
     fetch: vi.fn(async () => new Response(null, { status: 599 })) as unknown as typeof fetch,
     timeoutMs: 50,
     ...overrides,
@@ -15,7 +15,7 @@ function makeService(overrides: Partial<ConstructorParameters<typeof AuthStatusS
 }
 
 describe('AuthStatusService.probe — all-OK path', () => {
-  it('returns 4 ok statuses with the right reasons', async () => {
+  it('returns 3 ok keyed statuses plus 1 ollama endpoint', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('api.openai.com')) return new Response(null, { status: 200 });
@@ -31,10 +31,14 @@ describe('AuthStatusService.probe — all-OK path', () => {
       fetch: fetchMock as typeof fetch,
     });
     const report = await svc.probe();
-    expect(report.statuses.map((s) => s.transport)).toEqual(TRANSPORT_ORDER);
+    // statuses no longer includes ollama
+    expect(report.statuses.map((s) => s.transport)).toEqual(
+      TRANSPORT_ORDER.filter((t) => t !== 'ollama'),
+    );
     expect(report.statuses.every((s) => s.state === 'ok')).toBe(true);
-    const ollama = report.statuses.find((s) => s.transport === 'ollama')!;
-    expect(ollama.reason).toBe('2 models');
+    // ollama is now in its own array
+    expect(report.ollama).toHaveLength(1);
+    expect(report.ollama[0].reason).toBe('2 models');
     expect(report.checkedAt).toBeGreaterThan(0);
   });
 });
@@ -58,9 +62,11 @@ describe('AuthStatusService.probe — mixed', () => {
       { transport: 'anthropic', state: 'ok', reason: 'api key set' },
       { transport: 'openai', state: 'unconfigured', reason: 'no api key' },
       expect.objectContaining({ transport: 'gemini', state: 'error', reason: '401' }),
-      expect.objectContaining({ transport: 'ollama', state: 'error' }),
     ]);
-    const ollama = report.statuses[3];
+    // ollama error is now in the ollama array
+    expect(report.ollama).toHaveLength(1);
+    const ollama = report.ollama[0];
+    expect(ollama.state).toBe('error');
     expect(ollama.detail).toMatch(/ECONNREFUSED/);
   });
 });
@@ -72,6 +78,7 @@ describe('AuthStatusService.probe — single transport filter', () => {
     expect(report.statuses).toHaveLength(1);
     expect(report.statuses[0].transport).toBe('anthropic');
     expect(report.statuses[0].state).toBe('ok');
+    expect(report.ollama).toHaveLength(0);
   });
 });
 
@@ -102,9 +109,55 @@ describe('AuthStatusService.probe — error isolation', () => {
       },
     });
     const report = await svc.probe();
-    expect(report.statuses).toHaveLength(4);
+    // 3 keyed transports (not ollama) + 1 ollama endpoint
+    expect(report.statuses).toHaveLength(3);
     expect(report.statuses[0]).toEqual(
       expect.objectContaining({ transport: 'anthropic', state: 'error' }),
     );
+  });
+});
+
+describe('AuthStatusService.probe — per-endpoint Ollama', () => {
+  it('probes each Ollama endpoint and returns a per-endpoint list', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('gpu.lan')) {
+        return new Response(JSON.stringify({ models: [{ name: 'a' }, { name: 'b' }] }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ models: [{ name: 'a' }] }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const svc = new AuthStatusService({
+      detectAnthropicAuth: async () => 'none',
+      getOpenAIKey: () => undefined,
+      getGeminiKey: () => undefined,
+      listOllamaEndpoints: () => [
+        { id: 'local', label: 'local', baseUrl: 'http://localhost:11434' },
+        { id: 'abc', label: 'gpu', baseUrl: 'http://gpu.lan:11434', token: 'tok' },
+      ],
+      fetch: fetchMock,
+      timeoutMs: 50,
+    });
+
+    const report = await svc.probe();
+    expect(report.ollama).toHaveLength(2);
+    const local = report.ollama.find((e) => e.id === 'local')!;
+    expect(local).toMatchObject({ fixed: true, state: 'ok', reason: '1 model' });
+    const gpu = report.ollama.find((e) => e.id === 'abc')!;
+    expect(gpu).toMatchObject({ fixed: false, state: 'ok', reason: '2 models' });
+    expect(report.statuses.some((s) => s.transport === 'ollama')).toBe(false);
+  });
+
+  it('marks an unreachable Ollama endpoint as error', async () => {
+    const svc = new AuthStatusService({
+      detectAnthropicAuth: async () => 'none',
+      getOpenAIKey: () => undefined,
+      getGeminiKey: () => undefined,
+      listOllamaEndpoints: () => [{ id: 'local', label: 'local', baseUrl: 'http://localhost:11434' }],
+      fetch: vi.fn(async () => { throw new Error('connect ECONNREFUSED'); }) as unknown as typeof fetch,
+      timeoutMs: 50,
+    });
+    const report = await svc.probe();
+    expect(report.ollama[0].state).toBe('error');
   });
 });

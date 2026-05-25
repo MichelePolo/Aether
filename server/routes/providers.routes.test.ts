@@ -80,8 +80,8 @@ describe('providers routes — auth status', () => {
       { transport: 'anthropic', state: 'ok', reason: 'oauth' },
       { transport: 'openai', state: 'unconfigured', reason: 'no api key' },
       { transport: 'gemini', state: 'unconfigured', reason: 'no api key' },
-      { transport: 'ollama', state: 'ok', reason: '3 models' },
     ],
+    ollama: [{ id: 'local', label: 'local', fixed: true, state: 'ok', reason: '3 models' }],
   };
 
   it('GET /api/providers/auth-status returns the full report', async () => {
@@ -90,7 +90,8 @@ describe('providers routes — auth status', () => {
     const app = createApp({ providers: reg, authStatusService });
     const res = await request(app).get('/api/providers/auth-status');
     expect(res.status).toBe(200);
-    expect(res.body.statuses).toHaveLength(4);
+    expect(res.body.statuses).toHaveLength(3);
+    expect(res.body.ollama).toHaveLength(1);
     expect(res.body.checkedAt).toBe(1234);
   });
 
@@ -102,7 +103,7 @@ describe('providers routes — auth status', () => {
     const res = await request(app).post('/api/providers/auth-status/refresh');
     expect(res.status).toBe(200);
     expect(probeSpy).toHaveBeenCalledWith(undefined);
-    expect(res.body.statuses).toHaveLength(4);
+    expect(res.body.statuses).toHaveLength(3);
   });
 
   it('POST /api/providers/auth-status/refresh?transport=anthropic re-probes one and merges', async () => {
@@ -110,6 +111,7 @@ describe('providers routes — auth status', () => {
     const targeted: AuthStatusReport = {
       checkedAt: 9999,
       statuses: [{ transport: 'anthropic', state: 'error', reason: '500', detail: 'oops' }],
+      ollama: [],
     };
     let firstCall = true;
     const probeSpy = vi.fn(async (_transports?: string[]) => {
@@ -128,8 +130,8 @@ describe('providers routes — auth status', () => {
     expect(probeSpy).toHaveBeenLastCalledWith(['anthropic']);
     const anth = res.body.statuses.find((s: { transport: string }) => s.transport === 'anthropic');
     expect(anth.state).toBe('error');
-    // The other 3 came from the prior cached report.
-    expect(res.body.statuses).toHaveLength(4);
+    // The other 2 keyed transports came from the prior cached report.
+    expect(res.body.statuses).toHaveLength(3);
   });
 
   it('returns 503 when authStatusService is absent', async () => {
@@ -155,6 +157,7 @@ function makeAppWithVault(opts?: { probeOk?: boolean }) {
       state: opts?.probeOk === false ? 'unconfigured' : 'ok',
       reason: opts?.probeOk === false ? 'no api key' : 'api key set',
     }],
+    ollama: [],
     checkedAt: Date.now(),
   }));
   const registry = { list: () => [], refresh: refreshSpy, defaultName: () => null } as unknown as Parameters<typeof createProvidersRoutes>[0];

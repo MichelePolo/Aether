@@ -187,6 +187,8 @@ export function createProvidersRoutes(
   return router;
 }
 
+const KEYED_TRANSPORTS: readonly ProviderTransport[] = ['anthropic', 'openai', 'gemini'];
+
 function mergeReport(prior: AuthStatusReport | null, fresh: AuthStatusReport): AuthStatusReport {
   if (!prior) return fresh;
   const byTransport = new Map<string, TransportStatus>();
@@ -194,8 +196,10 @@ function mergeReport(prior: AuthStatusReport | null, fresh: AuthStatusReport): A
   for (const s of fresh.statuses) byTransport.set(s.transport, s);
   return {
     checkedAt: fresh.checkedAt,
-    statuses: VALID_TRANSPORTS
+    statuses: KEYED_TRANSPORTS
       .map((t) => byTransport.get(t))
       .filter((s): s is TransportStatus => Boolean(s)),
+    // A targeted refresh that didn't probe Ollama returns ollama:[]; keep prior then.
+    ollama: fresh.ollama.length > 0 ? fresh.ollama : prior.ollama,
   };
 }

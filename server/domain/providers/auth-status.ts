@@ -2,6 +2,7 @@ import type {
   AuthStatusReport,
   ProviderTransport,
   TransportStatus,
+  OllamaEndpointStatus,
 } from './auth-status.types';
 import { TRANSPORT_ORDER } from './auth-status.types';
 
@@ -11,7 +12,7 @@ export interface AuthStatusServiceDeps {
   detectAnthropicAuth: () => Promise<AnthropicAuth>;
   getOpenAIKey: () => string | undefined;
   getGeminiKey: () => string | undefined;
-  ollamaHost: string;
+  listOllamaEndpoints: () => Array<{ id: string; label: string; baseUrl: string; token?: string }>;
   /** Override for tests; defaults to globalThis.fetch. */
   fetch?: typeof fetch;
   /** Per-probe timeout in ms; default 5000. */
@@ -31,16 +32,19 @@ export class AuthStatusService {
 
   async probe(transports?: ProviderTransport[]): Promise<AuthStatusReport> {
     const wanted = transports ?? TRANSPORT_ORDER;
-    const all = await Promise.all(wanted.map((t) => this.probeOne(t)));
-    return { statuses: all, checkedAt: Date.now() };
+    const keyed = wanted.filter((t): t is Exclude<ProviderTransport, 'ollama'> => t !== 'ollama');
+    const statuses = await Promise.all(keyed.map((t) => this.probeOne(t)));
+    const ollama = wanted.includes('ollama') ? await this.probeOllamaEndpoints() : [];
+    return { statuses, ollama, checkedAt: Date.now() };
   }
 
-  private async probeOne(transport: ProviderTransport): Promise<TransportStatus> {
+  private async probeOne(
+    transport: Exclude<ProviderTransport, 'ollama'>,
+  ): Promise<TransportStatus> {
     try {
       if (transport === 'anthropic') return await this.probeAnthropic();
       if (transport === 'openai') return await this.probeOpenAI();
-      if (transport === 'gemini') return await this.probeGemini();
-      return await this.probeOllama();
+      return await this.probeGemini();
     } catch (err) {
       return { transport, state: 'error', reason: shortReason(err), detail: longDetail(err) };
     }
@@ -88,22 +92,32 @@ export class AuthStatusService {
     };
   }
 
-  private async probeOllama(): Promise<TransportStatus> {
-    const url = `${this.deps.ollamaHost.replace(/\/$/, '')}/api/tags`;
-    const res = await this.fetchWithTimeout(url);
-    if (!res.ok) {
-      return {
-        transport: 'ollama',
-        state: 'error',
-        reason: String(res.status),
-        detail: res.statusText || `HTTP ${res.status}`,
-      };
+  private async probeOllamaEndpoints(): Promise<OllamaEndpointStatus[]> {
+    const eps = this.deps.listOllamaEndpoints();
+    return Promise.all(eps.map((ep) => this.probeOneOllama(ep)));
+  }
+
+  private async probeOneOllama(ep: {
+    id: string;
+    label: string;
+    baseUrl: string;
+    token?: string;
+  }): Promise<OllamaEndpointStatus> {
+    const base = { id: ep.id, label: ep.label, fixed: ep.id === 'local' };
+    try {
+      const headers: Record<string, string> = {};
+      if (ep.token) headers.Authorization = `Bearer ${ep.token}`;
+      const url = `${ep.baseUrl.replace(/\/$/, '')}/api/tags`;
+      const res = await this.fetchWithTimeout(url, { headers });
+      if (!res.ok) {
+        return { ...base, state: 'error', reason: String(res.status), detail: res.statusText || `HTTP ${res.status}` };
+      }
+      const body = (await res.json().catch(() => ({ models: [] }))) as { models?: Array<{ name: string }> };
+      const count = body.models?.length ?? 0;
+      return { ...base, state: 'ok', reason: `${count} model${count === 1 ? '' : 's'}` };
+    } catch (err) {
+      return { ...base, state: 'error', reason: shortReason(err), detail: longDetail(err) };
     }
-    const body = (await res.json().catch(() => ({ models: [] }))) as {
-      models?: Array<{ name: string }>;
-    };
-    const count = body.models?.length ?? 0;
-    return { transport: 'ollama', state: 'ok', reason: `${count} models` };
   }
 
   private async fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
