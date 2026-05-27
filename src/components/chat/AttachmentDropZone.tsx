@@ -39,7 +39,7 @@ export function AttachmentDropZone({ children }: PropsWithChildren) {
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className="relative h-full"
+      className="relative flex flex-col flex-1 min-h-0"
     >
       {children}
       {active && (

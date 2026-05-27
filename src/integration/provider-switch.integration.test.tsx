@@ -56,8 +56,8 @@ describe('provider switch integration', () => {
     await waitFor(() => expect(useProvidersStore.getState().hydrated).toBe(true));
     await waitFor(() => expect(useSessionsStore.getState().activeSessionId).toBeTruthy());
 
-    const select = screen.getByRole('combobox', { name: /active provider/i });
-    await user.selectOptions(select, 'ollama:llama3');
+    await user.click(screen.getByRole('button', { name: /select model/i }));
+    await user.click(await screen.findByRole('menuitemradio', { name: /Ollama \/ llama3/i }));
 
     await waitFor(() => {
       expect((patchedBody as { providerName?: string })?.providerName).toBe('ollama:llama3');
@@ -108,16 +108,18 @@ describe('provider switch integration', () => {
     await waitFor(() => expect(useProvidersStore.getState().hydrated).toBe(true));
     await waitFor(() => expect(useSessionsStore.getState().activeSessionId).toBeTruthy());
 
-    const selector = screen.getByRole('combobox', { name: /active provider/i });
+    await user.click(screen.getByRole('button', { name: /select model/i }));
     expect(
-      await screen.findByRole('option', { name: /anthropic.*claude-sonnet-4-6/i }),
+      await screen.findByRole('menuitemradio', { name: /anthropic.*claude-sonnet-4-6/i }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByRole('option', { name: /anthropic.*claude-opus-4-7/i }),
+      await screen.findByRole('menuitemradio', { name: /anthropic.*claude-opus-4-7/i }),
     ).toBeInTheDocument();
 
-    await user.selectOptions(selector, 'anthropic:claude-sonnet-4-6');
-    expect(selector).toHaveValue('anthropic:claude-sonnet-4-6');
+    await user.click(screen.getByRole('menuitemradio', { name: /anthropic.*claude-sonnet-4-6/i }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /select model/i })).toHaveTextContent('Anthropic / claude-sonnet-4-6'),
+    );
   });
 
   it('OpenAI entries appear in the selector when the server publishes them', async () => {
@@ -163,15 +165,17 @@ describe('provider switch integration', () => {
     await waitFor(() => expect(useProvidersStore.getState().hydrated).toBe(true));
     await waitFor(() => expect(useSessionsStore.getState().activeSessionId).toBeTruthy());
 
-    const selector = screen.getByRole('combobox', { name: /active provider/i });
+    await user.click(screen.getByRole('button', { name: /select model/i }));
     expect(
-      await screen.findByRole('option', { name: /openai.*gpt-5/i }),
+      await screen.findByRole('menuitemradio', { name: /openai.*gpt-5/i }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByRole('option', { name: /openai.*o3/i }),
+      await screen.findByRole('menuitemradio', { name: /openai.*o3/i }),
     ).toBeInTheDocument();
 
-    await user.selectOptions(selector, 'openai:gpt-5');
-    expect(selector).toHaveValue('openai:gpt-5');
+    await user.click(screen.getByRole('menuitemradio', { name: /openai.*gpt-5/i }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /select model/i })).toHaveTextContent('OpenAI / gpt-5'),
+    );
   });
 });

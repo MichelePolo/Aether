@@ -9,6 +9,8 @@ import { isImageMime } from '@/src/types/attachment.types';
 import { cn } from '@/src/lib/cn';
 import { computeMentionState, type MentionState } from '@/src/hooks/useMentionAutocomplete';
 import { MentionPopover } from './MentionPopover';
+import { ComposerPlusMenu, type ComposerAction } from './ComposerPlusMenu';
+import { ComposerModelPill } from './ComposerModelPill';
 import { t } from '@/src/i18n/t';
 
 export interface MessageInputProps {
@@ -118,48 +120,22 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   const visionBlocked = hasImages && caps?.vision === false;
   const canSend = (value.trim().length > 0 || queuedAttachments.length > 0) && !visionBlocked;
 
+  // Extensible "+" menu actions. Add new composer capabilities (screenshot,
+  // web search, skills, …) by appending entries here.
+  const plusActions: ComposerAction[] = [
+    {
+      id: 'files',
+      label: 'Add files or photos',
+      icon: Paperclip,
+      onSelect: () => fileInputRef.current?.click(),
+    },
+  ];
+
   return (
-    <div className="border-t border-border-subtle bg-surface-2 p-3">
-      <div className="flex items-end gap-2 relative">
-        <button
-          type="button"
-          aria-label="Attach files"
-          disabled={isStreaming}
-          onClick={() => fileInputRef.current?.click()}
-          className="p-2 rounded bg-surface-1 text-zinc-500 border border-border-subtle hover:text-zinc-300 disabled:opacity-50"
-        >
-          <Paperclip size={16} />
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept="image/png,image/jpeg,image/webp,image/gif,.md,.json,.ts,.tsx,.js,.jsx,.py,.txt,.yaml,.yml,.toml,.sh,.sql,.csv"
-          hidden
-          onChange={onPickFiles}
-        />
-        <button
-          type="button"
-          aria-label="Toggle thinking mode"
-          aria-pressed={thinkingEnabled}
-          disabled={!thinkingSupported}
-          onClick={() => setThinkingEnabled(!thinkingEnabled)}
-          title={
-            thinkingSupported
-              ? (thinkingEnabled ? t('messageInput.thinkingEnabled') : t('messageInput.thinkingDisabled'))
-              : t('messageInput.thinkingUnsupported', { provider: activeProviderName ?? 'this provider' })
-          }
-          className={cn(
-            'p-2 rounded transition-colors',
-            thinkingEnabled
-              ? 'bg-accent/20 text-accent border border-accent/40'
-              : 'bg-surface-1 text-zinc-500 border border-border-subtle hover:text-zinc-300',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
-          )}
-        >
-          <Brain size={16} />
-        </button>
-        <div className="flex-1 relative">
+    <div className="shrink-0 border-t border-border-subtle bg-surface-2 p-3">
+      {/* Claude-style composer: textarea on top, a single aligned control row below. */}
+      <div className="rounded-2xl border border-border-subtle bg-surface-1 transition-colors focus-within:border-accent/50 focus-within:ring-1 focus-within:ring-accent/40">
+        <div className="relative">
           <textarea
             ref={textareaRef}
             id="message-input"
@@ -174,7 +150,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
                 : t('messageInput.placeholder')
             }
             rows={2}
-            className="w-full bg-surface-1 border border-border-subtle rounded text-sm p-2 resize-none focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+            className="w-full bg-transparent text-sm px-3.5 pt-3 pb-1.5 resize-none focus:outline-none disabled:opacity-50 placeholder:text-zinc-600"
           />
           <MentionPopover
             open={mention.open}
@@ -182,36 +158,74 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
             onSelect={handleMentionSelect}
             onClose={handleMentionClose}
           />
+        </div>
+
+        <div className="flex items-center gap-1 px-2 pb-2">
+          <ComposerPlusMenu actions={plusActions} disabled={isStreaming} />
+          <ComposerModelPill />
+          <button
+            type="button"
+            aria-label="Toggle thinking mode"
+            aria-pressed={thinkingEnabled}
+            disabled={!thinkingSupported}
+            onClick={() => setThinkingEnabled(!thinkingEnabled)}
+            title={
+              thinkingSupported
+                ? (thinkingEnabled ? t('messageInput.thinkingEnabled') : t('messageInput.thinkingDisabled'))
+                : t('messageInput.thinkingUnsupported', { provider: activeProviderName ?? 'this provider' })
+            }
+            className={cn(
+              'flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors',
+              thinkingEnabled
+                ? 'bg-accent/15 text-accent'
+                : 'text-zinc-500 hover:text-zinc-200 hover:bg-surface-3',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+            )}
+          >
+            <Brain size={16} />
+            <span>Thinking</span>
+          </button>
+
           <span
             data-testid="input-token-chip"
             aria-live="polite"
-            className="absolute bottom-1 right-2 text-[9px] font-mono text-zinc-600 pointer-events-none"
+            className="ml-auto text-[10px] font-mono text-zinc-600 px-1 pointer-events-none tabular-nums"
           >
             ~{Math.ceil(value.length / 4)} tokens
           </span>
+
+          {isStreaming ? (
+            <button
+              type="button"
+              aria-label="Stop"
+              onClick={onStop}
+              className="p-1.5 rounded-lg bg-status-error/20 hover:bg-status-error/30 text-status-error transition-colors"
+            >
+              <Square size={16} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              aria-label="Send"
+              onClick={submit}
+              title={visionBlocked ? t('messageInput.visionUnsupported') : undefined}
+              disabled={!canSend}
+              className="p-1.5 rounded-lg bg-accent/20 hover:bg-accent/30 text-accent transition-colors disabled:opacity-30"
+            >
+              <Send size={16} />
+            </button>
+          )}
         </div>
-        {isStreaming ? (
-          <button
-            type="button"
-            aria-label="Stop"
-            onClick={onStop}
-            className="p-2 rounded bg-status-error/20 hover:bg-status-error/30 text-status-error"
-          >
-            <Square size={16} />
-          </button>
-        ) : (
-          <button
-            type="button"
-            aria-label="Send"
-            onClick={submit}
-            title={visionBlocked ? t('messageInput.visionUnsupported') : undefined}
-            disabled={!canSend}
-            className="p-2 rounded bg-accent/20 hover:bg-accent/30 text-accent disabled:opacity-30"
-          >
-            <Send size={16} />
-          </button>
-        )}
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="image/png,image/jpeg,image/webp,image/gif,.md,.json,.ts,.tsx,.js,.jsx,.py,.txt,.yaml,.yml,.toml,.sh,.sql,.csv"
+        hidden
+        onChange={onPickFiles}
+      />
     </div>
   );
 }

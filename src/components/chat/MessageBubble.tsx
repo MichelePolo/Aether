@@ -43,16 +43,30 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
       ? `Prompt: ${message.tokensIn} / Reply: ${message.tokensOut} tokens`
       : undefined;
 
+  const senderLabel = isUser
+    ? t('messageBubble.you')
+    : message.model ?? t('messageBubble.assistant');
+  const time = new Date(message.timestamp).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
   return (
-    <div className={cn('flex', isUser ? 'justify-end' : 'justify-start')}>
+    <div className={cn('flex flex-col gap-1', isUser ? 'items-end' : 'items-start')}>
+      <div className="flex items-baseline gap-2 px-1">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-accent/80">
+          {senderLabel}
+        </span>
+        <span className="font-mono text-[10px] text-zinc-600">{time}</span>
+      </div>
       <div
         onContextMenu={onContextMenu}
         title={tooltip}
         className={cn(
-          'max-w-[65ch] rounded-lg px-3 py-2 text-sm',
+          'max-w-[68ch] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm shadow-black/20',
           isUser
-            ? 'bg-surface-4 text-zinc-100'
-            : 'bg-surface-2 border border-border-subtle text-zinc-200',
+            ? 'bg-accent/10 border border-accent/25 text-zinc-100 rounded-tr-sm'
+            : 'bg-surface-3 border border-border-subtle text-zinc-200 rounded-tl-sm',
         )}
       >
         {isUser ? (

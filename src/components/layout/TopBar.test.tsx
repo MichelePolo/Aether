@@ -33,9 +33,4 @@ describe('TopBar', () => {
     render(<TopBar title="X" sidebarOpen onToggleSidebar={() => {}} />);
     expect(screen.getByRole('button', { name: /open profiles manager/i })).toBeInTheDocument();
   });
-
-  it('mounts ProviderSelector', () => {
-    render(<TopBar title="X" sidebarOpen onToggleSidebar={() => {}} />);
-    expect(screen.getByRole('combobox', { name: /active provider/i })).toBeInTheDocument();
-  });
 });
