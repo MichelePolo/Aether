@@ -9,7 +9,16 @@ import type {
 } from './provider.types';
 
 const AETHER_MCP_NAME = 'aether';
-const AETHER_TOOL_PREFIX = `mcp__${AETHER_MCP_NAME}__`;
+// Server-level allow scope. The SDK normalizes MCP tool names (e.g. dots in
+// `Terminal.execute_command` become underscores), so a per-tool allowlist built
+// from qualifiedNames would not match and the SDK would deny the call before our
+// handler runs. Allowing the whole `aether` server sidesteps that — the SDK-level
+// allow merely lets the handler run; Aether's real approval gate is in runToolCall.
+const AETHER_SERVER_SCOPE = `mcp__${AETHER_MCP_NAME}`;
+// Generous turn budget so the SDK can run a multi-step tool loop without hitting
+// error_max_turns in normal use. The per-dispatch tool cap is still enforced by
+// the dispatch layer's runToolCall (returns an error outcome past the limit).
+const MAX_TURNS = 24;
 
 export interface AnthropicProviderOpts {
   model: 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5';
@@ -19,9 +28,6 @@ interface SdkContentBlock {
   type: 'text' | 'thinking' | 'tool_use' | string;
   text?: string;
   thinking?: string;
-  id?: string;
-  name?: string;
-  input?: unknown;
 }
 
 interface SdkEvent {
@@ -31,19 +37,12 @@ interface SdkEvent {
   usage?: { input_tokens?: number; output_tokens?: number };
 }
 
-/**
- * One element of the AsyncIterable<SDKUserMessage> prompt stream the SDK
- * expects. The literal `type: 'user'` is the SDK envelope; the inner
- * `message.role` is what carries 'user' vs 'assistant'.
- */
 interface SdkUserMessageEnvelope {
   type: 'user';
   message: {
-    role: 'user' | 'assistant';
+    role: 'user';
     content: Array<
       | { type: 'text'; text: string }
-      | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
-      | { type: 'tool_result'; tool_use_id: string; content: string }
       | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
     >;
   };
@@ -64,12 +63,27 @@ export class AnthropicProvider implements AIProvider {
     if (signal.aborted) aborter.abort();
     else signal.addEventListener('abort', onAbort, { once: true });
 
+    let stderrBuf = '';
     try {
       const options: Record<string, unknown> = {
         systemPrompt: req.systemInstruction,
         model: this.model,
-        maxTurns: 1,
+        maxTurns: MAX_TURNS,
         abortController: aborter,
+        // Isolate the spawned `claude` from the host Claude Code environment so it
+        // behaves like a bare model that only obeys Aether's systemPrompt and only
+        // sees Aether's tools:
+        //  - tools: [] disables ALL built-in tools (Bash/Write/Task/...). Without
+        //    this the model would reach for built-in Bash for shell work, bypassing
+        //    Aether's approval gate, execution and tracing. MCP tools come via
+        //    mcpServers and are unaffected.
+        //  - settingSources: [] stops loading ~/.claude + project settings, skills
+        //    (e.g. superpowers/using-superpowers) and CLAUDE.md from leaking in.
+        tools: [],
+        settingSources: [],
+        // Surface the spawned `claude` child's stderr so a non-zero exit reports
+        // WHY instead of the SDK's generic "exited with code 1".
+        stderr: (data: string): void => { stderrBuf += data; },
       };
       if (req.thinking === true) {
         options.thinking = { type: 'enabled', budgetTokens: 8000 };
@@ -77,10 +91,12 @@ export class AnthropicProvider implements AIProvider {
       if (req.mcpTools && req.mcpTools.length > 0) {
         const server = createSdkMcpServer({
           name: AETHER_MCP_NAME,
-          tools: req.mcpTools.map(toolDefFor),
+          tools: req.mcpTools.map((decl) => toolDefFor(decl, req)),
         });
         options.mcpServers = { [AETHER_MCP_NAME]: server };
-        options.allowedTools = req.mcpTools.map((t) => AETHER_TOOL_PREFIX + t.qualifiedName);
+        // Allow the whole aether server so the SDK runs the handler directly; the
+        // handler delegates to req.runToolCall which performs Aether's own gate.
+        options.allowedTools = [AETHER_SERVER_SCOPE];
       } else {
         options.allowedTools = [];
         options.mcpServers = {};
@@ -105,21 +121,9 @@ export class AnthropicProvider implements AIProvider {
               if (req.thinking === true) {
                 yield { type: 'thinking', text: block.thinking };
               }
-            } else if (block.type === 'tool_use') {
-              const rawName = String(block.name ?? '');
-              const qualifiedName = rawName.startsWith(AETHER_TOOL_PREFIX)
-                ? rawName.slice(AETHER_TOOL_PREFIX.length)
-                : rawName;
-              yield {
-                type: 'function_call',
-                call: {
-                  callId: String(block.id ?? ''),
-                  qualifiedName,
-                  args: (block.input ?? {}) as Record<string, unknown>,
-                },
-              };
-              return;
             }
+            // tool_use blocks are executed by the SDK via the in-process MCP
+            // handler (-> req.runToolCall). We do NOT surface function_call.
           }
         } else if (e.type === 'result') {
           const input = typeof e.usage?.input_tokens === 'number' ? e.usage.input_tokens : undefined;
@@ -136,6 +140,15 @@ export class AnthropicProvider implements AIProvider {
           return;
         }
       }
+      // Safety net: the SDK normally ends a successful run with a 'result' event
+      // (handled above). If iteration ends without one, still emit 'done' so the
+      // dispatch loop terminates cleanly, matching the other providers.
+      yield { type: 'done' };
+    } catch (err) {
+      if (stderrBuf.length > 0 && err instanceof Error) {
+        throw new Error(`${err.message} | claude stderr: ${stderrBuf.slice(-2000)}`);
+      }
+      throw err;
     } finally {
       signal.removeEventListener('abort', onAbort);
     }
@@ -143,19 +156,15 @@ export class AnthropicProvider implements AIProvider {
 }
 
 /**
- * Build an SDK tool definition that declares an Aether tool to Claude.
- *
- * The handler intentionally throws: with maxTurns:1 the SDK stops at the first
- * assistant turn (which surfaces tool_use blocks back to Aether), so the
- * handler is never invoked in normal flow. If it ever IS invoked, that means
- * our assumption about maxTurns has changed — failing loud is better than
- * silently bypassing Aether's approval+execution layer.
+ * Build an SDK in-process MCP tool. The handler delegates the actual gate +
+ * execution to req.runToolCall (the dispatch layer), then maps the outcome to a
+ * CallToolResult the SDK feeds back to the model.
  */
-function toolDefFor(decl: ProviderToolDecl): {
+function toolDefFor(decl: ProviderToolDecl, req: ProviderRequest): {
   name: string;
   description: string;
   inputSchema: Record<string, z.ZodType>;
-  handler: (args: unknown, extra: unknown) => Promise<{ content: Array<{ type: 'text'; text: string }>; isError: boolean }>;
+  handler: (args: unknown, extra: unknown) => Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }>;
 } {
   const shape: Record<string, z.ZodType> = {};
   for (const key of Object.keys(decl.schema.properties ?? {})) {
@@ -165,81 +174,54 @@ function toolDefFor(decl: ProviderToolDecl): {
     name: decl.qualifiedName,
     description: decl.description ?? '',
     inputSchema: shape,
-    handler: async () => {
-      throw new Error(
-        `AnthropicProvider tool handler for '${decl.qualifiedName}' was invoked unexpectedly. ` +
-          'With maxTurns:1 the SDK should surface tool_use blocks for Aether to execute, ' +
-          'not call the in-process handler.',
-      );
+    handler: async (args: unknown) => {
+      const outcome = req.runToolCall
+        ? await req.runToolCall({
+            qualifiedName: decl.qualifiedName,
+            args: (args ?? {}) as Record<string, unknown>,
+          })
+        : { ok: false, error: 'No tool executor available (req.runToolCall missing)' };
+      if (outcome.ok) {
+        const text = typeof outcome.output === 'string'
+          ? outcome.output
+          : JSON.stringify(outcome.output ?? {});
+        return { content: [{ type: 'text', text }] };
+      }
+      return { content: [{ type: 'text', text: outcome.error ?? 'tool failed' }], isError: true };
     },
   };
 }
 
-async function* buildPromptStream(req: ProviderRequest): AsyncGenerator<SdkUserMessageEnvelope> {
-  for (const h of req.history) {
-    yield {
-      type: 'user',
-      message: {
-        role: h.role === 'model' ? 'assistant' : 'user',
-        content: [{ type: 'text', text: h.text }],
-      },
-      parent_tool_use_id: null,
-    };
+/**
+ * Render the whole turn as ONE user-role message. The Claude Agent SDK's
+ * streaming input only accepts role:'user'; prior assistant turns cannot be
+ * replayed structurally, so they are flattened into a text transcript.
+ */
+function renderConversation(req: ProviderRequest): string {
+  const parts: string[] = [];
+  if (req.history.length > 0) {
+    parts.push('# Conversation so far');
+    for (const h of req.history) {
+      parts.push(`${h.role === 'model' ? 'Assistant' : 'User'}: ${h.text}`);
+    }
+    parts.push('');
   }
   if (req.pendingAssistantText && req.pendingAssistantText.length > 0) {
-    yield {
-      type: 'user',
-      message: {
-        role: 'assistant',
-        content: [{ type: 'text', text: req.pendingAssistantText }],
-      },
-      parent_tool_use_id: null,
-    };
+    parts.push(`Assistant (interrupted — continue this response): ${req.pendingAssistantText}`);
+    parts.push('');
   }
-  for (const r of req.toolResults ?? []) {
-    yield {
-      type: 'user',
-      message: {
-        role: 'assistant',
-        content: [{
-          type: 'tool_use',
-          id: r.callId,
-          name: r.qualifiedName,
-          input: {},
-        }],
-      },
-      parent_tool_use_id: null,
-    };
-    yield {
-      type: 'user',
-      message: {
-        role: 'user',
-        content: [{
-          type: 'tool_result',
-          tool_use_id: r.callId,
-          content: r.ok ? JSON.stringify(r.output ?? {}) : JSON.stringify({ error: r.error }),
-        }],
-      },
-      parent_tool_use_id: null,
-    };
-  }
-  const userContent: Array<
-    | { type: 'text'; text: string }
-    | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
-  > = [];
+  parts.push(req.userMessage);
+  return parts.join('\n');
+}
+
+async function* buildPromptStream(req: ProviderRequest): AsyncGenerator<SdkUserMessageEnvelope> {
+  const content: SdkUserMessageEnvelope['message']['content'] = [];
   for (const a of req.attachments ?? []) {
-    userContent.push({
+    content.push({
       type: 'image',
       source: { type: 'base64', media_type: a.mime, data: a.bytes.toString('base64') },
     });
   }
-  userContent.push({ type: 'text', text: req.userMessage });
-  yield {
-    type: 'user',
-    message: {
-      role: 'user',
-      content: userContent,
-    },
-    parent_tool_use_id: null,
-  };
+  content.push({ type: 'text', text: renderConversation(req) });
+  yield { type: 'user', message: { role: 'user', content }, parent_tool_use_id: null };
 }

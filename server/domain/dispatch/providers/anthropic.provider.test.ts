@@ -83,34 +83,7 @@ describe('AnthropicProvider', () => {
     expect(chunks).toContainEqual({ type: 'text', text: 'answer' });
   });
 
-  it('maps tool_use to function_call and terminates the stream (strips mcp__aether__ prefix)', async () => {
-    querySpy.mockReturnValue(asyncIterableFrom([
-      { type: 'assistant', message: { content: [{ type: 'text', text: 'I will use a tool' }] } },
-      { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'TC1', name: 'mcp__aether__mock.echo', input: { message: 'hi' } }] } },
-      { type: 'assistant', message: { content: [{ type: 'text', text: 'should not appear' }] } },
-      { type: 'result', usage: { input_tokens: 5, output_tokens: 5 } },
-    ]));
-    const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
-    const chunks = await collect(p.stream(baseReq(), new AbortController().signal));
-    expect(chunks).toEqual([
-      { type: 'text', text: 'I will use a tool' },
-      { type: 'function_call', call: { callId: 'TC1', qualifiedName: 'mock.echo', args: { message: 'hi' } } },
-    ]);
-  });
-
-  it('forwards tool_use names unchanged when prefix is missing (defensive)', async () => {
-    querySpy.mockReturnValue(asyncIterableFrom([
-      { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'TC1', name: 'mock.echo', input: {} }] } },
-    ]));
-    const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
-    const chunks = await collect(p.stream(baseReq(), new AbortController().signal));
-    expect(chunks[0]).toEqual({
-      type: 'function_call',
-      call: { callId: 'TC1', qualifiedName: 'mock.echo', args: {} },
-    });
-  });
-
-  it('forwards systemPrompt, history, userMessage to the SDK as an AsyncIterable<SDKUserMessage>', async () => {
+  it('sends history flattened into a SINGLE user-role message (never role:assistant)', async () => {
     querySpy.mockReturnValue(asyncIterableFrom([
       { type: 'result', usage: { input_tokens: 0, output_tokens: 0 } },
     ]));
@@ -124,48 +97,74 @@ describe('AnthropicProvider', () => {
       userMessage: 'q2',
     }), new AbortController().signal));
 
-    expect(querySpy).toHaveBeenCalledTimes(1);
     const arg = querySpy.mock.calls[0][0] as {
-      prompt: AsyncIterable<unknown>;
-      options: { systemPrompt: string; model: string; maxTurns: number; tools?: unknown };
+      prompt: AsyncIterable<{ message: { role: string; content: Array<{ type: string; text?: string }> } }>;
+      options: { systemPrompt: string; model: string; maxTurns: number };
     };
     expect(arg.options.systemPrompt).toBe('sys');
     expect(arg.options.model).toBe('claude-sonnet-4-6');
-    expect(arg.options.maxTurns).toBe(1);
-    // No custom tool declarations in options (SDK only accepts string[] or preset; we'll
-    // expose Aether's tools via an in-process MCP server in a follow-up task).
-    expect(arg.options.tools).toBeUndefined();
+    expect(arg.options.maxTurns).toBeGreaterThan(1);
 
-    // Consume the prompt iterable and inspect the messages.
-    const messages: unknown[] = [];
+    const messages: Array<{ message: { role: string; content: Array<{ type: string; text?: string }> } }> = [];
     for await (const m of arg.prompt) messages.push(m);
-    const serialized = JSON.stringify(messages);
-    expect(serialized).toContain('"role":"user"');
-    expect(serialized).toContain('"role":"assistant"');
-    expect(serialized).toContain('q1');
-    expect(serialized).toContain('a1');
-    expect(serialized).toContain('q2');
+    expect(messages).toHaveLength(1);
+    expect(messages.every((m) => m.message.role === 'user')).toBe(true);
+    const text = messages[0].message.content.find((c) => c.type === 'text')!.text!;
+    expect(text).toContain('q1');
+    expect(text).toContain('a1');
+    expect(text).toContain('q2');
   });
 
-  it('threads toolResults back into the SDK prompt on continuation', async () => {
+  it('registers tool handlers that delegate execution to req.runToolCall', async () => {
     querySpy.mockReturnValue(asyncIterableFrom([
       { type: 'result', usage: { input_tokens: 0, output_tokens: 0 } },
     ]));
+    const runToolCall = vi.fn(async () => ({ ok: true, output: { echoed: 'hi' } }));
     const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
     await collect(p.stream(baseReq({
-      pendingAssistantText: 'thinking out loud',
-      toolResults: [
-        { callId: 'TC1', qualifiedName: 'mock.echo', ok: true, output: { message: 'hi' } },
-      ],
+      mcpTools: [{ qualifiedName: 'mock.echo', description: 'Echoes', schema: { type: 'object', properties: { message: {} } } }],
+      runToolCall,
     }), new AbortController().signal));
 
-    const arg = querySpy.mock.calls[0][0] as { prompt: AsyncIterable<unknown> };
-    const messages: unknown[] = [];
-    for await (const m of arg.prompt) messages.push(m);
-    const serialized = JSON.stringify(messages);
-    expect(serialized).toContain('TC1');
-    expect(serialized).toContain('thinking out loud');
-    expect(serialized).toContain('"type":"tool_result"');
+    const serverOpts = createSdkMcpServerSpy.mock.calls[0][0] as {
+      tools: Array<{ name: string; handler: (a: unknown, e: unknown) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> }>;
+    };
+    const handler = serverOpts.tools[0].handler;
+    const result = await handler({ message: 'hi' }, {});
+    expect(runToolCall).toHaveBeenCalledWith({ qualifiedName: 'mock.echo', args: { message: 'hi' } });
+    expect(result.content[0].text).toContain('echoed');
+    expect(result.isError).toBeUndefined();
+
+    // Allow-listed at SERVER scope (not per-tool): the SDK normalizes tool names,
+    // so a per-tool dotted allowlist would not match and the call would be denied.
+    const arg = querySpy.mock.calls[0][0] as { options: { allowedTools: string[] } };
+    expect(arg.options.allowedTools).toEqual(['mcp__aether']);
+  });
+
+  it('handler maps a failed runToolCall outcome to an isError CallToolResult', async () => {
+    querySpy.mockReturnValue(asyncIterableFrom([{ type: 'result', usage: { input_tokens: 0, output_tokens: 0 } }]));
+    const runToolCall = vi.fn(async () => ({ ok: false, error: 'Rejected by user' }));
+    const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
+    await collect(p.stream(baseReq({
+      mcpTools: [{ qualifiedName: 'mock.echo', description: '', schema: { type: 'object', properties: {} } }],
+      runToolCall,
+    }), new AbortController().signal));
+    const serverOpts = createSdkMcpServerSpy.mock.calls[0][0] as { tools: Array<{ handler: (a: unknown, e: unknown) => Promise<{ content: Array<{ type: string; text: string }>; isError?: boolean }> }> };
+    const result = await serverOpts.tools[0].handler({}, {});
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('Rejected by user');
+  });
+
+  it('does NOT yield a function_call chunk when the SDK reports a tool_use (SDK owns execution)', async () => {
+    querySpy.mockReturnValue(asyncIterableFrom([
+      { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'TC1', name: 'mcp__aether__mock.echo', input: {} }] } },
+      { type: 'assistant', message: { content: [{ type: 'text', text: 'done' }] } },
+      { type: 'result', usage: { input_tokens: 1, output_tokens: 1 } },
+    ]));
+    const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
+    const chunks = await collect(p.stream(baseReq(), new AbortController().signal));
+    expect(chunks.find((c) => c.type === 'function_call')).toBeUndefined();
+    expect(chunks).toContainEqual({ type: 'text', text: 'done' });
   });
 
   it('uses budgetTokens (camelCase) when thinking is enabled', async () => {
@@ -186,6 +185,19 @@ describe('AnthropicProvider', () => {
     await collect(p.stream(baseReq(), new AbortController().signal));
     const arg = querySpy.mock.calls[0][0] as { options: { thinking?: unknown } };
     expect(arg.options.thinking).toBeUndefined();
+  });
+
+  it('isolates the spawned agent: disables built-in tools and external settings', async () => {
+    querySpy.mockReturnValue(asyncIterableFrom([
+      { type: 'result', usage: { input_tokens: 0, output_tokens: 0 } },
+    ]));
+    const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
+    await collect(p.stream(baseReq(), new AbortController().signal));
+    const arg = querySpy.mock.calls[0][0] as { options: { tools?: unknown; settingSources?: unknown } };
+    // tools:[] => no built-in Bash/Write/Task; only Aether MCP tools are available.
+    expect(arg.options.tools).toEqual([]);
+    // settingSources:[] => no external skills/settings/CLAUDE.md leak in.
+    expect(arg.options.settingSources).toEqual([]);
   });
 
   it('forwards the abort signal as an AbortController to the SDK', async () => {
@@ -235,10 +247,8 @@ describe('AnthropicProvider', () => {
       options: { mcpServers: Record<string, unknown>; allowedTools: string[] };
     };
     expect(arg.options.mcpServers).toHaveProperty('aether');
-    expect(arg.options.allowedTools).toEqual([
-      'mcp__aether__mock.echo',
-      'mcp__aether__mock.current_time',
-    ]);
+    // Server-level allow regardless of how many tools the server exposes.
+    expect(arg.options.allowedTools).toEqual(['mcp__aether']);
   });
 
   it('does not build an MCP server when req.mcpTools is empty or absent', async () => {
@@ -277,8 +287,8 @@ describe('AnthropicProvider', () => {
     const messages: unknown[] = [];
     for await (const m of arg.prompt) messages.push(m);
 
-    // The last message in the prompt is the user message with image block
-    const lastMsg = messages.at(-1) as {
+    // There is exactly ONE message in the prompt (history flattened into user message)
+    const lastMsg = messages[0] as {
       message: {
         role: string;
         content: Array<{ type: string; source?: { type: string; media_type: string; data: string }; text?: string }>;
@@ -294,7 +304,7 @@ describe('AnthropicProvider', () => {
         data: pngBytes.toString('base64'),
       },
     });
-    expect(lastMsg.message.content[1]).toEqual({ type: 'text', text: 'describe this image' });
+    expect(lastMsg.message.content[1].text).toContain('describe this image');
   });
 
   it('sends only a text block when there are no attachments', async () => {
@@ -308,10 +318,10 @@ describe('AnthropicProvider', () => {
     const messages: unknown[] = [];
     for await (const m of arg.prompt) messages.push(m);
 
-    const lastMsg = messages.at(-1) as {
+    const lastMsg = messages[0] as {
       message: { role: string; content: Array<{ type: string; text?: string }> };
     };
     expect(lastMsg.message.content).toHaveLength(1);
-    expect(lastMsg.message.content[0]).toEqual({ type: 'text', text: 'plain text' });
+    expect(lastMsg.message.content[0].text).toContain('plain text');
   });
 });

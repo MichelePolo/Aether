@@ -145,6 +145,66 @@ export class DispatchService {
     }
   }
 
+  /** Emit the approval request, resolve the gate decision, execute (or reject),
+   *  emit the result, and push a reasoning-tracer step. Shared by the manual
+   *  function_call loop and the agentic runToolCall path. */
+  private async gateExecuteAndTrace(
+    fnCall: ProviderFunctionCall,
+    sse: SseEmitter,
+    tracer: ReasoningTracer,
+  ): Promise<McpToolResult> {
+    sse.event('tool_call_request', fnCall);
+
+    let mode: 'auto' | 'gate';
+    if (this.deps.breakpointService) {
+      mode = await this.deps.breakpointService.resolveDecision({
+        qualifiedName: fnCall.qualifiedName,
+        args: fnCall.args,
+      });
+    } else {
+      const policy = this.deps.mcpRegistry?.policy(fnCall.qualifiedName) ?? {};
+      mode = policy.autoApprove ? 'auto' : 'gate';
+    }
+    const decision: 'approve' | 'reject' = mode === 'auto'
+      ? 'approve'
+      : await (this.deps.mcpRegistry?.awaitDecision(fnCall.callId, 60_000) ?? Promise.resolve('reject' as const))
+          .catch(() => 'reject' as const);
+
+    const t0 = performance.now();
+    let toolResult: McpToolResult;
+    let progressNote = '';
+    if (decision === 'reject') {
+      toolResult = { ok: false, error: 'Rejected by user' };
+    } else if (!this.deps.mcpRegistry) {
+      toolResult = { ok: false, error: 'No MCP registry configured' };
+    } else {
+      const executed = await this.executeToolCall(fnCall, sse);
+      toolResult = executed.result;
+      progressNote = executed.progressNote;
+    }
+    const durationMs = Math.round(performance.now() - t0);
+
+    sse.event('tool_call_result', { id: fnCall.callId, ...toolResult });
+    tracer.pushExternal({
+      type: 'tool_call',
+      title: `Tool: ${fnCall.qualifiedName}`,
+      content: toolResult.ok
+        ? `executed ${fnCall.qualifiedName}`
+        : `tool failed: ${toolResult.error}`,
+      durationMs,
+      toolCall: {
+        id: fnCall.callId,
+        qualifiedName: fnCall.qualifiedName,
+        args: fnCall.args,
+        result: toolResult.ok ? toolResult.output : undefined,
+        error: toolResult.ok ? undefined : toolResult.error,
+        durationMs,
+        progressNote: progressNote || undefined,
+      },
+    });
+    return toolResult;
+  }
+
   private async runDispatchLoop(
     opts: RunDispatchLoopOpts,
     tracer: ReasoningTracer,
@@ -168,6 +228,25 @@ export class DispatchService {
         type: 'dispatch',
         title: `Dispatch to ${opts.provider.model}${opts.thinking ? ' (thinking)' : ''}`,
         run: async () => {
+          // Shares toolCallsCount with the manual function_call loop below: the
+          // cap is per-dispatch across BOTH paths (a provider uses one or the
+          // other, never both, so there is no double counting).
+          const runToolCall = async (
+            call: { qualifiedName: string; args: Record<string, unknown> },
+          ): Promise<{ ok: boolean; output?: unknown; error?: string }> => {
+            if (toolCallsCount >= MAX_TOOL_CALLS_PER_DISPATCH) {
+              return { ok: false, error: 'Max tool calls per dispatch exceeded' };
+            }
+            toolCallsCount += 1;
+            const fnCall: ProviderFunctionCall = {
+              callId: randomUUID(),
+              qualifiedName: call.qualifiedName,
+              args: call.args,
+            };
+            const r = await this.gateExecuteAndTrace(fnCall, sse, tracer);
+            return r.ok ? { ok: true, output: r.output } : { ok: false, error: r.error };
+          };
+
           while (true) {
             const providerPendingText = firstIter
               ? opts.pendingAssistantText
@@ -184,6 +263,7 @@ export class DispatchService {
                 toolResults: pendingToolResults.length > 0 ? pendingToolResults : undefined,
                 pendingAssistantText: providerPendingText,
                 attachments: opts.attachments,
+                runToolCall,
               },
               signal,
             );
@@ -223,55 +303,7 @@ export class DispatchService {
             }
             toolCallsCount += 1;
 
-            sse.event('tool_call_request', pendingCall);
-            let mode: 'auto' | 'gate';
-            if (this.deps.breakpointService) {
-              mode = await this.deps.breakpointService.resolveDecision({
-                qualifiedName: pendingCall.qualifiedName,
-                args: pendingCall.args,
-              });
-            } else {
-              const policy = this.deps.mcpRegistry?.policy(pendingCall.qualifiedName) ?? {};
-              mode = policy.autoApprove ? 'auto' : 'gate';
-            }
-            const decision: 'approve' | 'reject' = mode === 'auto'
-              ? 'approve'
-              : await (this.deps.mcpRegistry?.awaitDecision(pendingCall.callId, 60_000) ?? Promise.resolve('reject' as const))
-                  .catch(() => 'reject' as const);
-
-            const t0 = performance.now();
-            let toolResult: McpToolResult;
-            let progressNote = '';
-            if (decision === 'reject') {
-              toolResult = { ok: false, error: 'Rejected by user' };
-            } else if (!this.deps.mcpRegistry) {
-              toolResult = { ok: false, error: 'No MCP registry configured' };
-            } else {
-              const executed = await this.executeToolCall(pendingCall, sse);
-              toolResult = executed.result;
-              progressNote = executed.progressNote;
-            }
-            const durationMs = Math.round(performance.now() - t0);
-
-            sse.event('tool_call_result', { id: pendingCall.callId, ...toolResult });
-
-            tracer.pushExternal({
-              type: 'tool_call',
-              title: `Tool: ${pendingCall.qualifiedName}`,
-              content: toolResult.ok
-                ? `executed ${pendingCall.qualifiedName}`
-                : `tool failed: ${toolResult.error}`,
-              durationMs,
-              toolCall: {
-                id: pendingCall.callId,
-                qualifiedName: pendingCall.qualifiedName,
-                args: pendingCall.args,
-                result: toolResult.ok ? toolResult.output : undefined,
-                error: toolResult.ok ? undefined : toolResult.error,
-                durationMs,
-                progressNote: progressNote || undefined,
-              },
-            });
+            const toolResult = await this.gateExecuteAndTrace(pendingCall, sse, tracer);
 
             pendingToolResults = [{
               callId: pendingCall.callId,
@@ -492,7 +524,7 @@ export class DispatchService {
     if (accumThought.length > 0 && thinkingStart !== undefined) {
       tracer.pushExternal({
         type: 'thinking',
-        title: 'Gemini thoughts',
+        title: `${provider.model} thoughts`,
         content: accumThought,
         durationMs: Math.round(performance.now() - thinkingStart),
       });

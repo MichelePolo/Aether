@@ -17,6 +17,14 @@ export interface ProviderToolResultMessage {
   error?: string;
 }
 
+/** Outcome of executing one tool call. Mirrors McpToolResult without coupling
+ *  provider.types to the mcp domain. */
+export interface ProviderToolCallOutcome {
+  ok: boolean;
+  output?: unknown;
+  error?: string;
+}
+
 export interface ProviderRequest {
   systemInstruction: string;
   history: { role: 'user' | 'model'; text: string }[];
@@ -30,6 +38,16 @@ export interface ProviderRequest {
    *  Used by providers (e.g. Gemini) that need to replay the partial turn. */
   pendingAssistantText?: string;
   attachments?: ProviderAttachment[];
+  /** Provided by the dispatch layer for providers that run the agentic tool
+   *  loop INTERNALLY (Anthropic via the Claude Agent SDK). The provider calls
+   *  this once per tool the model invokes; the dispatch layer performs approval
+   *  gating, execution, SSE events and tracing, then returns the outcome.
+   *  Stateless REST providers (gemini/openai/ollama/fake) ignore it and instead
+   *  yield `function_call` chunks for runDispatchLoop to handle. */
+  runToolCall?: (call: {
+    qualifiedName: string;
+    args: Record<string, unknown>;
+  }) => Promise<ProviderToolCallOutcome>;
 }
 
 export interface ProviderUsage {
