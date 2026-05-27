@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { DispatchService } from './dispatch.service';
+import type { DispatchServiceDeps } from './dispatch.service';
 import { FakeProvider } from './providers/fake.provider';
 import { HistoryStore } from '@/server/domain/history/history.store';
 import { ContextStore } from '@/server/domain/context/context.store';
@@ -7,6 +8,7 @@ import { createCollectorEmitter } from '@/server/test/sse-collector';
 import { buildSingleProviderRegistry } from '@/server/test/registry.test-helper';
 import { makeTestDb } from '@/server/test/test-db';
 import type { ProviderRegistry } from '@/server/domain/providers/registry';
+import type { AIProvider, ProviderChunk, ProviderRequest } from './providers/provider.types';
 
 describe('DispatchService', () => {
   async function makeService(opts: {
@@ -541,5 +543,126 @@ describe('DispatchService — attachments', () => {
     const err = events.find((e) => e.event === 'error');
     expect(err).toBeDefined();
     expect((err!.data as { message: string }).message).toMatch(/10 MB/);
+  });
+});
+
+describe('runToolCall (agentic providers)', () => {
+  /** Build a DispatchService wired with the given provider and optional
+   *  mcpRegistry/breakpointService overrides. */
+  async function buildAgenticHarness(
+    provider: AIProvider,
+    opts: {
+      mcpRegistry?: DispatchServiceDeps['mcpRegistry'];
+      breakpointService?: DispatchServiceDeps['breakpointService'];
+    } = {},
+  ) {
+    const db = makeTestDb();
+    const historyStore = new HistoryStore(db);
+    const contextStore = new ContextStore(db);
+    const providers = await buildSingleProviderRegistry(provider);
+    const service = new DispatchService({
+      providers,
+      historyStore,
+      contextStore,
+      mcpRegistry: opts.mcpRegistry,
+      breakpointService: opts.breakpointService,
+    });
+    const session = await historyStore.createEmpty();
+    return { service, historyStore, sessionId: session.id };
+  }
+
+  it('provider that calls runToolCall receives the tool output and streams it', async () => {
+    // Stub provider: calls runToolCall, then yields a text chunk with the outcome
+    const agenticProvider: AIProvider = {
+      model: 'agentic-stub',
+      capabilities: { thinking: false, toolCalling: true, vision: false },
+      async *stream(req: ProviderRequest): AsyncGenerator<ProviderChunk> {
+        const outcome = await req.runToolCall!({
+          qualifiedName: 'mock.echo',
+          args: { message: 'hi' },
+        });
+        yield { type: 'text', text: outcome.ok ? 'OUT:' + JSON.stringify(outcome.output) : 'ERR:' + outcome.error };
+        yield { type: 'done' };
+      },
+    };
+
+    const callTool = vi.fn().mockResolvedValue({ ok: true, output: { echoed: 'hi' } });
+    const mcpRegistry = {
+      policy: () => ({ autoApprove: true }),
+      callTool,
+      awaitDecision: vi.fn(),
+      listLiveTools: () => [],
+    } as unknown as import('@/server/domain/mcp/registry').McpRegistry;
+
+    const { service, historyStore, sessionId } = await buildAgenticHarness(agenticProvider, {
+      mcpRegistry,
+    });
+
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle({ sessionId, message: 'go' }, emitter, new AbortController().signal);
+
+    // SSE: tool_call_request was emitted with the right qualifiedName
+    const request = events.find((e) => e.event === 'tool_call_request');
+    expect(request).toBeDefined();
+    expect((request!.data as { qualifiedName: string }).qualifiedName).toBe('mock.echo');
+
+    // SSE: tool_call_result was emitted with ok: true
+    const result = events.find((e) => e.event === 'tool_call_result');
+    expect(result).toBeDefined();
+    expect((result!.data as { ok: boolean }).ok).toBe(true);
+
+    // Streamed text contains the output
+    const textChunks = events.filter((e) => e.event === 'text').map((e) => (e.data as { chunk: string }).chunk);
+    const fullText = textChunks.join('');
+    expect(fullText).toContain('OUT:');
+
+    // Persisted model message contains 'OUT:'
+    const msgs = await historyStore.read(sessionId);
+    const model = msgs!.find((m) => m.role === 'model')!;
+    expect(model.text).toContain('OUT:');
+  });
+
+  it('provider runToolCall returns rejection when gate rejects, callTool is NOT called', async () => {
+    const agenticProvider: AIProvider = {
+      model: 'agentic-stub',
+      capabilities: { thinking: false, toolCalling: true, vision: false },
+      async *stream(req: ProviderRequest): AsyncGenerator<ProviderChunk> {
+        const outcome = await req.runToolCall!({
+          qualifiedName: 'mock.echo',
+          args: { message: 'hi' },
+        });
+        yield { type: 'text', text: outcome.ok ? 'OUT:' + JSON.stringify(outcome.output) : 'ERR:' + outcome.error };
+        yield { type: 'done' };
+      },
+    };
+
+    const callTool = vi.fn();
+    // policy returns autoApprove: false → gate mode → awaitDecision resolves 'reject'
+    const mcpRegistry = {
+      policy: () => ({ autoApprove: false }),
+      callTool,
+      awaitDecision: vi.fn().mockResolvedValue('reject'),
+      listLiveTools: () => [],
+    } as unknown as import('@/server/domain/mcp/registry').McpRegistry;
+
+    const { service, historyStore, sessionId } = await buildAgenticHarness(agenticProvider, {
+      mcpRegistry,
+    });
+
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle({ sessionId, message: 'go' }, emitter, new AbortController().signal);
+
+    // Streamed text contains the rejection error
+    const textChunks = events.filter((e) => e.event === 'text').map((e) => (e.data as { chunk: string }).chunk);
+    const fullText = textChunks.join('');
+    expect(fullText).toContain('ERR:Rejected by user');
+
+    // callTool was NOT called
+    expect(callTool).not.toHaveBeenCalled();
+
+    // Persisted model message also contains the error text
+    const msgs = await historyStore.read(sessionId);
+    const model = msgs!.find((m) => m.role === 'model')!;
+    expect(model.text).toContain('ERR:Rejected by user');
   });
 });
