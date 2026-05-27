@@ -36,7 +36,7 @@ export function ReasoningDrawer() {
       inert={!open}
     >
       <h2 id="reasoning-heading" className="sr-only">Reasoning</h2>
-      <header className="p-3 border-b border-border-subtle flex items-center justify-between">
+      <header className="h-12 px-4 border-b border-border-subtle flex items-center justify-between shrink-0">
         <span className="mono-label">Reasoning</span>
         <button
           type="button"
