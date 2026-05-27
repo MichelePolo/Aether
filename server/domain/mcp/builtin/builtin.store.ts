@@ -26,18 +26,22 @@ function resolveFilesystemServerEntry(): string {
   }
 }
 
-function resolveAetherShellEntry(): string {
-  // In dev (tsx/vite-node) we run the .ts directly. In prod we run the built .js.
-  // The build step copies aether-shell.ts → dist/server/mcp/builtin/aether-shell.js.
+function resolveAetherShellArgs(): string[] {
+  // The "Terminal" tool runs as a SEPARATE node process speaking JSON-RPC over
+  // stdio. It is launched as `process.execPath` (node) + the args returned here.
   const here = path.dirname(fileURLToPath(import.meta.url));
-  const distGuess = path.resolve(here, '../../../mcp/builtin/aether-shell.js');
-  const srcGuess = path.resolve(here, '../../../mcp/builtin/aether-shell.ts');
-  // Prefer .js (production); fall back to .ts (dev — tsx executes TS directly).
+  const srcEntry = path.resolve(here, '../../../mcp/builtin/aether-shell.ts');
+  // Prod: `npm run build` bundles the entry to dist/. If it exists, run it directly.
+  const distEntry = path.resolve(process.cwd(), 'dist/server/mcp/builtin/aether-shell.js');
   try {
-    require.resolve(distGuess);
-    return distGuess;
+    require.resolve(distEntry);
+    return [distEntry];
   } catch {
-    return srcGuess;
+    // Dev: only the .ts source exists. A child `node` process does NOT inherit
+    // the tsx loader from the parent dev server, so a plain `node aether-shell.ts`
+    // dies immediately with ERR_UNKNOWN_FILE_EXTENSION. Register the tsx loader
+    // first → effectively `node --import tsx server/mcp/builtin/aether-shell.ts`.
+    return ['--import', 'tsx', srcEntry];
   }
 }
 
@@ -86,7 +90,7 @@ export class BuiltinMcpStore {
         name: 'Terminal',
         transport: 'stdio',
         command: process.execPath,
-        args: [resolveAetherShellEntry()],
+        args: resolveAetherShellArgs(),
         env: {},
         status: 'offline',
       } as McpServerConfig;

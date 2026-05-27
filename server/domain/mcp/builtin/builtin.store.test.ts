@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { spawn } from 'node:child_process';
 import { makeTestDb } from '@/server/test/test-db';
 import { BuiltinMcpStore } from './builtin.store';
 import type { DatabaseHandle } from '@/server/db/database';
@@ -60,4 +61,38 @@ describe('BuiltinMcpStore', () => {
     expect(configs[0].id).toBe('builtin:terminal');
     expect(configs[0].args).not.toContain('/default');
   });
+
+  // Regression for the "Terminal can't be turned on" bug: the resolved command
+  // + args must launch a real process that speaks MCP — not crash on startup
+  // (e.g. `node aether-shell.ts` → ERR_UNKNOWN_FILE_EXTENSION). Mechanism-agnostic:
+  // we only assert the process initializes, never HOW it's launched.
+  it('terminal config launches a working MCP process', async () => {
+    store.setEnabled('terminal', true);
+    const cfg = store.toConfigs('/cwd').find((c) => c.id === 'builtin:terminal')!;
+
+    const line = await new Promise<string>((resolve, reject) => {
+      const proc = spawn(cfg.command!, cfg.args ?? []); // default stdio: pipe (non-null streams)
+      let out = '';
+      let err = '';
+      const timer = setTimeout(() => {
+        proc.kill();
+        reject(new Error(`timed out waiting for MCP response. stderr:\n${err}`));
+      }, 12_000);
+      proc.stdout.on('data', (d: Buffer) => {
+        out += d.toString();
+        const nl = out.indexOf('\n');
+        if (nl >= 0) {
+          clearTimeout(timer);
+          proc.kill();
+          resolve(out.slice(0, nl));
+        }
+      });
+      proc.stderr.on('data', (d: Buffer) => (err += d.toString()));
+      proc.on('error', reject);
+      proc.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize' }) + '\n');
+    });
+
+    const parsed = JSON.parse(line) as { result?: { serverInfo?: { name?: string } } };
+    expect(parsed.result?.serverInfo?.name).toBe('aether-shell');
+  }, 15_000);
 });

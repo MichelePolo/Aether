@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server/index.ts",
-    "build": "vite build && esbuild server/index.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "vite build && esbuild server/index.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && esbuild server/mcp/builtin/aether-shell.ts --bundle --platform=node --format=esm --outfile=dist/server/mcp/builtin/aether-shell.js",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js coverage playwright-report",
     "lint": "tsc --noEmit",
