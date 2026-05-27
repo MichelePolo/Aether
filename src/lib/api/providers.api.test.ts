@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/src/test/msw-server';
 import { providersApi } from './providers.api';
+import type { AuthStatusReport } from '@/src/types/provider-auth.types';
+import type { OllamaEndpoint, SaveOllamaEndpointResponse } from '@/src/types/ollama-endpoints.types';
 
 describe('providersApi', () => {
   it('list returns descriptors', async () => {
@@ -43,11 +45,12 @@ describe('providersApi', () => {
   });
 
   it('fetchAuthStatus GETs and returns parsed report', async () => {
-    const report = {
+    const report: AuthStatusReport = {
       statuses: [
         { transport: 'anthropic', state: 'ok', reason: 'API key present' },
         { transport: 'openai', state: 'unconfigured', reason: 'No API key' },
       ],
+      ollama: [],
       checkedAt: 1234567890,
     };
     server.use(
@@ -63,7 +66,7 @@ describe('providersApi', () => {
 
   it('refreshAuthStatus POSTs without transport= query when no transport given', async () => {
     let capturedUrl = '';
-    const report = { statuses: [], checkedAt: 9999 };
+    const report: AuthStatusReport = { statuses: [], ollama: [], checkedAt: 9999 };
     server.use(
       http.post('http://localhost/api/providers/auth-status/refresh', ({ request }) => {
         capturedUrl = request.url;
@@ -77,8 +80,9 @@ describe('providersApi', () => {
 
   it('refreshAuthStatus POSTs WITH transport=openai query when transport given', async () => {
     let capturedUrl = '';
-    const report = {
+    const report: AuthStatusReport = {
       statuses: [{ transport: 'openai', state: 'ok', reason: 'Key found' }],
+      ollama: [],
       checkedAt: 8888,
     };
     server.use(
@@ -154,5 +158,64 @@ describe('providersApi', () => {
     );
     const plaintext = await providersApi.revealKey('gemini');
     expect(plaintext).toBe('AIza-secret-key');
+  });
+
+  it('listOllamaEndpoints GETs /api/providers/ollama-endpoints and unwraps .endpoints', async () => {
+    const endpoints: OllamaEndpoint[] = [
+      { id: 'ep-1', label: 'Local', baseUrl: 'http://localhost:11434', hasToken: false, tokenMasked: null, fixed: true, createdAt: null, updatedAt: null },
+      { id: 'ep-2', label: 'Remote', baseUrl: 'http://remote:11434', hasToken: true, tokenMasked: 'tok****', fixed: false, createdAt: 1000, updatedAt: 2000 },
+    ];
+    server.use(
+      http.get('http://localhost/api/providers/ollama-endpoints', () =>
+        HttpResponse.json({ endpoints }),
+      ),
+    );
+    const result = await providersApi.listOllamaEndpoints();
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toBe('ep-1');
+    expect(result[1].label).toBe('Remote');
+  });
+
+  it('createOllamaEndpoint POSTs to /api/providers/ollama-endpoints and returns endpoint + status', async () => {
+    const endpoint: OllamaEndpoint = { id: 'ep-3', label: 'New', baseUrl: 'http://new:11434', hasToken: false, tokenMasked: null, fixed: false, createdAt: 3000, updatedAt: 3000 };
+    const response: SaveOllamaEndpointResponse = { endpoint, status: null };
+    let capturedBody: unknown;
+    server.use(
+      http.post('http://localhost/api/providers/ollama-endpoints', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json(response);
+      }),
+    );
+    const result = await providersApi.createOllamaEndpoint({ label: 'New', baseUrl: 'http://new:11434' });
+    expect(result.endpoint.id).toBe('ep-3');
+    expect(result.status).toBeNull();
+    expect((capturedBody as { label: string }).label).toBe('New');
+    expect((capturedBody as { baseUrl: string }).baseUrl).toBe('http://new:11434');
+  });
+
+  it('updateOllamaEndpoint PUTs to /api/providers/ollama-endpoints/:id and returns updated endpoint', async () => {
+    const endpoint: OllamaEndpoint = { id: 'ep-2', label: 'Updated', baseUrl: 'http://remote:11434', hasToken: true, tokenMasked: 'tok****', fixed: false, createdAt: 1000, updatedAt: 5000 };
+    const response: SaveOllamaEndpointResponse = { endpoint, status: { id: 'ep-2', label: 'Updated', fixed: false, state: 'ok', reason: 'reachable' } };
+    let capturedBody: unknown;
+    server.use(
+      http.put('http://localhost/api/providers/ollama-endpoints/ep-2', async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json(response);
+      }),
+    );
+    const result = await providersApi.updateOllamaEndpoint('ep-2', { label: 'Updated' });
+    expect(result.endpoint.label).toBe('Updated');
+    expect(result.status?.state).toBe('ok');
+    expect((capturedBody as { label: string }).label).toBe('Updated');
+  });
+
+  it('deleteOllamaEndpoint DELETEs /api/providers/ollama-endpoints/:id and returns { ok: true }', async () => {
+    server.use(
+      http.delete('http://localhost/api/providers/ollama-endpoints/ep-2', () =>
+        HttpResponse.json({ ok: true }),
+      ),
+    );
+    const result = await providersApi.deleteOllamaEndpoint('ep-2');
+    expect(result.ok).toBe(true);
   });
 });

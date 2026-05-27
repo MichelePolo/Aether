@@ -13,6 +13,7 @@ const makeReport = (overrides: Partial<{ checkedAt: number }> = {}) => ({
     { transport: 'anthropic' as const, state: 'ok' as const, reason: 'Key found' },
     { transport: 'openai' as const, state: 'unconfigured' as const, reason: 'No key' },
   ],
+  ollama: [] as import('@/src/types/ollama-endpoints.types').OllamaEndpointStatus[],
   checkedAt: overrides.checkedAt ?? 1000,
 });
 
@@ -81,5 +82,45 @@ describe('useProviderAuthStore', () => {
     const state = useProviderAuthStore.getState();
     expect(state.error).toBe('Network down');
     expect(state.loading).toBe(false);
+  });
+
+  it('stores the ollama endpoint statuses from the report', async () => {
+    vi.spyOn(providersApi, 'fetchAuthStatus').mockResolvedValue({
+      statuses: [],
+      ollama: [{ id: 'local', label: 'local', fixed: true, state: 'ok', reason: '2 models' }],
+      checkedAt: 1,
+    });
+    await useProviderAuthStore.getState().init();
+    expect(useProviderAuthStore.getState().ollama).toHaveLength(1);
+  });
+
+  it('stores ollama statuses from a refresh()', async () => {
+    vi.spyOn(providersApi, 'refreshAuthStatus').mockResolvedValue({
+      statuses: [],
+      ollama: [{ id: 'abc', label: 'gpu', fixed: false, state: 'error', reason: '401' }],
+      checkedAt: 2,
+    });
+    await useProviderAuthStore.getState().refresh('ollama');
+    expect(useProviderAuthStore.getState().ollama).toHaveLength(1);
+    expect(useProviderAuthStore.getState().ollama[0].id).toBe('abc');
+  });
+
+  it('refresh() keeps prior keyed statuses when a targeted ollama refresh returns empty statuses', async () => {
+    vi.spyOn(providersApi, 'fetchAuthStatus').mockResolvedValue({
+      statuses: [{ transport: 'anthropic', state: 'ok', reason: 'oauth' }],
+      ollama: [],
+      checkedAt: 1,
+    });
+    await useProviderAuthStore.getState().init();
+    expect(useProviderAuthStore.getState().statuses).toHaveLength(1);
+
+    vi.spyOn(providersApi, 'refreshAuthStatus').mockResolvedValue({
+      statuses: [],
+      ollama: [{ id: 'local', label: 'local', fixed: true, state: 'ok', reason: '1 model' }],
+      checkedAt: 2,
+    });
+    await useProviderAuthStore.getState().refresh('ollama');
+    expect(useProviderAuthStore.getState().statuses).toHaveLength(1); // preserved
+    expect(useProviderAuthStore.getState().ollama).toHaveLength(1);   // updated
   });
 });

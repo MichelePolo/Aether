@@ -31,6 +31,10 @@ interface UiState {
   openKeyVault(focus?: 'anthropic' | 'openai' | 'gemini'): void;
   closeKeyVault(): void;
 
+  ollamaEndpointsOpen: boolean;
+  openOllamaEndpoints(): void;
+  closeOllamaEndpoints(): void;
+
   workspaceBrowserOpen: boolean;
   openWorkspaceBrowser(): void;
   closeWorkspaceBrowser(): void;
@@ -76,6 +80,7 @@ const initial = {
   messageContextMenu: null as { x: number; y: number; messageId: string; role: 'user' | 'model' } | null,
   keyVaultOpen: false,
   keyVaultFocusTransport: null as 'anthropic' | 'openai' | 'gemini' | null,
+  ollamaEndpointsOpen: false,
   lightboxAttachmentId: null as string | null,
   approvalGateState: null as { event: ToolCallRequestEvent; preview: PreviewResult } | null,
   workspaceBrowserOpen: false,
@@ -133,6 +138,9 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   openKeyVault: (focus) => set({ keyVaultOpen: true, keyVaultFocusTransport: focus ?? null }),
   closeKeyVault: () => set({ keyVaultOpen: false, keyVaultFocusTransport: null }),
+
+  openOllamaEndpoints: () => set({ ollamaEndpointsOpen: true }),
+  closeOllamaEndpoints: () => set({ ollamaEndpointsOpen: false }),
 
   openWorkspaceBrowser: () => set({ workspaceBrowserOpen: true }),
   closeWorkspaceBrowser: () => set({ workspaceBrowserOpen: false }),

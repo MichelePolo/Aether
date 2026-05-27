@@ -43,6 +43,29 @@ describe('discoverOllama', () => {
     } as Response);
     expect(await discoverOllama('http://localhost:11434')).toEqual([]);
   });
+
+  it('sends an Authorization: Bearer header when a token is given', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ models: [{ name: 'llama3:latest' }] }),
+    } as Response);
+    await discoverOllama('http://gpu.lan:11434', 'tok-123');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://gpu.lan:11434/api/tags',
+      expect.objectContaining({ headers: { Authorization: 'Bearer tok-123' } }),
+    );
+  });
+
+  it('sends no auth header when token is absent', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ models: [] }),
+    } as Response);
+    await discoverOllama('http://localhost:11434');
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:11434/api/tags', expect.objectContaining({ headers: {} }));
+  });
 });
 
 describe('geminiHardcodedModels', () => {

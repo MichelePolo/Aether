@@ -5,6 +5,10 @@ import type {
   SaveKeyResponse,
   VaultTransport,
 } from '@/src/types/key-vault.types';
+import type {
+  OllamaEndpoint,
+  SaveOllamaEndpointResponse,
+} from '@/src/types/ollama-endpoints.types';
 
 async function jsonRes<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -59,4 +63,30 @@ export const providersApi = {
     fetch(`/api/providers/keys/${transport}?reveal=1`)
       .then(jsonRes<{ plaintext: string }>)
       .then((b) => b.plaintext),
+
+  listOllamaEndpoints: (): Promise<OllamaEndpoint[]> =>
+    fetch('/api/providers/ollama-endpoints')
+      .then(jsonRes<{ endpoints: OllamaEndpoint[] }>)
+      .then((b) => b.endpoints),
+
+  createOllamaEndpoint: (input: { label: string; baseUrl: string; token?: string }): Promise<SaveOllamaEndpointResponse> =>
+    fetch('/api/providers/ollama-endpoints', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    }).then(jsonRes<SaveOllamaEndpointResponse>),
+
+  updateOllamaEndpoint: (
+    id: string,
+    patch: { label?: string; baseUrl?: string; token?: string | null },
+  ): Promise<SaveOllamaEndpointResponse> =>
+    fetch(`/api/providers/ollama-endpoints/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }).then(jsonRes<SaveOllamaEndpointResponse>),
+
+  deleteOllamaEndpoint: (id: string): Promise<{ ok: boolean }> =>
+    fetch(`/api/providers/ollama-endpoints/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      .then(jsonRes<{ ok: boolean }>),
 };

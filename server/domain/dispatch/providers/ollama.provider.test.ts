@@ -152,4 +152,21 @@ describe('OllamaProvider', () => {
     };
     await expect(drain()).rejects.toThrow(/model not found/);
   });
+
+  it('adds Authorization: Bearer header to /api/chat when token is set', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValue({
+      ok: true,
+      body: { getReader: () => ({ read: async () => ({ done: true, value: undefined }) }) },
+    } as unknown as Response);
+
+    const p = new OllamaProvider({ host: 'http://gpu.lan:11434', model: 'llama3', token: 'tok-123' });
+    for await (const _ of p.stream(
+      { systemInstruction: '', history: [], userMessage: 'hi' },
+      new AbortController().signal,
+    )) { /* drain */ }
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init as RequestInit).headers).toMatchObject({ Authorization: 'Bearer tok-123' });
+  });
 });

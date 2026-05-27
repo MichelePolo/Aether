@@ -1,10 +1,11 @@
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Settings2 } from 'lucide-react';
 import { useProviderAuthStore } from '@/src/stores/providerAuth.store';
 import { TRANSPORT_ORDER } from '@/src/types/provider-auth.types';
 import type { ProviderTransport, TransportStatus } from '@/src/types/provider-auth.types';
 import { cn } from '@/src/lib/cn';
 import { useUiStore } from '@/src/stores/ui.store';
 import type { VaultTransport } from '@/src/types/key-vault.types';
+import type { OllamaEndpointStatus } from '@/src/types/ollama-endpoints.types';
 
 const TRANSPORT_LABELS: Record<ProviderTransport, string> = {
   anthropic: 'Anthropic',
@@ -23,10 +24,12 @@ const VAULT_SET = new Set<VaultTransport>(['anthropic', 'openai', 'gemini']);
 
 export function ProviderAuthSection() {
   const statuses = useProviderAuthStore((s) => s.statuses);
+  const ollama = useProviderAuthStore((s) => s.ollama);
   const loading = useProviderAuthStore((s) => s.loading);
   const error = useProviderAuthStore((s) => s.error);
   const refresh = useProviderAuthStore((s) => s.refresh);
   const openKeyVault = useUiStore((s) => s.openKeyVault);
+  const openOllamaEndpoints = useUiStore((s) => s.openOllamaEndpoints);
 
   const statusMap = Object.fromEntries(statuses.map((s) => [s.transport, s])) as
     Partial<Record<ProviderTransport, TransportStatus>>;
@@ -55,7 +58,7 @@ export function ProviderAuthSection() {
       )}
 
       <div className="space-y-1">
-        {TRANSPORT_ORDER.map((transport) => {
+        {TRANSPORT_ORDER.filter((transport) => transport !== 'ollama').map((transport) => {
           const s = statusMap[transport];
           const state = s?.state ?? 'unconfigured';
           const reason = s?.reason ?? '';
@@ -92,6 +95,39 @@ export function ProviderAuthSection() {
             </div>
           );
         })}
+
+        <div className="pt-1">
+          <button
+            type="button"
+            aria-label="Manage Ollama endpoints"
+            onClick={openOllamaEndpoints}
+            className="flex items-center gap-1.5 w-full text-[10px] font-mono px-1 py-1 rounded text-zinc-400 hover:text-white hover:bg-surface-3"
+          >
+            <Settings2 size={10} />
+            <span>Ollama</span>
+          </button>
+          {ollama.map((ep: OllamaEndpointStatus) => (
+            <div
+              key={ep.id}
+              data-testid="ollama-status-row"
+              title={ep.detail ?? ''}
+              className="flex items-center gap-1.5 text-[10px] font-mono px-1 py-1 pl-3 rounded"
+            >
+              <span
+                role="img"
+                aria-label={`Ollama ${ep.label} status: ${ep.state}`}
+                className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', {
+                  'bg-status-ok': ep.state === 'ok',
+                  'bg-status-error': ep.state === 'error',
+                  'bg-zinc-500': ep.state === 'unconfigured',
+                })}
+              />
+              <span className="flex-shrink-0 text-zinc-300">{ep.label}</span>
+              {ep.fixed && ep.label !== 'local' && <span className="text-zinc-600">/ local</span>}
+              {ep.reason && <span className="text-zinc-600 truncate">/ {ep.reason}</span>}
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

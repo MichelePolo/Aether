@@ -8,8 +8,18 @@ export interface TransportStatus {
   detail?: string;
 }
 
+export interface OllamaEndpointStatus {
+  id: string;
+  label: string;
+  fixed: boolean;
+  state: AuthState;
+  reason?: string;
+  detail?: string;
+}
+
 export interface AuthStatusReport {
-  statuses: TransportStatus[]; // always in fixed order
+  statuses: TransportStatus[]; // anthropic, openai, gemini (keyed, fixed order)
+  ollama: OllamaEndpointStatus[];
   checkedAt: number;
 }
 

@@ -29,6 +29,7 @@ import { createBuiltinMcpRoutes } from './routes/builtin-mcp.routes';
 import type { BreakpointPolicyStore } from '@/server/domain/mcp/breakpoints/policy.store';
 import type { PreviewService } from '@/server/domain/mcp/breakpoints/preview.service';
 import { createBreakpointsRoutes } from './routes/breakpoints.routes';
+import type { OllamaEndpointStore } from '@/server/domain/providers/ollama-endpoints.store';
 
 export interface AppDeps {
   contextStore?: ContextStore;
@@ -46,6 +47,7 @@ export interface AppDeps {
   keyVault?: KeyVaultService;
   keyVaultHooks?: KeyVaultHooks;
   buildInfoRowsCtx?: { anthropicCliPresent: boolean; ollamaHost: string };
+  ollamaEndpointStore?: OllamaEndpointStore;
   policyStore?: BreakpointPolicyStore;
   previewService?: PreviewService;
 }
@@ -114,6 +116,7 @@ export function createApp(
         deps.keyVault,
         deps.keyVaultHooks,
         deps.buildInfoRowsCtx,
+        deps.ollamaEndpointStore,
       ),
     );
   }

@@ -9,6 +9,8 @@ import type {
 import type { KeyVaultService } from '@/server/domain/providers/key-vault';
 import { VAULT_TRANSPORTS, type VaultTransport } from '@/server/domain/providers/key-vault.types';
 import { ValidationError } from '@/server/lib/errors';
+import type { OllamaEndpointStore } from '@/server/domain/providers/ollama-endpoints.store';
+import type { OllamaEndpointRecord } from '@/server/domain/providers/ollama-endpoints.types';
 
 function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -28,8 +30,40 @@ export function createProvidersRoutes(
   keyVault?: KeyVaultService,
   hooks?: KeyVaultHooks,
   buildInfoRowsCtx?: { anthropicCliPresent: boolean; ollamaHost: string },
+  ollamaEndpointStore?: OllamaEndpointStore,
 ): Router {
   const router = Router();
+
+  const isHttpUrl = (v: unknown): v is string => {
+    if (typeof v !== 'string' || v.trim() === '') return false;
+    try {
+      const u = new URL(v);
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
+  const localRow = (): OllamaEndpointRecord => ({
+    id: 'local',
+    label: 'local',
+    baseUrl: buildInfoRowsCtx?.ollamaHost ?? 'http://localhost:11434',
+    hasToken: false,
+    tokenMasked: null,
+    fixed: true,
+    createdAt: null,
+    updatedAt: null,
+  });
+
+  const ollamaStatusFor = async (id: string) => {
+    if (!authStatusService) return null;
+    const report = await authStatusService.probe(['ollama']);
+    return report.ollama.find((e) => e.id === id) ?? null;
+  };
+
+  const isUniqueViolation = (err: unknown): boolean =>
+    typeof (err as { code?: string })?.code === 'string' &&
+    (err as { code: string }).code.startsWith('SQLITE_CONSTRAINT');
 
   // last-known report cached for merge on targeted refresh
   let lastReport: AuthStatusReport | null = null;
@@ -184,8 +218,104 @@ export function createProvidersRoutes(
     }),
   );
 
+  // ---------------------------------------------------------------------------
+  // Ollama endpoint CRUD routes
+  // ---------------------------------------------------------------------------
+
+  router.get(
+    '/ollama-endpoints',
+    asyncHandler(async (_req, res) => {
+      if (!ollamaEndpointStore) {
+        res.status(503).json({ error: { code: 'NO_OLLAMA_STORE', message: 'Ollama endpoint store not configured' } });
+        return;
+      }
+      res.json({ endpoints: [localRow(), ...ollamaEndpointStore.list()] });
+    }),
+  );
+
+  router.post(
+    '/ollama-endpoints',
+    asyncHandler(async (req, res) => {
+      if (!ollamaEndpointStore) {
+        res.status(503).json({ error: { code: 'NO_OLLAMA_STORE', message: 'Ollama endpoint store not configured' } });
+        return;
+      }
+      const label = typeof req.body?.label === 'string' ? req.body.label.trim() : '';
+      const baseUrl = req.body?.baseUrl;
+      const token = typeof req.body?.token === 'string' && req.body.token.trim() !== '' ? req.body.token.trim() : undefined;
+      if (!label) throw new ValidationError('label required');
+      if (!isHttpUrl(baseUrl)) throw new ValidationError('baseUrl must be a valid http(s) URL');
+      let endpoint: OllamaEndpointRecord;
+      try {
+        endpoint = ollamaEndpointStore.create({ label, baseUrl, token });
+      } catch (err) {
+        if (isUniqueViolation(err)) throw new ValidationError(`An endpoint named "${label}" already exists`);
+        throw err;
+      }
+      await registry.refresh();
+      const status = await ollamaStatusFor(endpoint.id);
+      res.status(201).json({ endpoint, status });
+    }),
+  );
+
+  router.put(
+    '/ollama-endpoints/:id',
+    asyncHandler(async (req, res) => {
+      if (!ollamaEndpointStore) {
+        res.status(503).json({ error: { code: 'NO_OLLAMA_STORE', message: 'Ollama endpoint store not configured' } });
+        return;
+      }
+      const { id } = req.params;
+      if (id === 'local') throw new ValidationError('The local endpoint is fixed and cannot be edited');
+      if (!ollamaEndpointStore.get(id)) {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Endpoint not found' } });
+        return;
+      }
+      const patch: { label?: string; baseUrl?: string; token?: string | null } = {};
+      if (typeof req.body?.label === 'string') {
+        const l = req.body.label.trim();
+        if (!l) throw new ValidationError('label must not be empty');
+        patch.label = l;
+      }
+      if (req.body?.baseUrl !== undefined) {
+        if (!isHttpUrl(req.body.baseUrl)) throw new ValidationError('baseUrl must be a valid http(s) URL');
+        patch.baseUrl = req.body.baseUrl;
+      }
+      if (req.body?.token !== undefined) {
+        patch.token = req.body.token === null || req.body.token === '' ? null : String(req.body.token).trim();
+      }
+      let endpoint: OllamaEndpointRecord;
+      try {
+        endpoint = ollamaEndpointStore.update(id, patch);
+      } catch (err) {
+        if (isUniqueViolation(err)) throw new ValidationError(`An endpoint with that name already exists`);
+        throw err;
+      }
+      await registry.refresh();
+      const status = await ollamaStatusFor(id);
+      res.json({ endpoint, status });
+    }),
+  );
+
+  router.delete(
+    '/ollama-endpoints/:id',
+    asyncHandler(async (req, res) => {
+      if (!ollamaEndpointStore) {
+        res.status(503).json({ error: { code: 'NO_OLLAMA_STORE', message: 'Ollama endpoint store not configured' } });
+        return;
+      }
+      const { id } = req.params;
+      if (id === 'local') throw new ValidationError('The local endpoint is fixed and cannot be deleted');
+      ollamaEndpointStore.remove(id);
+      await registry.refresh();
+      res.json({ ok: true });
+    }),
+  );
+
   return router;
 }
+
+const KEYED_TRANSPORTS: readonly ProviderTransport[] = ['anthropic', 'openai', 'gemini'];
 
 function mergeReport(prior: AuthStatusReport | null, fresh: AuthStatusReport): AuthStatusReport {
   if (!prior) return fresh;
@@ -194,8 +324,10 @@ function mergeReport(prior: AuthStatusReport | null, fresh: AuthStatusReport): A
   for (const s of fresh.statuses) byTransport.set(s.transport, s);
   return {
     checkedAt: fresh.checkedAt,
-    statuses: VALID_TRANSPORTS
+    statuses: KEYED_TRANSPORTS
       .map((t) => byTransport.get(t))
       .filter((s): s is TransportStatus => Boolean(s)),
+    // A targeted refresh that didn't probe Ollama returns ollama:[]; keep prior then.
+    ollama: fresh.ollama.length > 0 ? fresh.ollama : prior.ollama,
   };
 }

@@ -15,8 +15,8 @@ vi.mock('@/src/lib/api/providers.api', () => ({
     }),
     clearKey: vi.fn().mockResolvedValue(undefined),
     revealKey: vi.fn().mockResolvedValue('sk-ant-plaintext'),
-    fetchAuthStatus: vi.fn().mockResolvedValue({ statuses: [], checkedAt: 0 }),
-    refreshAuthStatus: vi.fn().mockResolvedValue({ statuses: [], checkedAt: 0 }),
+    fetchAuthStatus: vi.fn().mockResolvedValue({ statuses: [], ollama: [], checkedAt: 0 }),
+    refreshAuthStatus: vi.fn().mockResolvedValue({ statuses: [], ollama: [], checkedAt: 0 }),
   },
 }));
 
@@ -176,5 +176,19 @@ describe('KeyVaultModal — status dot', () => {
     // openai row (index 2) should have a dot with data-state="error"
     const openaiDot = within(rows[2]).getByTestId('status-dot');
     expect(openaiDot).toHaveAttribute('data-state', 'error');
+  });
+
+  it('ollama row status dot reads the local endpoint state from s.ollama', () => {
+    freezeInit();
+    useProviderAuthStore.setState({
+      statuses: [],
+      ollama: [{ id: 'local', label: 'local', fixed: true, state: 'ok', reason: '2 models' }],
+    });
+    openModal();
+    render(<KeyVaultModal />);
+
+    const rows = screen.getAllByTestId('key-vault-row');
+    const ollamaDot = within(rows[rows.length - 1]).getByTestId('status-dot');
+    expect(ollamaDot).toHaveAttribute('data-state', 'ok');
   });
 });
