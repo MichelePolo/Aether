@@ -9,6 +9,8 @@ import { isImageMime } from '@/src/types/attachment.types';
 import { cn } from '@/src/lib/cn';
 import { computeMentionState, type MentionState } from '@/src/hooks/useMentionAutocomplete';
 import { MentionPopover } from './MentionPopover';
+import { ComposerPlusMenu, type ComposerAction } from './ComposerPlusMenu';
+import { ComposerModelPill } from './ComposerModelPill';
 import { t } from '@/src/i18n/t';
 
 export interface MessageInputProps {
@@ -118,6 +120,17 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   const visionBlocked = hasImages && caps?.vision === false;
   const canSend = (value.trim().length > 0 || queuedAttachments.length > 0) && !visionBlocked;
 
+  // Extensible "+" menu actions. Add new composer capabilities (screenshot,
+  // web search, skills, …) by appending entries here.
+  const plusActions: ComposerAction[] = [
+    {
+      id: 'files',
+      label: 'Add files or photos',
+      icon: Paperclip,
+      onSelect: () => fileInputRef.current?.click(),
+    },
+  ];
+
   return (
     <div className="shrink-0 border-t border-border-subtle bg-surface-2 p-3">
       {/* Claude-style composer: textarea on top, a single aligned control row below. */}
@@ -148,15 +161,8 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
         </div>
 
         <div className="flex items-center gap-1 px-2 pb-2">
-          <button
-            type="button"
-            aria-label="Attach files"
-            disabled={isStreaming}
-            onClick={() => fileInputRef.current?.click()}
-            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-surface-3 transition-colors disabled:opacity-50"
-          >
-            <Paperclip size={18} />
-          </button>
+          <ComposerPlusMenu actions={plusActions} disabled={isStreaming} />
+          <ComposerModelPill />
           <button
             type="button"
             aria-label="Toggle thinking mode"

@@ -1,6 +1,5 @@
 import { IconButton } from '@/src/components/ui/IconButton';
 import { ProfilesButton } from '@/src/components/profiles/ProfilesButton';
-import { ProviderSelector } from '@/src/components/providers/ProviderSelector';
 import { TokenChip } from './TokenChip';
 import { WorkspaceChip } from './WorkspaceChip';
 import { useUiStore } from '@/src/stores/ui.store';
@@ -39,7 +38,6 @@ export function TopBar({ title, sidebarOpen, onToggleSidebar }: TopBarProps) {
         <ProfilesButton />
         <TokenChip />
         <WorkspaceChip />
-        <ProviderSelector />
       </div>
     </header>
   );

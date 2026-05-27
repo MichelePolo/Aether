@@ -161,12 +161,13 @@ describe('MessageInput — attachments', () => {
     useProvidersStore.getState()._reset();
   });
 
-  it('paperclip button opens the hidden file input', async () => {
+  it('the "+" menu "Add files" action opens the hidden file input', async () => {
     const user = userEvent.setup();
     render(<MessageInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />);
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     const clickSpy = vi.spyOn(input, 'click');
-    await user.click(screen.getByLabelText(/attach files/i));
+    await user.click(screen.getByRole('button', { name: /add to message/i }));
+    await user.click(screen.getByRole('menuitem', { name: /add files or photos/i }));
     expect(clickSpy).toHaveBeenCalled();
   });
 
