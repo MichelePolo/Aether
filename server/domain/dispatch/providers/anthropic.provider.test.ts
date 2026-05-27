@@ -135,8 +135,10 @@ describe('AnthropicProvider', () => {
     expect(result.content[0].text).toContain('echoed');
     expect(result.isError).toBeUndefined();
 
+    // Allow-listed at SERVER scope (not per-tool): the SDK normalizes tool names,
+    // so a per-tool dotted allowlist would not match and the call would be denied.
     const arg = querySpy.mock.calls[0][0] as { options: { allowedTools: string[] } };
-    expect(arg.options.allowedTools).toEqual(['mcp__aether__mock.echo']);
+    expect(arg.options.allowedTools).toEqual(['mcp__aether']);
   });
 
   it('handler maps a failed runToolCall outcome to an isError CallToolResult', async () => {
@@ -245,10 +247,8 @@ describe('AnthropicProvider', () => {
       options: { mcpServers: Record<string, unknown>; allowedTools: string[] };
     };
     expect(arg.options.mcpServers).toHaveProperty('aether');
-    expect(arg.options.allowedTools).toEqual([
-      'mcp__aether__mock.echo',
-      'mcp__aether__mock.current_time',
-    ]);
+    // Server-level allow regardless of how many tools the server exposes.
+    expect(arg.options.allowedTools).toEqual(['mcp__aether']);
   });
 
   it('does not build an MCP server when req.mcpTools is empty or absent', async () => {

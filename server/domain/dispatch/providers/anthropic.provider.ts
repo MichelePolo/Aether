@@ -9,7 +9,12 @@ import type {
 } from './provider.types';
 
 const AETHER_MCP_NAME = 'aether';
-const AETHER_TOOL_PREFIX = `mcp__${AETHER_MCP_NAME}__`;
+// Server-level allow scope. The SDK normalizes MCP tool names (e.g. dots in
+// `Terminal.execute_command` become underscores), so a per-tool allowlist built
+// from qualifiedNames would not match and the SDK would deny the call before our
+// handler runs. Allowing the whole `aether` server sidesteps that — the SDK-level
+// allow merely lets the handler run; Aether's real approval gate is in runToolCall.
+const AETHER_SERVER_SCOPE = `mcp__${AETHER_MCP_NAME}`;
 // Generous turn budget so the SDK can run a multi-step tool loop without hitting
 // error_max_turns in normal use. The per-dispatch tool cap is still enforced by
 // the dispatch layer's runToolCall (returns an error outcome past the limit).
@@ -89,9 +94,9 @@ export class AnthropicProvider implements AIProvider {
           tools: req.mcpTools.map((decl) => toolDefFor(decl, req)),
         });
         options.mcpServers = { [AETHER_MCP_NAME]: server };
-        // Pre-allow our tools so the SDK runs the handler directly; the handler
-        // delegates to req.runToolCall which performs Aether's own approval gate.
-        options.allowedTools = req.mcpTools.map((t) => AETHER_TOOL_PREFIX + t.qualifiedName);
+        // Allow the whole aether server so the SDK runs the handler directly; the
+        // handler delegates to req.runToolCall which performs Aether's own gate.
+        options.allowedTools = [AETHER_SERVER_SCOPE];
       } else {
         options.allowedTools = [];
         options.mcpServers = {};
