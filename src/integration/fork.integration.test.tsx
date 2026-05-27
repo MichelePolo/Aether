@@ -87,7 +87,7 @@ describe('fork flow integration', () => {
       const helloSpan = Array.from(spans).find((s) => s.textContent === 'Hello');
       expect(helloSpan).toBeTruthy();
       // Walk up to find the div with onContextMenu (the styled bubble div)
-      userBubble = helloSpan!.closest('div[class*="rounded-lg"]');
+      userBubble = helloSpan!.closest('div[class*="rounded-2xl"]');
       expect(userBubble).toBeTruthy();
     });
 

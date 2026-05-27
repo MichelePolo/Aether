@@ -172,7 +172,7 @@ describe('MessageBubble', () => {
   it('right-click on model bubble opens menu with role=model', () => {
     seed({ id: 'm1', role: 'model', text: 'Hi there' });
     render(<MessageBubble id="m1" />);
-    const wrapper = document.querySelector('.max-w-\\[65ch\\]') as HTMLElement;
+    const wrapper = document.querySelector('.max-w-\\[68ch\\]') as HTMLElement;
     fireEvent.contextMenu(wrapper, { clientX: 50, clientY: 60 });
     const menu = useUiStore.getState().messageContextMenu;
     expect(menu?.role).toBe('model');
@@ -182,7 +182,7 @@ describe('MessageBubble', () => {
   it('assistant bubble with tokens sets title attribute', () => {
     seed({ id: 'tok', role: 'model', text: 'reply', tokensIn: 80, tokensOut: 40 });
     render(<MessageBubble id="tok" />);
-    const wrapper = document.querySelector('.max-w-\\[65ch\\]') as HTMLElement;
+    const wrapper = document.querySelector('.max-w-\\[68ch\\]') as HTMLElement;
     expect(wrapper.title).toMatch(/Prompt: 80/);
     expect(wrapper.title).toMatch(/Reply: 40/);
   });
@@ -190,7 +190,7 @@ describe('MessageBubble', () => {
   it('user bubble has no title attribute', () => {
     seed({ id: 'usr', role: 'user', text: 'Hello' });
     render(<MessageBubble id="usr" />);
-    const wrapper = document.querySelector('.max-w-\\[65ch\\]') as HTMLElement;
+    const wrapper = document.querySelector('.max-w-\\[68ch\\]') as HTMLElement;
     expect(wrapper.title ?? '').toBe('');
   });
 });

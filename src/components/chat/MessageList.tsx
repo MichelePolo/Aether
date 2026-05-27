@@ -32,7 +32,7 @@ export function MessageList({ onRetry }: MessageListProps) {
       role="log"
       aria-live="polite"
       aria-label="Conversation"
-      className="flex-1 overflow-y-auto p-4 flex flex-col gap-3"
+      className="chat-scroll flex-1 overflow-y-auto p-4 flex flex-col gap-4"
     >
       {ids.map((id) => (
         <div

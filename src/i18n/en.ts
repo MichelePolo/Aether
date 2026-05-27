@@ -15,6 +15,8 @@ export const messages = {
     stepsCount: '{n} steps',
     thinkingNow: 'thinking…',
     emptyResponse: '(empty response)',
+    you: 'You',
+    assistant: 'Aether',
   },
   sessionsSection: {
     heading: 'Sessions',

@@ -119,7 +119,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   const canSend = (value.trim().length > 0 || queuedAttachments.length > 0) && !visionBlocked;
 
   return (
-    <div className="border-t border-border-subtle bg-surface-2 p-3">
+    <div className="shrink-0 border-t border-border-subtle bg-surface-2 p-3">
       <div className="flex items-end gap-2 relative">
         <button
           type="button"
