@@ -524,7 +524,7 @@ export class DispatchService {
     if (accumThought.length > 0 && thinkingStart !== undefined) {
       tracer.pushExternal({
         type: 'thinking',
-        title: 'Gemini thoughts',
+        title: `${provider.model} thoughts`,
         content: accumThought,
         durationMs: Math.round(performance.now() - thinkingStart),
       });

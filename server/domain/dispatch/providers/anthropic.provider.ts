@@ -65,6 +65,17 @@ export class AnthropicProvider implements AIProvider {
         model: this.model,
         maxTurns: MAX_TURNS,
         abortController: aborter,
+        // Isolate the spawned `claude` from the host Claude Code environment so it
+        // behaves like a bare model that only obeys Aether's systemPrompt and only
+        // sees Aether's tools:
+        //  - tools: [] disables ALL built-in tools (Bash/Write/Task/...). Without
+        //    this the model would reach for built-in Bash for shell work, bypassing
+        //    Aether's approval gate, execution and tracing. MCP tools come via
+        //    mcpServers and are unaffected.
+        //  - settingSources: [] stops loading ~/.claude + project settings, skills
+        //    (e.g. superpowers/using-superpowers) and CLAUDE.md from leaking in.
+        tools: [],
+        settingSources: [],
         // Surface the spawned `claude` child's stderr so a non-zero exit reports
         // WHY instead of the SDK's generic "exited with code 1".
         stderr: (data: string): void => { stderrBuf += data; },

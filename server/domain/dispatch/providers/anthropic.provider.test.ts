@@ -185,6 +185,19 @@ describe('AnthropicProvider', () => {
     expect(arg.options.thinking).toBeUndefined();
   });
 
+  it('isolates the spawned agent: disables built-in tools and external settings', async () => {
+    querySpy.mockReturnValue(asyncIterableFrom([
+      { type: 'result', usage: { input_tokens: 0, output_tokens: 0 } },
+    ]));
+    const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
+    await collect(p.stream(baseReq(), new AbortController().signal));
+    const arg = querySpy.mock.calls[0][0] as { options: { tools?: unknown; settingSources?: unknown } };
+    // tools:[] => no built-in Bash/Write/Task; only Aether MCP tools are available.
+    expect(arg.options.tools).toEqual([]);
+    // settingSources:[] => no external skills/settings/CLAUDE.md leak in.
+    expect(arg.options.settingSources).toEqual([]);
+  });
+
   it('forwards the abort signal as an AbortController to the SDK', async () => {
     const aborter = new AbortController();
     querySpy.mockReturnValue(asyncIterableFrom([
