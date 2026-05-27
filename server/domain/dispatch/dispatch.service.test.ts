@@ -665,4 +665,40 @@ describe('runToolCall (agentic providers)', () => {
     const model = msgs!.find((m) => m.role === 'model')!;
     expect(model.text).toContain('ERR:Rejected by user');
   });
+
+  it('enforces the per-dispatch tool cap: the 11th runToolCall is rejected without executing', async () => {
+    // Stub provider calls runToolCall 11 times and reports the first index that
+    // returned the cap error.
+    const agenticProvider: AIProvider = {
+      model: 'agentic-stub',
+      capabilities: { thinking: false, toolCalling: true, vision: false },
+      async *stream(req: ProviderRequest): AsyncGenerator<ProviderChunk> {
+        let cappedAt = -1;
+        for (let i = 0; i < 11; i += 1) {
+          const outcome = await req.runToolCall!({ qualifiedName: 'mock.echo', args: { i } });
+          if (!outcome.ok && cappedAt === -1) cappedAt = i;
+        }
+        yield { type: 'text', text: `CAPPED_AT:${cappedAt}` };
+        yield { type: 'done' };
+      },
+    };
+
+    const callTool = vi.fn().mockResolvedValue({ ok: true, output: { ok: 1 } });
+    const mcpRegistry = {
+      policy: () => ({ autoApprove: true }),
+      callTool,
+      awaitDecision: vi.fn(),
+      listLiveTools: () => [],
+    } as unknown as import('@/server/domain/mcp/registry').McpRegistry;
+
+    const { service, sessionId } = await buildAgenticHarness(agenticProvider, { mcpRegistry });
+
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle({ sessionId, message: 'go' }, emitter, new AbortController().signal);
+
+    // 11th call (index 10) is the first to be capped; only 10 actually executed.
+    const fullText = events.filter((e) => e.event === 'text').map((e) => (e.data as { chunk: string }).chunk).join('');
+    expect(fullText).toContain('CAPPED_AT:10');
+    expect(callTool).toHaveBeenCalledTimes(10);
+  });
 });

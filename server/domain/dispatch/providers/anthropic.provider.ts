@@ -124,6 +124,10 @@ export class AnthropicProvider implements AIProvider {
           return;
         }
       }
+      // Safety net: the SDK normally ends a successful run with a 'result' event
+      // (handled above). If iteration ends without one, still emit 'done' so the
+      // dispatch loop terminates cleanly, matching the other providers.
+      yield { type: 'done' };
     } catch (err) {
       if (stderrBuf.length > 0 && err instanceof Error) {
         throw new Error(`${err.message} | claude stderr: ${stderrBuf.slice(-2000)}`);

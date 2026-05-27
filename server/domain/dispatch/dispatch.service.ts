@@ -228,6 +228,9 @@ export class DispatchService {
         type: 'dispatch',
         title: `Dispatch to ${opts.provider.model}${opts.thinking ? ' (thinking)' : ''}`,
         run: async () => {
+          // Shares toolCallsCount with the manual function_call loop below: the
+          // cap is per-dispatch across BOTH paths (a provider uses one or the
+          // other, never both, so there is no double counting).
           const runToolCall = async (
             call: { qualifiedName: string; args: Record<string, unknown> },
           ): Promise<{ ok: boolean; output?: unknown; error?: string }> => {
