@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ProviderRegistry } from './registry';
 import type { AIProvider } from '@/server/domain/dispatch/providers/provider.types';
 
@@ -27,6 +27,16 @@ function baseDeps(
 }
 
 describe('ProviderRegistry', () => {
+  // Default: Ollama unreachable, so live discovery can't leak a dev machine's
+  // running models into provider-count / default-name assertions. Tests that
+  // need Ollama models override this with their own fetch stub.
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 } as Response));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('always registers fake:default', async () => {
     const reg = new ProviderRegistry(baseDeps());
     await reg.refresh();

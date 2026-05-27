@@ -1,5 +1,5 @@
 // server/routes/providers.routes.test.ts
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import { createApp } from '@/server/app';
@@ -49,7 +49,13 @@ async function makeApp() {
 describe('providers routes', () => {
   let app: Awaited<ReturnType<typeof makeApp>>['app'];
   beforeEach(async () => {
+    // Ollama unreachable so registry discovery is deterministic regardless of
+    // whether a real Ollama daemon is running on the dev machine.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 } as Response));
     ({ app } = await makeApp());
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('GET /api/providers returns at least fake:default', async () => {
