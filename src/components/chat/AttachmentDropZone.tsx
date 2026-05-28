@@ -45,9 +45,9 @@ export function AttachmentDropZone({ children }: PropsWithChildren) {
       {active && (
         <div
           data-testid="drop-overlay"
-          className="absolute inset-0 z-40 flex items-center justify-center bg-accent/10 border-2 border-dashed border-accent pointer-events-none"
+          className="absolute inset-0 z-40 flex items-center justify-center bg-manipulation/10 border-2 border-dashed border-manipulation pointer-events-none"
         >
-          <div className="bg-surface-2 border border-accent/40 rounded px-4 py-3 text-sm font-mono text-accent">
+          <div className="bg-surface-2 border border-manipulation/40 rounded px-4 py-3 text-sm font-mono text-manipulation">
             {t('attachmentDropZone.dropHere')}
           </div>
         </div>

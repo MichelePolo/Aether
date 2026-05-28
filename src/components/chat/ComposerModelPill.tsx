@@ -70,7 +70,7 @@ export function ComposerModelPill() {
                 onClick={() => void select(p.name)}
                 className={cn(
                   'w-full flex items-center gap-2 px-3 py-1.5 text-xs font-mono text-left hover:bg-surface-4',
-                  isActive ? 'text-accent' : 'text-zinc-300',
+                  isActive ? 'text-disclosure' : 'text-zinc-300',
                 )}
               >
                 <Check size={13} className={cn('shrink-0', isActive ? 'opacity-100' : 'opacity-0')} />

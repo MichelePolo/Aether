@@ -54,7 +54,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
   return (
     <div className={cn('flex flex-col gap-1', isUser ? 'items-end' : 'items-start')}>
       <div className="flex items-baseline gap-2 px-1">
-        <span className="font-mono text-[10px] uppercase tracking-widest text-accent/80">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-disclosure/80">
           {senderLabel}
         </span>
         <span className="font-mono text-[10px] text-zinc-600">{time}</span>
@@ -65,7 +65,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
         className={cn(
           'max-w-[68ch] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm shadow-black/20',
           isUser
-            ? 'bg-accent/10 border border-accent/25 text-zinc-100 rounded-tr-sm'
+            ? 'bg-manipulation/10 border border-manipulation/30 text-zinc-100 rounded-tr-sm'
             : 'bg-surface-3 border border-border-subtle text-zinc-200 rounded-tl-sm',
         )}
       >
@@ -120,7 +120,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
             type="button"
             onClick={handleReasoningClick}
             aria-label="Show reasoning"
-            className="mt-2 text-[10px] text-zinc-500 hover:text-accent flex items-center gap-1"
+            className="mt-2 text-[10px] text-zinc-500 hover:text-disclosure flex items-center gap-1"
           >
             <span aria-hidden="true">{isThinkingNow ? '💭 ' : '🧠 '}</span>
             {isThinkingNow
@@ -157,7 +157,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
                 }}
                 disabled={isAnyStreaming}
                 aria-label={t('messageBubble.resume')}
-                className="px-2 py-0.5 text-[10px] uppercase tracking-widest font-bold rounded bg-accent/20 hover:bg-accent/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-2 py-0.5 text-[10px] uppercase tracking-widest font-bold rounded bg-manipulation/20 hover:bg-manipulation/30 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {t('messageBubble.resume')}
               </button>
