@@ -118,7 +118,7 @@ export function CommandPalette() {
       label="Command palette"
       shouldFilter={mode === 'commands'}
       overlayClassName="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
-      contentClassName="fixed left-1/2 top-[15vh] z-50 w-full max-w-xl -translate-x-1/2 bg-surface-2 border border-border-subtle rounded-lg shadow-2xl overflow-hidden"
+      contentClassName="fixed left-1/2 top-[15vh] z-50 w-full max-w-xl -translate-x-1/2 bg-surface-2 border border-border-subtle rounded-lg shadow-2xl overflow-hidden glass"
     >
       <Cmdk.Input
         autoFocus

@@ -55,7 +55,7 @@ export function BreakpointsSection() {
                     className={cn(
                       'px-2 py-0.5',
                       mode === m
-                        ? 'bg-accent text-black'
+                        ? 'bg-manipulation/20 text-manipulation'
                         : 'bg-surface-1 text-zinc-500 hover:text-zinc-300',
                     )}
                   >

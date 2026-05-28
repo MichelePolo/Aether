@@ -53,12 +53,12 @@ export function ProfilesTable({
               aria-current={active ? 'true' : undefined}
               className={cn(
                 'border-b border-border-subtle/60',
-                active && 'bg-accent/5',
+                active && 'bg-disclosure/5',
               )}
             >
               <td className="p-2 flex items-center gap-1.5">
-                {active && <Check size={11} className="text-accent" />}
-                <span className={cn(active && 'text-accent font-bold')}>{p.name}</span>
+                {active && <Check size={11} className="text-disclosure" />}
+                <span className={cn(active && 'text-disclosure font-bold')}>{p.name}</span>
               </td>
               <td className="p-2 text-zinc-500">{formatDate(p.createdAt)}</td>
               <td className="p-2 text-zinc-500">{formatDate(p.updatedAt)}</td>
@@ -67,7 +67,7 @@ export function ProfilesTable({
                   <button
                     type="button"
                     onClick={() => onApply(p.id)}
-                    className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-widest font-bold bg-accent/10 text-accent hover:bg-accent/20"
+                    className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-widest font-bold bg-manipulation/10 text-manipulation hover:bg-manipulation/20"
                   >
                     Apply
                   </button>

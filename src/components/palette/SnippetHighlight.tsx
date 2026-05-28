@@ -36,7 +36,7 @@ export function SnippetHighlight({ snippet, className }: SnippetHighlightProps) 
     <span className={className}>
       {parts.map((p, idx) => (
         <Fragment key={idx}>
-          {p.mark ? <mark className="bg-accent/30 text-white rounded-sm px-0.5">{p.text}</mark> : p.text}
+          {p.mark ? <mark className="bg-disclosure/30 text-white rounded-sm px-0.5">{p.text}</mark> : p.text}
         </Fragment>
       ))}
     </span>

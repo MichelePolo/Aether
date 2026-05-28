@@ -134,7 +134,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   return (
     <div className="shrink-0 border-t border-border-subtle bg-surface-2 p-3">
       {/* Claude-style composer: textarea on top, a single aligned control row below. */}
-      <div className="rounded-2xl border border-border-subtle bg-surface-1 transition-colors focus-within:border-accent/50 focus-within:ring-1 focus-within:ring-accent/40">
+      <div className="rounded-2xl border border-border-subtle bg-surface-1 transition-colors focus-within:border-manipulation/50 focus-within:ring-1 focus-within:ring-manipulation/40">
         <div className="relative">
           <textarea
             ref={textareaRef}
@@ -177,7 +177,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
             className={cn(
               'flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors',
               thinkingEnabled
-                ? 'bg-accent/15 text-accent'
+                ? 'bg-disclosure/15 text-disclosure'
                 : 'text-zinc-500 hover:text-zinc-200 hover:bg-surface-3',
               'disabled:opacity-50 disabled:cursor-not-allowed',
             )}
@@ -210,7 +210,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
               onClick={submit}
               title={visionBlocked ? t('messageInput.visionUnsupported') : undefined}
               disabled={!canSend}
-              className="p-1.5 rounded-lg bg-accent/20 hover:bg-accent/30 text-accent transition-colors disabled:opacity-30"
+              className="p-1.5 rounded-lg bg-manipulation/20 hover:bg-manipulation/30 text-manipulation transition-colors disabled:opacity-30"
             >
               <Send size={16} />
             </button>

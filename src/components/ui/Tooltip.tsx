@@ -49,7 +49,7 @@ export function Tooltip({ label, children }: TooltipProps) {
           ref={tipRef}
           id={id}
           role="tooltip"
-          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 whitespace-nowrap rounded bg-surface-3 border border-border-subtle px-2 py-1 text-[10px] font-mono text-zinc-200 shadow z-50 pointer-events-none"
+          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 max-w-[220px] w-max whitespace-normal break-words leading-snug rounded bg-surface-3 border border-border-subtle px-2 py-1 text-[10px] font-mono text-zinc-200 shadow z-50 pointer-events-none"
         >
           {label}
         </span>

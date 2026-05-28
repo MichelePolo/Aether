@@ -1,5 +1,5 @@
 import ReactMarkdown from 'react-markdown';
-import { File as FileIcon } from 'lucide-react';
+import { File as FileIcon, Brain } from 'lucide-react';
 import { useChatStore } from '@/src/stores/chat.store';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useStreamingDispatch } from '@/src/hooks/useStreamingDispatch';
@@ -11,6 +11,23 @@ import { t } from '@/src/i18n/t';
 export interface MessageBubbleProps {
   id: string;
   onRetry?: (id: string) => void;
+}
+
+/** Best-effort textual view of a raw tool result for the CLI-heritage block. */
+function toolOutputText(result: unknown): string {
+  if (typeof result === 'string') return result;
+  if (result && typeof result === 'object') {
+    const content = (result as { content?: Array<{ type?: string; text?: string }> }).content;
+    if (Array.isArray(content)) {
+      const text = content
+        .filter((p) => p && p.type === 'text' && typeof p.text === 'string')
+        .map((p) => p.text as string)
+        .join('\n');
+      if (text.trim().length > 0) return text;
+    }
+    return JSON.stringify(result, null, 2);
+  }
+  return String(result ?? '');
 }
 
 export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
@@ -54,7 +71,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
   return (
     <div className={cn('flex flex-col gap-1', isUser ? 'items-end' : 'items-start')}>
       <div className="flex items-baseline gap-2 px-1">
-        <span className="font-mono text-[10px] uppercase tracking-widest text-accent/80">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-disclosure/80">
           {senderLabel}
         </span>
         <span className="font-mono text-[10px] text-zinc-600">{time}</span>
@@ -65,7 +82,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
         className={cn(
           'max-w-[68ch] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm shadow-black/20',
           isUser
-            ? 'bg-accent/10 border border-accent/25 text-zinc-100 rounded-tr-sm'
+            ? 'bg-manipulation/10 border border-manipulation/30 text-zinc-100 rounded-tr-sm'
             : 'bg-surface-3 border border-border-subtle text-zinc-200 rounded-tl-sm',
         )}
       >
@@ -80,10 +97,30 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
             <StreamingIndicator />
           </>
         ) : (
-          <div className="prose prose-invert prose-sm max-w-none">
+          <div className="prose prose-invert prose-sm max-w-none prose-code:text-cli prose-code:font-mono prose-code:before:content-none prose-code:after:content-none prose-pre:bg-surface-0 prose-pre:border prose-pre:border-border-subtle prose-pre:text-cli">
             <ReactMarkdown>{message.text}</ReactMarkdown>
           </div>
         )}
+
+        {!isUser &&
+          (message.reasoningSteps ?? []).some(
+            (s) => s.toolCall && !s.toolCall.error && s.toolCall.result !== undefined,
+          ) && (
+            <div className="mt-2 space-y-2">
+              {(message.reasoningSteps ?? [])
+                .filter((s) => s.toolCall && !s.toolCall.error && s.toolCall.result !== undefined)
+                .map((s) => (
+                  <div key={s.id}>
+                    <div className="font-mono text-[9px] uppercase tracking-widest text-cli/60 mb-1">
+                      {s.toolCall!.qualifiedName}
+                    </div>
+                    <pre className="m-0 max-h-60 overflow-auto rounded-lg border border-border-subtle bg-surface-0 px-3 py-2 font-mono text-[11px] leading-relaxed text-cli whitespace-pre-wrap">
+                      {toolOutputText(s.toolCall!.result)}
+                    </pre>
+                  </div>
+                ))}
+            </div>
+          )}
 
         {message.attachments && message.attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-2">
@@ -120,9 +157,9 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
             type="button"
             onClick={handleReasoningClick}
             aria-label="Show reasoning"
-            className="mt-2 text-[10px] text-zinc-500 hover:text-accent flex items-center gap-1"
+            className="mt-2 text-[10px] text-disclosure/80 hover:text-disclosure flex items-center gap-1"
           >
-            <span aria-hidden="true">{isThinkingNow ? '💭 ' : '🧠 '}</span>
+            <Brain size={12} aria-hidden="true" />
             {isThinkingNow
               ? t('messageBubble.thinkingNow')
               : t('messageBubble.stepsCount', { n: message.reasoningSteps!.length })}
@@ -157,7 +194,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
                 }}
                 disabled={isAnyStreaming}
                 aria-label={t('messageBubble.resume')}
-                className="px-2 py-0.5 text-[10px] uppercase tracking-widest font-bold rounded bg-accent/20 hover:bg-accent/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-2 py-0.5 text-[10px] uppercase tracking-widest font-bold rounded bg-manipulation/20 hover:bg-manipulation/30 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {t('messageBubble.resume')}
               </button>

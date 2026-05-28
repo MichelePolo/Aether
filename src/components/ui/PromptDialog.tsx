@@ -46,7 +46,7 @@ export function PromptDialog({
 
   const canConfirm = !required || value.trim().length > 0;
   const fieldClass =
-    'mt-1 w-full bg-zinc-900 border border-border-subtle rounded px-2 py-1.5 text-sm text-white outline-none focus:border-accent';
+    'mt-1 w-full bg-zinc-900 border border-border-subtle rounded px-2 py-1.5 text-sm text-white outline-none focus:border-manipulation';
 
   return (
     <Modal open={open} onClose={onCancel} title={title}>

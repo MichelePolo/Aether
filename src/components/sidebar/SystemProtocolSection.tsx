@@ -14,7 +14,7 @@ export function SystemProtocolSection() {
       <div className="mono-label mb-2">System Protocol</div>
       <textarea
         aria-label="System instruction"
-        className="w-full bg-zinc-900/50 border border-border-subtle rounded p-2 text-xs font-mono text-zinc-400 focus:border-accent outline-none min-h-[120px] resize-none"
+        className="w-full bg-zinc-900/50 border border-border-subtle rounded p-2 text-xs font-mono text-zinc-400 focus:border-disclosure outline-none min-h-[120px] resize-none"
         value={local}
         onChange={(e) => setLocal(e.target.value)}
         onBlur={() => {

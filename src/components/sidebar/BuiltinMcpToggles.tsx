@@ -57,7 +57,7 @@ export function BuiltinMcpToggles() {
                 className={cn(
                   'px-2 py-0.5 rounded text-[10px] border',
                   row.enabled
-                    ? 'bg-accent/20 text-accent border-accent/40'
+                    ? 'bg-manipulation/20 text-manipulation border-manipulation/40'
                     : 'bg-surface-1 text-zinc-500 border-border-subtle hover:text-zinc-300',
                 )}
               >

@@ -73,7 +73,7 @@ export function McpServersSection() {
                           type="button"
                           onClick={() => disconnect(server.id).catch(() => {})}
                           aria-label={`Disconnect ${server.name}`}
-                          className="text-zinc-400 hover:text-white w-6 h-6 inline-flex items-center justify-center"
+                          className="text-zinc-400 hover:text-manipulation w-6 h-6 inline-flex items-center justify-center"
                         >
                           <PowerOff size={14} aria-hidden="true" />
                         </button>
@@ -81,7 +81,7 @@ export function McpServersSection() {
                           type="button"
                           onClick={() => refreshServer(server.id).catch(() => {})}
                           aria-label={`Refresh ${server.name}`}
-                          className="text-zinc-400 hover:text-white w-6 h-6 inline-flex items-center justify-center"
+                          className="text-zinc-400 hover:text-manipulation w-6 h-6 inline-flex items-center justify-center"
                         >
                           <RefreshCw size={14} aria-hidden="true" />
                         </button>
@@ -92,7 +92,7 @@ export function McpServersSection() {
                         onClick={() => connect(server.id).catch(() => {})}
                         disabled={state === 'connecting'}
                         aria-label={`Connect ${server.name}`}
-                        className="text-accent hover:text-white disabled:opacity-50 w-6 h-6 inline-flex items-center justify-center"
+                        className="text-manipulation hover:text-white disabled:opacity-50 w-6 h-6 inline-flex items-center justify-center"
                       >
                         {state === 'connecting' ? '…' : <Power size={14} aria-hidden="true" />}
                       </button>

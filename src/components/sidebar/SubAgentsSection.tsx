@@ -67,7 +67,7 @@ export function SubAgentsSection() {
             <div
               key={sa.id}
               onClick={() => openSubAgentEditor(sa.id)}
-              className="group flex items-center justify-between p-1.5 rounded bg-zinc-900 border border-border-subtle text-[10px] font-mono text-zinc-400 cursor-pointer hover:border-accent/40"
+              className="group flex items-center justify-between p-1.5 rounded bg-zinc-900 border border-border-subtle text-[10px] font-mono text-zinc-400 cursor-pointer hover:border-manipulation/40"
             >
               <span className="truncate">{sa.name}</span>
               <div className="hidden group-hover:flex gap-1">

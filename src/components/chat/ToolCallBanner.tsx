@@ -12,7 +12,7 @@ export function ToolCallBanner() {
       {inFlight.map((call) => (
         <div
           key={call.callId}
-          className="pointer-events-auto flex items-center justify-between p-2 rounded bg-surface-2 border border-accent/40 text-[10px] font-mono"
+          className="pointer-events-auto flex items-center justify-between p-2 rounded bg-surface-2 border border-manipulation/40 text-[10px] font-mono"
         >
           <div className="flex flex-col min-w-0">
             <span className="text-zinc-300 truncate">{call.qualifiedName}</span>
