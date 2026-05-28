@@ -35,7 +35,7 @@ export function SkillsListEditor({ skills, onAdd, onRemove }: SkillsListEditorPr
                 type="button"
                 aria-label={`Remove skill ${skill}`}
                 onClick={() => onRemove(i)}
-                className="hidden group-hover:inline hover:text-red-400 text-zinc-500"
+                className="hidden group-hover:inline hover:text-status-error text-zinc-500"
               >
                 ×
               </button>

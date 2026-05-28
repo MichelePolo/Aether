@@ -42,7 +42,7 @@ export function ToolsListEditor({ tools, onAdd, onRemove }: ToolsListEditorProps
                   type="button"
                   aria-label={`Remove tool ${tool.name}`}
                   onClick={() => onRemove(tool.id)}
-                  className="hidden group-hover:inline hover:text-red-400 text-zinc-500"
+                  className="hidden group-hover:inline hover:text-status-error text-zinc-500"
                 >
                   ×
                 </button>

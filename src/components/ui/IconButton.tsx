@@ -8,7 +8,7 @@ const iconButtonVariants = cva(`icon-btn ${focusRing}`, {
     variant: {
       default: '',
       active: 'bg-zinc-800 text-white',
-      danger: 'hover:text-red-400',
+      danger: 'hover:text-status-error',
     },
   },
   defaultVariants: { variant: 'default' },

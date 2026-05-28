@@ -153,7 +153,7 @@ export function WorkspaceBrowserModal() {
         ))}
       </nav>
 
-      {error && <div className="mb-2 text-rose-400 text-[11px]">{error}</div>}
+      {error && <div className="mb-2 text-status-error text-[11px]">{error}</div>}
 
       <div className="overflow-y-auto border border-border-subtle rounded bg-zinc-950 mb-3 max-h-[40vh]">
         {entries.length === 0 && (

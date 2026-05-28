@@ -19,10 +19,10 @@
 
   /* Semantic accents */
   --color-disclosure: #B388FF;   /* reveal the invisible */
-  --color-manipulation: #FF6D00; /* act / alter state */
+  --color-manipulation: #B388FF; /* act / alter state — shares disclosure's violet */
   --color-cli: #00E676;          /* raw CLI/tool output ONLY */
   /* Safety net for any not-yet-migrated usage; target is zero `accent` left. */
-  --color-accent: #FF6D00;
+  --color-accent: #B388FF;
 
   /* Typography — unchanged */
   --font-sans: "Inter", system-ui, sans-serif;

@@ -100,7 +100,7 @@ export function McpServersSection() {
                     <button
                       onClick={() => handleRemove(server.id, server.name)}
                       aria-label={`Remove ${server.name}`}
-                      className="hidden group-hover:inline hover:text-red-400 text-zinc-500 w-6 h-6 items-center justify-center"
+                      className="hidden group-hover:inline hover:text-status-error text-zinc-500 w-6 h-6 items-center justify-center"
                     >
                       <X size={12} aria-hidden="true" />
                     </button>

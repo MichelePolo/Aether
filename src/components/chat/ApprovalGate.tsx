@@ -11,9 +11,9 @@ import { t } from '@/src/i18n/t';
 import type { ToolCategory } from '@/src/types/breakpoints.types';
 
 const BADGE_CLASS: Record<ToolCategory, string> = {
-  safe: 'bg-emerald-900/40 text-emerald-300 border-emerald-700',
-  dangerous: 'bg-rose-900/40 text-rose-300 border-rose-700',
-  external: 'bg-orange-900/40 text-orange-300 border-orange-700',
+  safe: 'bg-status-online/15 text-status-online border-status-online/50',
+  dangerous: 'bg-status-error/15 text-status-error border-status-error/50',
+  external: 'bg-status-connecting/15 text-status-connecting border-status-connecting/50',
 };
 
 const COUNTDOWN_SECONDS = 60;

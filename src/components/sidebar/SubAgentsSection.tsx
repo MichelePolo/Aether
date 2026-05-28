@@ -78,7 +78,7 @@ export function SubAgentsSection() {
                     handleDelete(sa.id, sa.name);
                   }}
                   aria-label={`Delete ${sa.name}`}
-                  className="hover:text-red-400"
+                  className="hover:text-status-error"
                 >
                   ×
                 </button>

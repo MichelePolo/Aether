@@ -61,8 +61,8 @@ export function DiffView({ oldText, newText, path }: DiffViewProps) {
             data-diff={l.kind}
             className={
               'flex ' + (
-                l.kind === 'add' ? 'bg-emerald-950/40' :
-                l.kind === 'remove' ? 'bg-rose-950/40' :
+                l.kind === 'add' ? 'bg-status-online/10' :
+                l.kind === 'remove' ? 'bg-status-error/10' :
                 ''
               )
             }
@@ -71,8 +71,8 @@ export function DiffView({ oldText, newText, path }: DiffViewProps) {
               {idx + 1}
             </span>
             <span className={
-              l.kind === 'add' ? 'text-emerald-400' :
-              l.kind === 'remove' ? 'text-rose-400' :
+              l.kind === 'add' ? 'text-status-online' :
+              l.kind === 'remove' ? 'text-status-error' :
               'text-zinc-400'
             }>
               <span aria-hidden="true">{l.kind === 'add' ? '+ ' : l.kind === 'remove' ? '- ' : '  '}</span>

@@ -6,12 +6,12 @@ const badgeVariants = cva('badge', {
   variants: {
     variant: {
       default: 'bg-zinc-800 text-zinc-400',
-      logic: 'bg-blue-500/10 text-blue-400',
-      dispatch: 'bg-purple-500/10 text-purple-400',
-      validation: 'bg-green-500/10 text-green-400',
+      logic: 'bg-disclosure/10 text-disclosure',
+      dispatch: 'bg-disclosure/10 text-disclosure',
+      validation: 'bg-status-online/10 text-status-online',
       context_fetch: 'bg-zinc-700/40 text-zinc-300',
-      mcp_query: 'bg-cyan-500/10 text-cyan-400',
-      thinking: 'bg-amber-500/10 text-amber-400',
+      mcp_query: 'bg-disclosure/10 text-disclosure',
+      thinking: 'bg-disclosure/10 text-disclosure',
     },
   },
   defaultVariants: { variant: 'default' },

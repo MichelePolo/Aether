@@ -61,7 +61,7 @@ function SessionRow({ session, active, disabled, onSelect, onExport, onRename, o
           onClick={onDelete}
           disabled={disabled}
           aria-label={`Delete ${label}`}
-          className="hover:text-red-400 disabled:opacity-50"
+          className="hover:text-status-error disabled:opacity-50"
         >
           <Trash2 size={12} aria-hidden="true" />
         </button>

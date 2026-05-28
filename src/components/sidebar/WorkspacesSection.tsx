@@ -84,7 +84,7 @@ export function WorkspacesSection() {
                   type="button"
                   aria-label={`delete ${w.name}`}
                   onClick={() => void handleDelete(w.id, w.name)}
-                  className="text-zinc-500 hover:text-rose-400 px-1"
+                  className="text-zinc-500 hover:text-status-error px-1"
                 >
                   <Trash2 size={11} aria-hidden="true" />
                 </button>

@@ -15,14 +15,14 @@ const TYPE_LABELS: Record<ReasoningStepType, string> = {
 };
 
 const TYPE_COLORS: Record<ReasoningStepType, string> = {
-  context_fetch: 'bg-blue-500/10 text-blue-400',
-  mcp_query: 'bg-cyan-500/10 text-cyan-400',
-  dispatch: 'bg-purple-500/10 text-purple-400',
-  thinking: 'bg-purple-500/10 text-purple-300',
-  validation: 'bg-green-500/10 text-green-400',
+  context_fetch: 'bg-disclosure/10 text-disclosure',
+  mcp_query: 'bg-disclosure/10 text-disclosure',
+  dispatch: 'bg-disclosure/10 text-disclosure',
+  thinking: 'bg-disclosure/10 text-disclosure',
+  validation: 'bg-status-online/10 text-status-online',
   logic: 'bg-zinc-800 text-zinc-400',
-  resolve_subagent: 'bg-amber-500/10 text-amber-400',
-  tool_call: 'bg-cyan-500/10 text-cyan-300',
+  resolve_subagent: 'bg-disclosure/10 text-disclosure',
+  tool_call: 'bg-disclosure/10 text-disclosure',
 };
 
 function formatDuration(ms?: number): string {

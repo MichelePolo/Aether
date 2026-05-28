@@ -10,7 +10,7 @@ const buttonVariants = cva(
       variant: {
         primary: 'bg-manipulation text-black hover:bg-manipulation/90',
         ghost: 'bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-white',
-        danger: 'bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white',
+        danger: 'bg-status-error/10 text-status-error hover:bg-status-error hover:text-white',
       },
       size: {
         sm: 'text-[10px] px-2 py-1 gap-1',

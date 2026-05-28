@@ -57,7 +57,7 @@ export function SkillsSection() {
               <button
                 onClick={() => handleRemove(i, skill)}
                 aria-label={`Remove ${skill}`}
-                className="hover:text-red-400"
+                className="hover:text-status-error"
               >
                 ×
               </button>

@@ -14,12 +14,12 @@ describe('Badge', () => {
   });
 
   it.each([
-    ['logic', /blue/],
-    ['dispatch', /purple/],
-    ['validation', /green/],
+    ['logic', /disclosure/],
+    ['dispatch', /disclosure/],
+    ['validation', /status-online/],
     ['context_fetch', /zinc/],
-    ['mcp_query', /cyan/],
-    ['thinking', /amber|yellow/],
+    ['mcp_query', /disclosure/],
+    ['thinking', /disclosure/],
   ] as const)('applies %s variant colors', (variant, colorPattern) => {
     render(<Badge variant={variant}>x</Badge>);
     expect(screen.getByText('x').className).toMatch(colorPattern);

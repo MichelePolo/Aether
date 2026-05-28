@@ -39,7 +39,7 @@ export function ToolsSection() {
               <button
                 onClick={() => handleRemove(tool.id, tool.name)}
                 aria-label={`Remove ${tool.name}`}
-                className="hidden group-hover:inline hover:text-red-400 text-zinc-500"
+                className="hidden group-hover:inline hover:text-status-error text-zinc-500"
               >
                 ×
               </button>
