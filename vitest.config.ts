@@ -30,6 +30,7 @@ export default defineConfig({
       thresholds: {
         'server/domain/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
         'server/lib/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
+        'cli/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
         'src/hooks/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
         'src/stores/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
         'src/lib/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
@@ -55,7 +56,7 @@ export default defineConfig({
         test: {
           name: 'backend',
           environment: 'node',
-          include: ['server/**/*.{test,spec}.ts'],
+          include: ['server/**/*.{test,spec}.ts', 'cli/**/*.{test,spec}.ts'],
           setupFiles: ['server/test/setup.ts'],
         },
       },
