@@ -45,7 +45,7 @@ export function ReasoningStepCard({ step }: ReasoningStepCardProps) {
   const badgeColor = TYPE_COLORS[knownType as ReasoningStepType] ?? TYPE_COLORS.logic;
 
   return (
-    <div className="p-2 rounded bg-surface-3 border border-border-subtle">
+    <div className="p-2 rounded bg-surface-3 border border-border-subtle glow-disc">
       <div className="flex items-center justify-between gap-2 mb-1">
         <span className={cn('text-[9px] px-1.5 py-0.5 rounded font-mono uppercase tracking-widest font-bold', badgeColor)}>
           {badgeLabel}

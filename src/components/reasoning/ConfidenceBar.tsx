@@ -18,7 +18,7 @@ export function ConfidenceBar({ confidence }: ConfidenceBarProps) {
     >
       <div
         data-testid="confidence-fill"
-        className="h-full bg-accent"
+        className="h-full bg-disclosure"
         style={{ width: pct }}
       />
     </div>

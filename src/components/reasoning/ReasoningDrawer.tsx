@@ -37,7 +37,7 @@ export function ReasoningDrawer() {
     >
       <h2 id="reasoning-heading" className="sr-only">Reasoning</h2>
       <header className="h-12 px-4 border-b border-border-subtle flex items-center justify-between shrink-0">
-        <span className="mono-label">Reasoning</span>
+        <span className="mono-label text-disclosure">Reasoning</span>
         <button
           type="button"
           aria-label="Close reasoning drawer"
