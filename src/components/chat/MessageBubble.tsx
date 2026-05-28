@@ -80,7 +80,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
             <StreamingIndicator />
           </>
         ) : (
-          <div className="prose prose-invert prose-sm max-w-none">
+          <div className="prose prose-invert prose-sm max-w-none prose-code:text-cli prose-code:font-mono prose-code:before:content-none prose-code:after:content-none prose-pre:bg-surface-0 prose-pre:border prose-pre:border-border-subtle prose-pre:text-cli">
             <ReactMarkdown>{message.text}</ReactMarkdown>
           </div>
         )}
@@ -120,7 +120,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
             type="button"
             onClick={handleReasoningClick}
             aria-label="Show reasoning"
-            className="mt-2 text-[10px] text-zinc-500 hover:text-disclosure flex items-center gap-1"
+            className="mt-2 text-[10px] text-disclosure/80 hover:text-disclosure flex items-center gap-1"
           >
             <span aria-hidden="true">{isThinkingNow ? '💭 ' : '🧠 '}</span>
             {isThinkingNow
