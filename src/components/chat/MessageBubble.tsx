@@ -1,5 +1,5 @@
 import ReactMarkdown from 'react-markdown';
-import { File as FileIcon } from 'lucide-react';
+import { File as FileIcon, Brain } from 'lucide-react';
 import { useChatStore } from '@/src/stores/chat.store';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useStreamingDispatch } from '@/src/hooks/useStreamingDispatch';
@@ -11,6 +11,23 @@ import { t } from '@/src/i18n/t';
 export interface MessageBubbleProps {
   id: string;
   onRetry?: (id: string) => void;
+}
+
+/** Best-effort textual view of a raw tool result for the CLI-heritage block. */
+function toolOutputText(result: unknown): string {
+  if (typeof result === 'string') return result;
+  if (result && typeof result === 'object') {
+    const content = (result as { content?: Array<{ type?: string; text?: string }> }).content;
+    if (Array.isArray(content)) {
+      const text = content
+        .filter((p) => p && p.type === 'text' && typeof p.text === 'string')
+        .map((p) => p.text as string)
+        .join('\n');
+      if (text.trim().length > 0) return text;
+    }
+    return JSON.stringify(result, null, 2);
+  }
+  return String(result ?? '');
 }
 
 export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
@@ -85,6 +102,26 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
           </div>
         )}
 
+        {!isUser &&
+          (message.reasoningSteps ?? []).some(
+            (s) => s.toolCall && !s.toolCall.error && s.toolCall.result !== undefined,
+          ) && (
+            <div className="mt-2 space-y-2">
+              {(message.reasoningSteps ?? [])
+                .filter((s) => s.toolCall && !s.toolCall.error && s.toolCall.result !== undefined)
+                .map((s) => (
+                  <div key={s.id}>
+                    <div className="font-mono text-[9px] uppercase tracking-widest text-cli/60 mb-1">
+                      {s.toolCall!.qualifiedName}
+                    </div>
+                    <pre className="m-0 max-h-60 overflow-auto rounded-lg border border-border-subtle bg-surface-0 px-3 py-2 font-mono text-[11px] leading-relaxed text-cli whitespace-pre-wrap">
+                      {toolOutputText(s.toolCall!.result)}
+                    </pre>
+                  </div>
+                ))}
+            </div>
+          )}
+
         {message.attachments && message.attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-2">
             {message.attachments.map((a) => (
@@ -122,7 +159,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
             aria-label="Show reasoning"
             className="mt-2 text-[10px] text-disclosure/80 hover:text-disclosure flex items-center gap-1"
           >
-            <span aria-hidden="true">{isThinkingNow ? '💭 ' : '🧠 '}</span>
+            <Brain size={12} aria-hidden="true" />
             {isThinkingNow
               ? t('messageBubble.thinkingNow')
               : t('messageBubble.stepsCount', { n: message.reasoningSteps!.length })}
