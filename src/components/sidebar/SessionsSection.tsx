@@ -26,7 +26,7 @@ function SessionRow({ session, active, disabled, onSelect, onExport, onRename, o
       className={cn(
         'group flex items-center justify-between p-1.5 rounded text-[10px] font-mono border transition-colors',
         active
-          ? 'bg-accent/10 border-accent/40 text-accent'
+          ? 'bg-disclosure/10 border-disclosure/40 text-disclosure'
           : 'bg-zinc-900 border-border-subtle text-zinc-400 hover:text-zinc-200',
         disabled && 'opacity-40 cursor-not-allowed',
       )}

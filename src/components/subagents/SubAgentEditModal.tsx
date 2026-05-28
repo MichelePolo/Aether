@@ -101,7 +101,7 @@ export function SubAgentEditModal() {
               <button
                 type="button"
                 onClick={handleRename}
-                className="text-[10px] text-accent hover:text-white"
+                className="text-[10px] text-manipulation hover:text-white"
               >
                 Rename
               </button>
@@ -117,7 +117,7 @@ export function SubAgentEditModal() {
               <button
                 type="button"
                 onClick={handleEditSystem}
-                className="text-[10px] text-accent hover:text-white"
+                className="text-[10px] text-manipulation hover:text-white"
               >
                 Edit system instruction
               </button>

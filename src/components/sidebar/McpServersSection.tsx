@@ -92,7 +92,7 @@ export function McpServersSection() {
                         onClick={() => connect(server.id).catch(() => {})}
                         disabled={state === 'connecting'}
                         aria-label={`Connect ${server.name}`}
-                        className="text-accent hover:text-white disabled:opacity-50 w-6 h-6 inline-flex items-center justify-center"
+                        className="text-manipulation hover:text-white disabled:opacity-50 w-6 h-6 inline-flex items-center justify-center"
                       >
                         {state === 'connecting' ? '…' : <Power size={14} aria-hidden="true" />}
                       </button>

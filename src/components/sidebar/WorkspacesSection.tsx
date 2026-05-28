@@ -43,7 +43,7 @@ export function WorkspacesSection() {
         <button
           type="button"
           onClick={openBrowser}
-          className="text-[10px] text-accent hover:underline"
+          className="text-[10px] text-manipulation hover:underline"
         >
           + Add workspace…
         </button>
@@ -59,7 +59,7 @@ export function WorkspacesSection() {
               className={cn(
                 'group flex items-center gap-2 p-1.5 border rounded text-[10px] font-mono',
                 isActive
-                  ? 'bg-accent/10 border-accent/40 text-accent'
+                  ? 'bg-disclosure/10 border-disclosure/40 text-disclosure'
                   : 'bg-zinc-900 border-border-subtle text-zinc-300',
               )}
             >
