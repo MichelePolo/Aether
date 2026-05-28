@@ -30,7 +30,7 @@ export function ReasoningDrawer() {
     <aside
       role="complementary"
       aria-labelledby="reasoning-heading"
-      className={`fixed right-0 top-0 bottom-0 z-40 w-96 bg-surface-2 border-l border-border-subtle flex flex-col motion-safe:transition-transform motion-safe:duration-200 ${
+      className={`fixed right-0 top-0 bottom-0 z-40 w-96 bg-surface-2 border-l border-border-subtle flex flex-col motion-safe:transition-transform motion-safe:duration-200 glass ${
         open ? 'translate-x-0' : 'translate-x-full'
       }`}
       inert={!open}

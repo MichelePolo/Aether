@@ -66,7 +66,7 @@ export function ApprovalGate() {
       open={true}
       onClose={() => void decide('reject')}
       dismissOnBackdrop={false}
-      className="max-w-[640px]"
+      className="max-w-[640px] glass"
     >
       <div className="text-zinc-500 text-[10px] font-mono mb-2">
         {t('approvalGate.countdown', { seconds })}
