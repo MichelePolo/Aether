@@ -14,8 +14,15 @@
   .icon-btn     { @apply p-1.5 rounded text-zinc-500 hover:bg-zinc-800 hover:text-white transition-colors; }
   .cli-input    { @apply bg-transparent border-none outline-none text-white font-mono w-full; }
   .scrollbar-hide::-webkit-scrollbar { display: none; }
-  /* Glassmorphism — bars & overlays only (never chat bubbles / code). */
-  .glass { background: color-mix(in oklab, var(--color-surface-2) 72%, transparent); backdrop-filter: blur(7px); }
+  /* Glassmorphism — bars & overlays only (never chat bubbles / code).
+     The translucent bg must override the element's bg-surface-* utility (which
+     sits in Tailwind's higher-priority utilities layer), so it's applied with
+     !important and only where backdrop-filter is supported — otherwise the
+     opaque surface stays as a legible fallback. */
+  .glass { backdrop-filter: blur(7px); }
+  @supports (backdrop-filter: blur(1px)) {
+    .glass { background: color-mix(in oklab, var(--color-surface-2) 72%, transparent) !important; }
+  }
   /* Hover "energy": illuminate the border in the element's semantic color. */
   .glow-manip { transition: box-shadow .15s, border-color .15s; }
   .glow-manip:hover { border-color: var(--color-manipulation); box-shadow: 0 0 0 1px var(--color-manipulation), 0 0 12px -3px var(--color-manipulation); }

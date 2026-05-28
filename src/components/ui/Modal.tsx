@@ -88,7 +88,7 @@ export function Modal({
       onMouseDown={onBackdropMouseDown}
       aria-label={title}
       className={cn(
-        'bg-surface-1 border border-border-subtle rounded-xl shadow-2xl w-full max-w-md p-0 overflow-hidden text-zinc-300',
+        'bg-surface-1 border border-border-subtle rounded-xl shadow-2xl w-full max-w-md p-0 overflow-hidden text-zinc-300 glass',
         className,
       )}
     >
