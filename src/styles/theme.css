@@ -19,7 +19,7 @@
 
   /* Semantic accents */
   --color-disclosure: #B388FF;   /* reveal the invisible */
-  --color-manipulation: #B388FF; /* act / alter state — shares disclosure's violet */
+  --color-manipulation: #FF6D00; /* act / alter state — arancio elettrico, "qui hai il controllo" */
   --color-cli: #00E676;          /* raw CLI/tool output ONLY */
   /* Safety net for any not-yet-migrated usage; target is zero `accent` left. */
   --color-accent: #B388FF;
