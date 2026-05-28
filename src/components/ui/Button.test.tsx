@@ -27,13 +27,13 @@ describe('Button', () => {
 
   it('applies primary variant by default', () => {
     render(<Button>X</Button>);
-    expect(screen.getByRole('button')).toHaveClass('bg-accent');
+    expect(screen.getByRole('button')).toHaveClass('bg-manipulation');
   });
 
   it('applies ghost variant when specified', () => {
     render(<Button variant="ghost">X</Button>);
     const btn = screen.getByRole('button');
-    expect(btn).not.toHaveClass('bg-accent');
+    expect(btn).not.toHaveClass('bg-manipulation');
     expect(btn.className).toMatch(/hover:bg-zinc-800/);
   });
 
