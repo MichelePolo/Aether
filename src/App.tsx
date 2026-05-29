@@ -17,6 +17,7 @@ import { ApprovalGate } from '@/src/components/chat/ApprovalGate';
 import { useBreakpointsStore } from '@/src/stores/breakpoints.store';
 import { useBuiltinMcpStore } from '@/src/stores/builtinMcp.store';
 import { SubAgentsSection } from '@/src/components/sidebar/SubAgentsSection';
+import { SwarmsSection } from '@/src/components/sidebar/SwarmsSection';
 import { ProviderAuthSection } from '@/src/components/sidebar/ProviderAuthSection';
 import { ConnectionFooter } from '@/src/components/sidebar/ConnectionFooter';
 import { ChatView } from '@/src/components/chat/ChatView';
@@ -33,6 +34,7 @@ import { useSessionsStore } from '@/src/stores/sessions.store';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useProfilesStore } from '@/src/stores/profiles.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
+import { useSwarmsStore } from '@/src/stores/swarms.store';
 import { useProvidersStore } from '@/src/stores/providers.store';
 import { useProviderAuthStore } from '@/src/stores/providerAuth.store';
 import { useWorkspacesStore } from '@/src/stores/workspaces.store';
@@ -47,6 +49,7 @@ export default function App() {
   const initUi = useUiStore((s) => s.initFromStorage);
   const initProfiles = useProfilesStore((s) => s.init);
   const initSubAgents = useSubAgentsStore((s) => s.init);
+  const initSwarms = useSwarmsStore((s) => s.init);
   const initProviders = useProvidersStore((s) => s.init);
   const initProviderAuth = useProviderAuthStore((s) => s.init);
   const initBuiltinMcp = useBuiltinMcpStore((s) => s.init);
@@ -59,12 +62,13 @@ export default function App() {
     initUi();
     initProfiles();
     initSubAgents();
+    initSwarms();
     initProviders();
     initProviderAuth();
     initBuiltinMcp();
     initBreakpoints();
     initWorkspaces();
-  }, [initContext, initSessions, initUi, initProfiles, initSubAgents, initProviders, initProviderAuth, initBuiltinMcp, initBreakpoints, initWorkspaces]);
+  }, [initContext, initSessions, initUi, initProfiles, initSubAgents, initSwarms, initProviders, initProviderAuth, initBuiltinMcp, initBreakpoints, initWorkspaces]);
 
   useGlobalShortcuts();
   useToolCallDecisions();
@@ -97,6 +101,7 @@ export default function App() {
             <WorkspacesSection />
             <McpServersSection />
             <SubAgentsSection />
+            <SwarmsSection />
             <ProviderAuthSection />
           </Sidebar>
         }

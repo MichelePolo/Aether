@@ -34,24 +34,13 @@ Forward-looking slice plan. Each entry is a stub — when we pick one up, the fu
 | 24-ux | UX/a11y fixes (dialog, tooltip, focus-visible, ApprovalGate hardening, i18n) | `feat/slice-24-ux-fixes` | ✅ |
 | 24 | Headless Daemon + `aether-cli` (detached server, PID/endpoint file, SSE-streaming CLI, Unix piping) | `feat/slice-24-headless-cli` | ✅ |
 | 24.1 | Runnable production server bundle (esbuild import.meta.url + migrations in dist, smoke CI) | `feat/slice-24.1-prod-bundle` | ✅ |
+| 25 | Multi-Agent Swarms (linear DSL, per-step approval, SSE run) | `feat/slice-25-swarms` | ✅ |
 
 ## Planned
 
 ## Killer Features — agentic depth track
 
 Sequence chosen to build foundation (safety + zero-friction onboarding) before going wide with multi-agent orchestration. **RAG (codebase-aware vector + AST) deliberately excluded from this track** — it's a multi-slice arc that deserves its own future roadmap section.
-
-### Slice 25 — Multi-Agent Swarms (Workflow DSL)
-
-**Branch:** `feat/slice-25-swarms`
-
-**Scope:** a YAML DSL that declares a sequence of sub-agent invocations with named inputs/outputs. Example: `architect` → `coder` → `qa`, where each step's `output.text` becomes the next step's prompt. The orchestrator runs the steps in order, emits reasoning steps for each transition, and pauses for human approval after the final step (Human-in-the-loop). Reuses slice 6+9 sub-agents as primitives. Pairs with slice 22 breakpoints for safe execution.
-
-**Likely touch:** new `server/domain/swarms/{parser,orchestrator}.ts`, YAML schema (zod), new route `POST /api/swarms/run`, FE `<SwarmEditModal>` (extends sub-agent editor pattern), reasoning steps for swarm transitions.
-
-**Estimate:** 1 medium-to-large slice.
-
----
 
 ### Slice 26 — Test-Driven Auto-Resolution (Red-Green-Refactor Loop)
 
