@@ -105,4 +105,35 @@ describe('runSwarm', () => {
     expect(events.find((e) => e.name === 'swarm_error')?.data.message).toMatch(/provider down/);
     expect(events.find((e) => e.name === 'swarm_done')?.data.status).toBe('error');
   });
+
+  it('errors when the swarm is not found', async () => {
+    const d = deps({ store: { read: vi.fn(async () => null) } as any });
+    const { sse, events } = recordingSse();
+    await runSwarm(d, { swarmId: 'missing', input: 'x' }, sse, new AbortController().signal);
+    expect(events.find((e) => e.name === 'swarm_error')?.data.message).toMatch(/not found/);
+    expect(events.find((e) => e.name === 'swarm_done')?.data.status).toBe('error');
+  });
+
+  it('stops with interrupted status when the signal is already aborted', async () => {
+    const d = deps({ store: { read: vi.fn(async () => swarm) } as any });
+    const { sse, events } = recordingSse();
+    const controller = new AbortController();
+    controller.abort();
+    await runSwarm(d, { swarmId: 's1', input: 'x' }, sse, controller.signal);
+    expect(events.find((e) => e.name === 'swarm_done')?.data.status).toBe('interrupted');
+  });
+
+  it('continues to the next step when approval is granted', async () => {
+    const paused = { ...swarm, steps: [{ subAgentName: 'architect', promptTemplate: '', pauseAfter: true }, ...swarm.steps.slice(1)] };
+    const approvals = new SwarmApprovalRegistry();
+    const d = deps({ store: { read: vi.fn(async () => paused) } as any, approvals });
+    const { sse, events } = recordingSse();
+    const run = runSwarm(d, { swarmId: 's1', input: 'x' }, sse, new AbortController().signal);
+    await new Promise((r) => setTimeout(r, 0));
+    const req = events.find((e) => e.name === 'swarm_approval_request');
+    approvals.resolveDecision(req!.data.approvalId, 'approve');
+    await run;
+    expect(events.find((e) => e.name === 'swarm_done')?.data.status).toBe('done');
+    expect(events.filter((e) => e.name === 'swarm_step_completed')).toHaveLength(2);
+  });
 });
