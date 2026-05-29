@@ -55,13 +55,21 @@ export function useTddRun() {
     abortRef.current = controller;
     setState({ ...INITIAL_TDD, running: true });
 
-    const res = await tddApi.run(req, controller.signal);
-    if (!res.body) {
-      setState((s) => ({ ...s, running: false, error: 'no stream' }));
-      return;
-    }
-    for await (const ev of parseSseStream(res.body)) {
-      setState((s) => reduceTdd(s, ev.event, ev.data as any));
+    try {
+      const res = await tddApi.run(req, controller.signal);
+      if (!res.body) {
+        setState((s) => ({ ...s, running: false, error: 'no stream' }));
+        return;
+      }
+      for await (const ev of parseSseStream(res.body)) {
+        setState((s) => reduceTdd(s, ev.event, ev.data as any));
+      }
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') {
+        setState((s) => ({ ...s, running: false }));
+      } else {
+        setState((s) => ({ ...s, running: false, error: e instanceof Error ? e.message : 'Network error' }));
+      }
     }
   }, []);
 

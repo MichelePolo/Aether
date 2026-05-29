@@ -40,6 +40,11 @@ export async function runTddLoop(
 
   sse.event('tdd_started', { command: opts.command, subAgentName: opts.subAgentName, maxRetries });
 
+  if (signal.aborted) {
+    sse.event('tdd_done', { status: 'interrupted' });
+    sse.end();
+    return;
+  }
   let res = await deps.runCommand(opts.command, opts.cwd);
   sse.event('tdd_test_result', {
     iteration: 0,

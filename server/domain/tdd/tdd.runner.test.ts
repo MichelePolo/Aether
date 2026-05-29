@@ -97,5 +97,6 @@ describe('runTddLoop', () => {
     controller.abort();
     await runTddLoop(d, { command: 'cmd', subAgentName: 'coder' }, sse, controller.signal);
     expect(events.find((e) => e.name === 'tdd_done')?.data.status).toBe('interrupted');
+    expect(d.runCommand).not.toHaveBeenCalled();
   });
 });

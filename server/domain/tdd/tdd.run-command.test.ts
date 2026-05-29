@@ -6,6 +6,9 @@ describe('parseExitCode', () => {
     expect(parseExitCode('out\n---\nerr\n---\nexit code: 0', false)).toBe(0);
     expect(parseExitCode('out\n---\nerr\n---\nexit code: 2', true)).toBe(2);
   });
+  it('takes the LAST exit-code occurrence (runner may echo one in its output)', () => {
+    expect(parseExitCode('FAIL\nexit code: 0 (runner banner)\n---\n\n---\nexit code: 1', true)).toBe(1);
+  });
   it('falls back to isError when no exit code is present (e.g. timeout)', () => {
     expect(parseExitCode('partial\n---\n\n---\ntimeout after 120000ms', true)).toBe(1);
     expect(parseExitCode('whatever', false)).toBe(0);
