@@ -30,6 +30,7 @@ import type { BreakpointPolicyStore } from '@/server/domain/mcp/breakpoints/poli
 import type { PreviewService } from '@/server/domain/mcp/breakpoints/preview.service';
 import { createBreakpointsRoutes } from './routes/breakpoints.routes';
 import type { OllamaEndpointStore } from '@/server/domain/providers/ollama-endpoints.store';
+import { createSwarmRoutes } from './routes/swarms.routes';
 
 export interface AppDeps {
   contextStore?: ContextStore;
@@ -50,6 +51,9 @@ export interface AppDeps {
   ollamaEndpointStore?: OllamaEndpointStore;
   policyStore?: BreakpointPolicyStore;
   previewService?: PreviewService;
+  swarmStore?: import('./domain/swarms/swarm.store').SwarmStore;
+  swarmApprovals?: import('./domain/swarms/swarm.approval').SwarmApprovalRegistry;
+  swarmOrchestratorDeps?: import('./domain/swarms/swarm.orchestrator').SwarmOrchestratorDeps;
 }
 
 // In Express l'error middleware DEVE essere registrato dopo le route per
@@ -151,6 +155,13 @@ export function createApp(
         builtinStore: deps.builtinStore,
         mcpRegistry: deps.mcpRegistry,
       }),
+    );
+  }
+
+  if (deps.swarmStore && deps.swarmApprovals && deps.swarmOrchestratorDeps) {
+    app.use(
+      '/api/swarms',
+      createSwarmRoutes(deps.swarmStore, deps.swarmOrchestratorDeps, deps.swarmApprovals),
     );
   }
 
