@@ -34,6 +34,8 @@ export function createSwarmRoutes(
     res.status(201).json(await store.create(parsed.data));
   }));
 
+  // NOTE: keep `/decision` registered BEFORE the `/:id` routes — otherwise the
+  // `:id` wildcard would swallow `POST /decision`.
   router.post('/decision', asyncHandler(async (req, res) => {
     const parsed = SwarmDecisionSchema.safeParse(req.body);
     if (!parsed.success) throw new ValidationError('Invalid decision', parsed.error);

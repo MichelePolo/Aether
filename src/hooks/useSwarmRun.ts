@@ -68,14 +68,16 @@ export function useSwarmRun() {
     }
   }, []);
 
-  const approve = useCallback(async (approvalId: string) => {
-    await swarmsApi.decision(approvalId, 'approve');
-    setState((s) => ({ ...s, pending: null }));
+  const decide = useCallback(async (approvalId: string, action: 'approve' | 'reject') => {
+    try {
+      await swarmsApi.decision(approvalId, action);
+      setState((s) => ({ ...s, pending: null })); // only clear on confirmed success
+    } catch (e) {
+      setState((s) => ({ ...s, error: e instanceof Error ? e.message : 'decision failed' }));
+    }
   }, []);
-  const reject = useCallback(async (approvalId: string) => {
-    await swarmsApi.decision(approvalId, 'reject');
-    setState((s) => ({ ...s, pending: null }));
-  }, []);
+  const approve = useCallback((approvalId: string) => decide(approvalId, 'approve'), [decide]);
+  const reject = useCallback((approvalId: string) => decide(approvalId, 'reject'), [decide]);
 
   return { state, run, approve, reject };
 }

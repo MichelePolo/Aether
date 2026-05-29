@@ -91,7 +91,12 @@ export async function runSwarm(
     if (step.pauseAfter) {
       const approvalId = `${opts.swarmId}:${i}`;
       sse.event('swarm_approval_request', { approvalId, position: i, output: incoming });
-      const action = await deps.approvals.awaitDecision(approvalId, timeout);
+      const action = await deps.approvals.awaitDecision(approvalId, timeout, signal);
+      if (signal.aborted) {
+        sse.event('swarm_done', { status: 'interrupted' });
+        sse.end();
+        return;
+      }
       if (action === 'reject') {
         sse.event('swarm_done', { status: 'rejected', stoppedAt: i });
         sse.end();

@@ -8,21 +8,34 @@ interface Pending {
 export class SwarmApprovalRegistry {
   private pending = new Map<string, Pending>();
 
-  awaitDecision(id: string, timeoutMs: number): Promise<SwarmDecision> {
+  /**
+   * Resolve when a decision is submitted, when `timeoutMs` elapses, or when
+   * `signal` aborts — the last two resolve to `'reject'`. Bounding on `signal`
+   * prevents a paused run from hanging (and leaking the pending entry) for the
+   * full timeout after the client disconnects.
+   */
+  awaitDecision(id: string, timeoutMs: number, signal?: AbortSignal): Promise<SwarmDecision> {
     return new Promise<SwarmDecision>((resolve) => {
-      const timer = setTimeout(() => {
+      const settle = (d: SwarmDecision) => {
+        clearTimeout(timer);
+        if (onAbort) signal?.removeEventListener('abort', onAbort);
         this.pending.delete(id);
-        resolve('reject');
-      }, timeoutMs);
-      this.pending.set(id, { resolve, timer });
+        resolve(d);
+      };
+      const timer = setTimeout(() => settle('reject'), timeoutMs);
+      const onAbort = signal ? () => settle('reject') : undefined;
+      if (signal?.aborted) {
+        settle('reject');
+        return;
+      }
+      if (onAbort) signal!.addEventListener('abort', onAbort, { once: true });
+      this.pending.set(id, { resolve: settle, timer });
     });
   }
 
   resolveDecision(id: string, action: SwarmDecision): void {
     const p = this.pending.get(id);
     if (!p) return;
-    clearTimeout(p.timer);
-    this.pending.delete(id);
-    p.resolve(action);
+    p.resolve(action); // `settle` clears the timer, removes the abort listener, and deletes the entry
   }
 }
