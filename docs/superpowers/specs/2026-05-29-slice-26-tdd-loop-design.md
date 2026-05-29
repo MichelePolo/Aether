@@ -182,6 +182,30 @@ src/hooks/useCommands.ts            # add "Auto-fix tests…" palette command (g
 - Frontend: `useTddRun` reducer (or a store) test mapping `tdd_*` events to view state.
 - Coverage: `server/domain/tdd/**` and `server/lib/**` meet the 80% thresholds.
 
+## Final code review (required closing step)
+
+After all tasks are implemented and the suite is green, the slice ends with a
+**final, adversarial code review of the whole branch diff** (`main..HEAD`) before the
+PR is merged — not just the per-task reviews. The reviewer reads the actual code
+(does not trust task reports) and focuses on:
+
+- **Loop correctness & safety:** abort propagation into `runCommand` and the fixer
+  turn; that a never-passing command stops exactly at `maxRetries`; that
+  `collector.capturedError()` reliably ends the run; no unbounded waits or leaked
+  child processes from `executeCommand`.
+- **Command execution:** exit-code extraction is robust (missing/garbled code → treated
+  as failure); the configurable `command` is passed to the shell as the user intends
+  (note: it is intentionally user-supplied and runs with `shell: true` — call out any
+  surprising shell-injection surface beyond that expected behavior).
+- **Output handling:** `tail()` truncation never sends an unbounded prompt; no secret
+  leakage beyond what the test output already contains.
+- **SSE/stream:** the run route aborts on client close, the terminal `tdd_done` always
+  fires, and forwarded per-agent events don't prematurely close the stream.
+- **Shared refactor:** the `collecting-sse` move left no stale imports and swarms still pass.
+
+Findings are fixed (and re-reviewed) before merge. This is in addition to the standard
+spec-compliance + code-quality reviews per task.
+
 ## Out of scope (future)
 
 - Structured/JSON test-result parsing and per-failure UI.
