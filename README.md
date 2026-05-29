@@ -105,7 +105,8 @@ aether --json "..."            # machine-readable JSONL events on stdout
 
 In text mode stdout carries only the model's reply (pipe-friendly); the session
 id, reasoning, and tool activity go to stderr. Sessions created by the CLI appear
-in the web UI (shared SQLite). The daemon runs the server from source via `tsx`.
+in the web UI (shared SQLite). The daemon runs the built production bundle
+(`dist/server.cjs`), so `npm run build` is a prerequisite for `aether daemon start`.
 Gated MCP tool calls are auto-rejected in CLI runs (interactive approval is
 web-UI only).
 

@@ -33,30 +33,9 @@ Forward-looking slice plan. Each entry is a stub — when we pick one up, the fu
 | 23 | Native workspace management GUI | `feat/slice-23-workspaces` | ✅ |
 | 24-ux | UX/a11y fixes (dialog, tooltip, focus-visible, ApprovalGate hardening, i18n) | `feat/slice-24-ux-fixes` | ✅ |
 | 24 | Headless Daemon + `aether-cli` (detached server, PID/endpoint file, SSE-streaming CLI, Unix piping) | `feat/slice-24-headless-cli` | ✅ |
+| 24.1 | Runnable production server bundle (esbuild import.meta.url + migrations in dist, smoke CI) | `feat/slice-24.1-prod-bundle` | ✅ |
 
 ## Planned
-
-### Slice 24.1 — Runnable production server bundle (BLOCKER) ⛔
-
-**Branch:** `feat/slice-24.1-prod-bundle`
-
-> **Must ship before the next Killer Feature (Slice 25).** Surfaced during Slice 24: the daemon currently spawns the server from source via `tsx` because `dist/server.cjs` is not executable. Until this is fixed, `npm start` (production) is broken and the headless daemon has no production-grade target.
-
-**Problem (two latent bugs, both from ESM source bundled to CJS):**
-1. **`import.meta.url` → `undefined` in the CJS bundle.** `server/index.ts` (`fileURLToPath(import.meta.url)`) and `server/domain/mcp/builtin/builtin.store.ts` (`createRequire(import.meta.url)`) crash at module load: `TypeError [ERR_INVALID_ARG_VALUE]` before `listen()`. esbuild stubs `import.meta` as `{}` and only warns — the build stays green.
-2. **Migrations not in `dist/`.** `applyMigrations(db, path.join(__dirname, 'db', 'migrations'))` reads `server/db/migrations/*.sql` at runtime; the build never copies them, so even with bug 1 fixed the bundled server boots with no schema.
-
-**Likely fix:**
-- esbuild banner + define so the CJS bundle has a real `import.meta.url`:
-  `--banner:js="const import_meta_url=require('url').pathToFileURL(__filename).href"` + `--define:import.meta.url=import_meta_url`.
-- Copy (or inline) `server/db/migrations` into `dist/` as part of `build`.
-- Once runnable, point the daemon's `serverEntry` back at `dist/server.cjs` (revert the `tsx` workaround in `cli/runtime.ts`) — or keep `tsx` for dev and `dist` for prod via an env check.
-
-**Verification (the gap that let this slip):** add a test that actually executes `node dist/server.cjs` (e.g. boot it, hit `GET /api/health`, assert 200) so a non-runnable bundle fails CI.
-
-**Estimate:** 1 small slice.
-
----
 
 ## Killer Features — agentic depth track
 

@@ -16,13 +16,11 @@ export async function defaultHealth(baseUrl: string): Promise<boolean> {
 export function defaultDeps(opts: { port?: number }): DaemonDeps {
   const ep = resolveEndpoint(opts);
   const dir = dataDir();
-  // Spawn the server from source via tsx (same runtime as `npm run dev`).
-  // The production bundle (dist/server.cjs) is not self-contained, so the
-  // daemon runs the TypeScript entrypoint directly.
-  const tsxBin = path.resolve(process.cwd(), 'node_modules', '.bin', 'tsx');
+  // Spawn the production server bundle (built by `npm run build`). The bundle is
+  // runnable as of slice 24.1 (import.meta.url shim + migrations copied to dist/).
   return {
     spawn: (entry, env) => {
-      const child = nodeSpawn(tsxBin, [entry], {
+      const child = nodeSpawn('node', [entry], {
         detached: true,
         stdio: 'ignore',
         env: { ...process.env, ...env },
@@ -35,7 +33,7 @@ export function defaultDeps(opts: { port?: number }): DaemonDeps {
     kill: (pid) => process.kill(pid, 'SIGTERM'),
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     baseUrl: ep.baseUrl,
-    serverEntry: path.resolve(process.cwd(), 'server', 'index.ts'),
+    serverEntry: path.resolve(process.cwd(), 'dist', 'server.cjs'),
     port: ep.port,
   };
 }
