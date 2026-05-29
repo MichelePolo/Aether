@@ -27,9 +27,13 @@ export async function startDaemon(
   d: DaemonDeps,
   opts: { attempts?: number; intervalMs?: number } = {},
 ): Promise<StartResult> {
-  const info = d.readInfo();
-  if (info && (await d.health(d.baseUrl))) {
-    return { already: true, pid: info.pid, port: d.port };
+  // Probe health independently of the PID file: a server may already be
+  // listening on the port without (or before) writing daemon.json. Coupling
+  // the short-circuit to the file would spawn a duplicate that fails with
+  // EADDRINUSE (silent under stdio:'ignore') and report a bogus child pid.
+  if (await d.health(d.baseUrl)) {
+    const info = d.readInfo();
+    return { already: true, pid: info?.pid ?? -1, port: d.port };
   }
 
   const child = d.spawn(d.serverEntry, { AETHER_DAEMON: '1', PORT: String(d.port) });

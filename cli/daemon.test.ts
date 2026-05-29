@@ -27,6 +27,13 @@ describe('startDaemon', () => {
     expect(d.spawn).not.toHaveBeenCalled();
   });
 
+  it('returns already=true when the port is healthy even without a daemon.json', async () => {
+    const d = deps({ readInfo: vi.fn(() => null), health: vi.fn(async () => true) });
+    const r = await startDaemon(d);
+    expect(r.already).toBe(true);
+    expect(d.spawn).not.toHaveBeenCalled();
+  });
+
   it('spawns detached and polls health when not running', async () => {
     const calls = [false, false, true];
     const d = deps({ health: vi.fn(async () => calls.shift() ?? true) });
