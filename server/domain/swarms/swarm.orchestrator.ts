@@ -1,5 +1,5 @@
 import type { SseEmitter } from '@/server/lib/sse';
-import { createCollectingSse } from './collecting-sse';
+import { createCollectingSse } from '@/server/lib/collecting-sse';
 import type { SwarmApprovalRegistry } from './swarm.approval';
 import type { SwarmRecord } from './swarm.types';
 
