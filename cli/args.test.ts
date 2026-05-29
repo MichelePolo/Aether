@@ -32,4 +32,9 @@ describe('parseArgs', () => {
   it('treats no args as the help command', () => {
     expect(parseArgs([]).command).toBe('help');
   });
+
+  it('daemon with no action defaults to status', () => {
+    const r = parseArgs(['daemon']);
+    expect(r).toMatchObject({ command: 'daemon', daemonAction: 'status' });
+  });
 });

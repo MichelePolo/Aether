@@ -26,6 +26,8 @@ export default defineConfig({
         'src/main.tsx',
         'src/App.tsx',
         'server/index.ts',
+        'cli/index.ts',
+        'cli/runtime.ts',
       ],
       thresholds: {
         'server/domain/**': { branches: 80, functions: 80, lines: 80, statements: 80 },

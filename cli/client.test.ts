@@ -42,6 +42,14 @@ describe('createSession', () => {
     expect(id).toBe('sess-1');
     expect(seen[0]).toMatchObject({ method: 'POST', url: '/api/sessions' });
   });
+
+  it('rejects when server responds 500', async () => {
+    await start((_req, res) => {
+      res.writeHead(500);
+      res.end();
+    });
+    await expect(createSession(baseUrl)).rejects.toThrow(/create session failed/);
+  });
 });
 
 describe('dispatch', () => {
@@ -62,6 +70,18 @@ describe('dispatch', () => {
     expect(events.map((e) => e.event)).toEqual(['text', 'done']);
     expect(seen[0]).toMatchObject({ method: 'POST', url: '/api/ai/dispatch' });
     expect(JSON.parse(seen[0].body)).toMatchObject({ sessionId: 'sess-1', message: 'hello' });
+  });
+});
+
+describe('dispatch error paths', () => {
+  it('rejects when server responds 500', async () => {
+    await start((_req, res) => {
+      res.writeHead(500);
+      res.end();
+    });
+    await expect(
+      dispatch({ baseUrl, sessionId: 'sess-1', message: 'hi', onEvent: () => {} }),
+    ).rejects.toThrow(/dispatch failed/);
   });
 });
 

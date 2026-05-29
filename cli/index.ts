@@ -2,7 +2,8 @@ import { parseArgs } from './args';
 import { resolveEndpoint } from './config';
 import { createSession, dispatch, rejectDecision } from './client';
 import { handleEvent } from './output';
-import { startDaemon, stopDaemon, statusDaemon, defaultDeps } from './daemon';
+import { startDaemon, stopDaemon, statusDaemon } from './daemon';
+import { defaultDeps } from './runtime';
 
 const writer = {
   out: (s: string) => process.stdout.write(s),

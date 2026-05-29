@@ -52,6 +52,48 @@ describe('handleEvent (text mode)', () => {
     expect(r.error).toBe('boom');
     expect(err.join('')).toContain('boom');
   });
+
+  it('tool_call_result with ok:true writes "ok" to stderr', () => {
+    const { w, out, err } = makeWriter();
+    const r = handleEvent({ event: 'tool_call_result', data: { ok: true } }, { json: false }, w);
+    expect(out).toEqual([]);
+    expect(err.join('')).toContain('ok');
+    expect(r).toEqual({ done: false });
+  });
+
+  it('tool_call_result with ok:false writes the error to stderr', () => {
+    const { w, err } = makeWriter();
+    handleEvent({ event: 'tool_call_result', data: { ok: false, error: 'nope' } }, { json: false }, w);
+    expect(err.join('')).toContain('nope');
+  });
+
+  it('tool_call_started returns done:false with no output', () => {
+    const { w, out, err } = makeWriter();
+    const r = handleEvent({ event: 'tool_call_started', data: {} }, { json: false }, w);
+    expect(out).toEqual([]);
+    expect(err).toEqual([]);
+    expect(r).toEqual({ done: false });
+  });
+
+  it('tool_call_progress returns done:false', () => {
+    const { w } = makeWriter();
+    const r = handleEvent({ event: 'tool_call_progress', data: {} }, { json: false }, w);
+    expect(r).toEqual({ done: false });
+  });
+
+  it('unknown event type returns done:false with no output', () => {
+    const { w, out, err } = makeWriter();
+    const r = handleEvent({ event: 'mystery', data: {} }, { json: false }, w);
+    expect(out).toEqual([]);
+    expect(err).toEqual([]);
+    expect(r).toEqual({ done: false });
+  });
+
+  it('text event with no chunk field writes empty string', () => {
+    const { w, out } = makeWriter();
+    handleEvent({ event: 'text', data: {} }, { json: false }, w);
+    expect(out).toEqual(['']);
+  });
 });
 
 describe('handleEvent (json mode)', () => {
@@ -65,5 +107,15 @@ describe('handleEvent (json mode)', () => {
     const { w } = makeWriter();
     const r = handleEvent({ event: 'done', data: {} }, { json: true }, w);
     expect(r.done).toBe(true);
+  });
+
+  it('error event in json mode returns done:true with error message', () => {
+    const { w } = makeWriter();
+    const r = handleEvent(
+      { event: 'error', data: { message: 'bad stuff', retryable: false } },
+      { json: true },
+      w,
+    );
+    expect(r).toEqual({ done: true, error: 'bad stuff' });
   });
 });
