@@ -1,0 +1,76 @@
+import type { DaemonInfo } from '@/server/lib/daemon-file';
+
+export interface SpawnedChild {
+  pid?: number;
+  unref: () => void;
+}
+
+export interface DaemonDeps {
+  spawn: (entry: string, env: Record<string, string>) => SpawnedChild;
+  health: (baseUrl: string) => Promise<boolean>;
+  readInfo: () => DaemonInfo | null;
+  clearInfo: () => void;
+  kill: (pid: number) => void;
+  sleep: (ms: number) => Promise<void>;
+  baseUrl: string;
+  serverEntry: string;
+  port: number;
+}
+
+export interface StartResult {
+  already: boolean;
+  pid: number;
+  port: number;
+}
+
+export async function startDaemon(
+  d: DaemonDeps,
+  opts: { attempts?: number; intervalMs?: number } = {},
+): Promise<StartResult> {
+  // Probe health independently of the PID file: a server may already be
+  // listening on the port without (or before) writing daemon.json. Coupling
+  // the short-circuit to the file would spawn a duplicate that fails with
+  // EADDRINUSE (silent under stdio:'ignore') and report a bogus child pid.
+  if (await d.health(d.baseUrl)) {
+    const info = d.readInfo();
+    return { already: true, pid: info?.pid ?? -1, port: d.port };
+  }
+
+  const child = d.spawn(d.serverEntry, { AETHER_DAEMON: '1', PORT: String(d.port) });
+  child.unref();
+
+  const attempts = opts.attempts ?? 40;
+  const intervalMs = opts.intervalMs ?? 500;
+  for (let i = 0; i < attempts; i++) {
+    if (await d.health(d.baseUrl)) {
+      return { already: false, pid: child.pid ?? -1, port: d.port };
+    }
+    await d.sleep(intervalMs);
+  }
+  throw new Error(`daemon did not become healthy at ${d.baseUrl}`);
+}
+
+export interface StatusResult {
+  running: boolean;
+  pid?: number;
+  port?: number;
+}
+
+export async function statusDaemon(d: DaemonDeps): Promise<StatusResult> {
+  const info = d.readInfo();
+  if (!info) return { running: false };
+  const running = await d.health(d.baseUrl);
+  return running ? { running: true, pid: info.pid, port: info.port } : { running: false };
+}
+
+export async function stopDaemon(d: DaemonDeps): Promise<boolean> {
+  const info = d.readInfo();
+  if (!info) return false;
+  try {
+    d.kill(info.pid);
+  } catch {
+    // process already gone
+  }
+  d.clearInfo();
+  return true;
+}

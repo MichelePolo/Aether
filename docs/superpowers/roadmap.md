@@ -32,29 +32,14 @@ Forward-looking slice plan. Each entry is a stub — when we pick one up, the fu
 | 22 | Agentic breakpoints + dry-run sandboxing | `feat/slice-22-breakpoints` | ✅ |
 | 23 | Native workspace management GUI | `feat/slice-23-workspaces` | ✅ |
 | 24-ux | UX/a11y fixes (dialog, tooltip, focus-visible, ApprovalGate hardening, i18n) | `feat/slice-24-ux-fixes` | ✅ |
+| 24 | Headless Daemon + `aether-cli` (detached server, PID/endpoint file, SSE-streaming CLI, Unix piping) | `feat/slice-24-headless-cli` | ✅ |
 | 24.1 | Runnable production server bundle (esbuild import.meta.url + migrations in dist, smoke CI) | `feat/slice-24.1-prod-bundle` | ✅ |
 
 ## Planned
 
-### Follow-up (Slice 24 branch)
-- Flip the daemon `serverEntry` in `cli/runtime.ts` from `tsx server/index.ts` back to
-  `node dist/server.cjs` now that the bundle is runnable; update its expectation.
-
 ## Killer Features — agentic depth track
 
 Sequence chosen to build foundation (safety + zero-friction onboarding) before going wide with multi-agent orchestration. **RAG (codebase-aware vector + AST) deliberately excluded from this track** — it's a multi-slice arc that deserves its own future roadmap section.
-
-### Slice 24 — Headless Daemon + `aether-cli`
-
-**Branch:** `feat/slice-24-headless-cli`
-
-**Scope:** package the existing Express server as a daemonizable background process (`aether daemon start/stop/status`), and ship a thin CLI (`aether-cli`) that streams to/from it via the existing HTTP+SSE endpoints. Supports Unix piping: `cat error.log | aether "explain this"`. Sessions created by the CLI are visible in the web UI (SQLite-backed). Output formatting: plain markdown by default, `--json` for machine-readable.
-
-**Likely touch:** new package directory `cli/`, daemon process management (PID file in `dataDir`), CLI entrypoint with `commander`-like arg parsing, plain-text SSE consumer, npm bin entries.
-
-**Estimate:** 1 medium slice. Independent from Slice 21–23.
-
----
 
 ### Slice 25 — Multi-Agent Swarms (Workflow DSL)
 

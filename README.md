@@ -89,6 +89,27 @@ A provider only appears in the picker when its credential is present (or, for Ol
 | `npm run test:coverage` | Run tests with coverage |
 | `npm run test:e2e` | Run Playwright end-to-end tests |
 
+## CLI (`aether`)
+
+After `npm run build` (and `npm link` for a global `aether`):
+
+```bash
+aether daemon start            # start the background server (binds 127.0.0.1)
+aether daemon status           # running/stopped + pid + port
+aether daemon stop
+aether "explain this stack trace"        # one-shot; creates a new session
+aether --session <id> "follow-up"        # continue an existing session
+cat error.log | aether "what went wrong?"   # stdin is appended to the prompt
+aether --json "..."            # machine-readable JSONL events on stdout
+```
+
+In text mode stdout carries only the model's reply (pipe-friendly); the session
+id, reasoning, and tool activity go to stderr. Sessions created by the CLI appear
+in the web UI (shared SQLite). The daemon runs the built production bundle
+(`dist/server.cjs`), so `npm run build` is a prerequisite for `aether daemon start`.
+Gated MCP tool calls are auto-rejected in CLI runs (interactive approval is
+web-UI only).
+
 ## Project layout
 
 ```

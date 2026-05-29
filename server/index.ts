@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeDaemonFile, clearDaemonFile } from './lib/daemon-file';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
@@ -204,9 +205,30 @@ async function bootstrap() {
     });
   }
 
-  app.listen(cfg.port, '0.0.0.0', () => {
+  const isDaemon = process.env.AETHER_DAEMON === '1';
+  const host = isDaemon ? '127.0.0.1' : '0.0.0.0';
+
+  app.listen(cfg.port, host, () => {
     console.log(`Aether server running on http://localhost:${cfg.port}`);
+    if (isDaemon) {
+      writeDaemonFile(cfg.dataDir, {
+        pid: process.pid,
+        host: '127.0.0.1',
+        port: cfg.port,
+        startedAt: new Date().toISOString(),
+      });
+    }
   });
+
+  if (isDaemon) {
+    const cleanup = () => {
+      clearDaemonFile(cfg.dataDir);
+      process.exit(0);
+    };
+    process.on('SIGTERM', cleanup);
+    process.on('SIGINT', cleanup);
+    process.on('exit', () => clearDaemonFile(cfg.dataDir));
+  }
 }
 
 bootstrap().catch((err) => {
