@@ -34,6 +34,8 @@ import { AuthStatusService } from './domain/providers/auth-status';
 import { KeyVaultService } from './domain/providers/key-vault';
 import { KeyResolver } from './domain/providers/key-resolver';
 import { OllamaEndpointStore } from './domain/providers/ollama-endpoints.store';
+import { SwarmStore } from './domain/swarms/swarm.store';
+import { SwarmApprovalRegistry } from './domain/swarms/swarm.approval';
 
 dotenv.config();
 
@@ -170,6 +172,16 @@ async function bootstrap() {
     breakpointService,
   });
 
+  const swarmStore = new SwarmStore(db);
+  const swarmApprovals = new SwarmApprovalRegistry();
+  const swarmOrchestratorDeps = {
+    store: swarmStore,
+    subAgentsStore,
+    dispatcher,
+    createSession: async () => (await historyStore.createEmpty()).id,
+    approvals: swarmApprovals,
+  };
+
   const app = createApp({
     contextStore,
     historyStore,
@@ -189,6 +201,9 @@ async function bootstrap() {
     previewService,
     workspacesStore,
     filesystemBrowser,
+    swarmStore,
+    swarmApprovals,
+    swarmOrchestratorDeps,
   });
 
   if (process.env.NODE_ENV !== 'production') {
