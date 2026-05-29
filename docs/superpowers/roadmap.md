@@ -56,6 +56,62 @@ Sequence chosen to build foundation (safety + zero-friction onboarding) before g
 
 ---
 
+## Candidate Killer Features (hypothetical — eligible, not yet sequenced)
+
+These are **not committed** and carry no fixed slice number yet. They're parked here
+to capture intent; each gets the full spec → plan → execute flow if/when picked up.
+Numbers are placeholders (`Sxx`) — assign sequentially at pickup time.
+
+### Git integration
+
+**Scope:** a curated git layer inside the studio — **not** a raw terminal. Wrap the git
+CLI (reuse the slice 21 terminal MCP) or a library; expose discrete, gated actions.
+Discipline assumed: **trunk-based / GitHub Flow** (short-lived branches → PR → squash),
+matching how this repo is already governed.
+
+Tiers:
+- **Tier 1 (read-only, MVP):** `status`, `diff` / `diff --staged` (feeds the existing
+  `DiffView`), `log`, current branch + branch list. Unlocks a real "Changes" pane and
+  working-tree-vs-HEAD compare.
+- **Tier 2 (write):** `add` (selective staging), `commit` (message draftable by the
+  agent from the diff), `switch`/`checkout -b` (e.g. per-session branches), `restore`
+  (discard — destructive, gated).
+- **Tier 3 (remote):** `push` / `pull` / `fetch`, fast-forward `merge` with conflict
+  surfacing.
+- **Deferred (high risk):** interactive `rebase`, `cherry-pick`, conflict resolution,
+  `reset --hard`, history rewrite → escalate to the human.
+
+**Safety:** every write/destructive command routes through a breakpoint gate (slice 22)
+with a diff preview before execution — same pattern as MCP tool calls.
+
+**Builds on:** Slice 21 (terminal MCP), Slice 22 (breakpoints); reuses `DiffView`.
+
+### Codebase-aware RAG (vector + AST)
+
+**Status note:** referenced earlier as *deliberately excluded* from the agentic-depth
+track — it was never implemented. Captured here as a candidate. This is a **multi-slice
+arc**, not a single slice.
+
+**Scope:** index the workspace into a retrievable representation: chunk + embed source
+into a vector store, and parse files into **ASTs** (e.g. tree-sitter) for structure-aware
+retrieval (symbols, definitions, call graphs) rather than pure text similarity. Feed
+relevant context into dispatch automatically. Likely needs: an indexer/watcher, an
+embedding provider abstraction, a vector store (sqlite-vss or similar), an AST parser
+layer, and a retrieval step wired into `prompt-assembler`.
+
+**Builds on:** Slice 13 (SQLite), Slice 23 (workspaces), dispatch context assembly.
+
+### Other eligible candidates (one-liners)
+
+- **Cost & usage analytics + budgets** — aggregate the per-message token usage already
+  captured into per-session/provider dashboards, with configurable spend caps.
+- **Scheduled / background agents** — cron-driven autonomous runs on top of the slice 24
+  daemon (e.g. nightly swarm, watch-and-react jobs).
+- **Sub-agent / swarm eval harness** — golden-input regression tests for prompts and
+  swarms, so prompt edits can be scored before shipping.
+
+---
+
 ## Notes
 
 - Slice numbering is reserved sequentially — if you pick slice 15 before 14, the branch name still matches the table entry.
