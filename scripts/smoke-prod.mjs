@@ -29,7 +29,9 @@ async function poll() {
     if (child.exitCode !== null) break; // process died early
     try {
       const res = await fetch(`http://127.0.0.1:${PORT}/api/health`);
-      if (res.ok) return true;
+      // Require the child to still be alive, so a stray server already bound to
+      // PORT can't produce a false PASS while our bundle fails to bind and exits.
+      if (res.ok && child.exitCode === null) return true;
     } catch {
       // not up yet
     }
@@ -52,11 +54,15 @@ function cleanup() {
 }
 
 const ok = await poll();
+const crashInfo =
+  child.exitCode !== null ? ` (server process exited early with code ${child.exitCode})` : ' (timed out)';
 cleanup();
 if (ok) {
   console.log(`[smoke] dist/server.cjs healthy on :${PORT}`);
   process.exit(0);
 } else {
-  console.error('[smoke] dist/server.cjs did NOT become healthy. Captured output:\n' + output);
+  console.error(
+    `[smoke] dist/server.cjs did NOT become healthy${crashInfo}. Captured output:\n` + output,
+  );
   process.exit(1);
 }
