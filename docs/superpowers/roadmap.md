@@ -32,8 +32,13 @@ Forward-looking slice plan. Each entry is a stub — when we pick one up, the fu
 | 22 | Agentic breakpoints + dry-run sandboxing | `feat/slice-22-breakpoints` | ✅ |
 | 23 | Native workspace management GUI | `feat/slice-23-workspaces` | ✅ |
 | 24-ux | UX/a11y fixes (dialog, tooltip, focus-visible, ApprovalGate hardening, i18n) | `feat/slice-24-ux-fixes` | ✅ |
+| 24.1 | Runnable production server bundle (esbuild import.meta.url + migrations in dist, smoke CI) | `feat/slice-24.1-prod-bundle` | ✅ |
 
 ## Planned
+
+### Follow-up (Slice 24 branch)
+- Flip the daemon `serverEntry` in `cli/runtime.ts` from `tsx server/index.ts` back to
+  `node dist/server.cjs` now that the bundle is runnable; update its expectation.
 
 ## Killer Features — agentic depth track
 
