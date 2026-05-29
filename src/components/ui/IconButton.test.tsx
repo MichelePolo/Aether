@@ -31,7 +31,7 @@ describe('IconButton', () => {
 
   it('applies danger variant', () => {
     render(<IconButton label="X" variant="danger"><span /></IconButton>);
-    expect(screen.getByRole('button').className).toMatch(/red/);
+    expect(screen.getByRole('button').className).toMatch(/status-error/);
   });
 
   it('handles clicks', async () => {
