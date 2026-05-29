@@ -35,26 +35,12 @@ Forward-looking slice plan. Each entry is a stub — when we pick one up, the fu
 | 24 | Headless Daemon + `aether-cli` (detached server, PID/endpoint file, SSE-streaming CLI, Unix piping) | `feat/slice-24-headless-cli` | ✅ |
 | 24.1 | Runnable production server bundle (esbuild import.meta.url + migrations in dist, smoke CI) | `feat/slice-24.1-prod-bundle` | ✅ |
 | 25 | Multi-Agent Swarms (linear DSL, per-step approval, SSE run) | `feat/slice-25-swarms` | ✅ |
+| 26 | Test-Driven Auto-Resolution (configurable command, fixer sub-agent, SSE loop) | `feat/slice-26-tdd-loop` | ✅ |
 
 ## Planned
 
-## Killer Features — agentic depth track
-
-Sequence chosen to build foundation (safety + zero-friction onboarding) before going wide with multi-agent orchestration. **RAG (codebase-aware vector + AST) deliberately excluded from this track** — it's a multi-slice arc that deserves its own future roadmap section.
-
-### Slice 26 — Test-Driven Auto-Resolution (Red-Green-Refactor Loop)
-
-**Branch:** `feat/slice-26-tdd-loop`
-
-**Scope:** bidirectional integration with Vitest (Playwright as a follow-up). User defines tests + interfaces; Aether enters an autonomous loop: edit code → run `npx vitest run <path>` via the terminal MCP (slice 21) → parse stack trace + failed assertions → feed the parsed diagnostics back into the agent context → retry up to N times (default 5). Stops on green, or when the `dangerous` breakpoint policy (slice 22) requires approval, or after max retries. Surfaced as a palette command `Auto-fix tests…`.
-
-**Likely touch:** new `server/domain/tdd/{runner,parser}.ts` (vitest JSON reporter parser), retry loop in `DispatchService` or a dedicated `TddRunner` service, FE palette command + a streaming progress panel showing the loop state.
-
-**Estimate:** 1 large slice.
-
-**Builds on:** Slice 21 (terminal MCP), Slice 22 (breakpoints).
-
----
+The **agentic-depth Killer Features track (slices 24–26) is fully shipped.** Next candidates
+live in the section below.
 
 ## Candidate Killer Features (hypothetical — eligible, not yet sequenced)
 

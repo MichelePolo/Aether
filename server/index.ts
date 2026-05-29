@@ -36,6 +36,8 @@ import { KeyResolver } from './domain/providers/key-resolver';
 import { OllamaEndpointStore } from './domain/providers/ollama-endpoints.store';
 import { SwarmStore } from './domain/swarms/swarm.store';
 import { SwarmApprovalRegistry } from './domain/swarms/swarm.approval';
+import { createRunCommand } from './domain/tdd/tdd.run-command';
+import { executeCommand } from './mcp/builtin/aether-shell.handler';
 
 dotenv.config();
 
@@ -182,6 +184,13 @@ async function bootstrap() {
     approvals: swarmApprovals,
   };
 
+  const tddRunnerDeps = {
+    runCommand: createRunCommand(executeCommand),
+    subAgentsStore,
+    dispatcher,
+    createSession: async () => (await historyStore.createEmpty()).id,
+  };
+
   const app = createApp({
     contextStore,
     historyStore,
@@ -204,6 +213,7 @@ async function bootstrap() {
     swarmStore,
     swarmApprovals,
     swarmOrchestratorDeps,
+    tddRunnerDeps,
   });
 
   if (process.env.NODE_ENV !== 'production') {

@@ -24,6 +24,7 @@ import { useUiStore } from '@/src/stores/ui.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
 import { useProfilesStore } from '@/src/stores/profiles.store';
 import { useContextStore } from '@/src/stores/context.store';
+import { useTddUiStore } from '@/src/stores/tdd-ui.store';
 import { useDialog } from '@/src/hooks/useDialog';
 import { addSkillFlow, addToolFlow, addMcpFlow } from '@/src/lib/context/addFlows';
 import { triggerImportOpen } from '@/src/components/layout/HiddenImportInput';
@@ -214,6 +215,13 @@ export function useCommands(): Command[] {
         run: () => ui.openDrawer(),
       });
     }
+    out.push({
+      id: 'tdd.auto-fix',
+      group: 'ui',
+      label: 'Auto-fix tests…',
+      icon: Wrench,
+      run: () => useTddUiStore.getState().openModal(),
+    });
 
     // Context
     out.push({
