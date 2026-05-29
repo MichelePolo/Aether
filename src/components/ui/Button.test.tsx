@@ -39,7 +39,7 @@ describe('Button', () => {
 
   it('applies danger variant when specified', () => {
     render(<Button variant="danger">X</Button>);
-    expect(screen.getByRole('button').className).toMatch(/red/);
+    expect(screen.getByRole('button').className).toMatch(/status-error/);
   });
 
   it('applies small size class', () => {

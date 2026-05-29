@@ -1,0 +1,3 @@
+# Code owners — ogni modifica a main richiede la review di @MichelePolo.
+# Enforced dalla branch protection su `main` ("Require review from Code Owners").
+* @MichelePolo

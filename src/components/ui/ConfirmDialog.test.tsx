@@ -31,6 +31,6 @@ describe('ConfirmDialog', () => {
   it('confirm button uses danger variant when destructive=true', () => {
     render(<ConfirmDialog open destructive title="T" message="M" onConfirm={() => {}} onCancel={() => {}} />);
     const confirm = screen.getByRole('button', { name: /confirm|ok|delete/i });
-    expect(confirm.className).toMatch(/red/);
+    expect(confirm.className).toMatch(/status-error/);
   });
 });
