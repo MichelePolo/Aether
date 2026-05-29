@@ -32,9 +32,13 @@ export async function defaultHealth(baseUrl: string): Promise<boolean> {
 export function defaultDeps(opts: { port?: number }): DaemonDeps {
   const ep = resolveEndpoint(opts);
   const dir = dataDir();
+  // Spawn the server from source via tsx (same runtime as `npm run dev`).
+  // The production bundle (dist/server.cjs) is not self-contained, so the
+  // daemon runs the TypeScript entrypoint directly.
+  const tsxBin = path.resolve(process.cwd(), 'node_modules', '.bin', 'tsx');
   return {
     spawn: (entry, env) => {
-      const child = nodeSpawn('node', [entry], {
+      const child = nodeSpawn(tsxBin, [entry], {
         detached: true,
         stdio: 'ignore',
         env: { ...process.env, ...env },
@@ -47,7 +51,7 @@ export function defaultDeps(opts: { port?: number }): DaemonDeps {
     kill: (pid) => process.kill(pid, 'SIGTERM'),
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     baseUrl: ep.baseUrl,
-    serverEntry: path.resolve(process.cwd(), 'dist', 'server.cjs'),
+    serverEntry: path.resolve(process.cwd(), 'server', 'index.ts'),
     port: ep.port,
   };
 }
@@ -70,7 +74,7 @@ export async function startDaemon(
   const child = d.spawn(d.serverEntry, { AETHER_DAEMON: '1', PORT: String(d.port) });
   child.unref();
 
-  const attempts = opts.attempts ?? 20;
+  const attempts = opts.attempts ?? 40;
   const intervalMs = opts.intervalMs ?? 500;
   for (let i = 0; i < attempts; i++) {
     if (await d.health(d.baseUrl)) {
