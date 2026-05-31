@@ -117,7 +117,7 @@ async function bootstrap() {
     ollamaBuilder: (baseUrl, model, token) => new OllamaProvider({ host: baseUrl, model, token }),
     anthropicBuilder: (model) =>
       new AnthropicProvider({
-        model: model as 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5',
+        model: model as 'claude-opus-4-8' | 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5',
       }),
     openAIBuilder: (model) =>
       new OpenAIProvider({
@@ -126,7 +126,7 @@ async function bootstrap() {
       }),
     defaultOverride:
       process.env.AETHER_DEFAULT_PROVIDER ||
-      (cfg.fakeProvider ? 'fake:default' : undefined),
+      (cfg.fakeProvider ? 'fake:default' : 'anthropic:claude-opus-4-8'),
   });
 
   await providers.refresh();

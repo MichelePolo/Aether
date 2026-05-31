@@ -31,7 +31,7 @@ export function geminiHardcodedModels(): string[] {
 }
 
 export function anthropicHardcodedModels(): string[] {
-  return ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5'];
+  return ['claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5'];
 }
 
 export function openAIHardcodedModels(): string[] {
