@@ -115,10 +115,7 @@ async function bootstrap() {
     geminiBuilder: (model) => new GeminiProvider({ apiKey: resolver.get('gemini') ?? '', model }),
     listOllamaEndpoints,
     ollamaBuilder: (baseUrl, model, token) => new OllamaProvider({ host: baseUrl, model, token }),
-    anthropicBuilder: (model) =>
-      new AnthropicProvider({
-        model: model as 'claude-opus-4-8' | 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5',
-      }),
+    anthropicBuilder: (model) => new AnthropicProvider({ model }),
     openAIBuilder: (model) =>
       new OpenAIProvider({
         apiKey: resolver.get('openai') ?? '',
