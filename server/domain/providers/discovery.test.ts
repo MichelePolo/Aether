@@ -108,6 +108,7 @@ describe('discoverAnthropic', () => {
     await discoverAnthropic('sk-secret');
     const [url, init] = spy.mock.calls[0];
     expect(String(url)).toContain(ANTHROPIC_MODELS_URL);
+    expect(String(url)).toContain('limit=1000');
     expect((init as RequestInit).headers).toMatchObject({
       'x-api-key': 'sk-secret',
       'anthropic-version': '2023-06-01',
