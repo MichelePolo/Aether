@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
-import { ChevronDown, Check, RefreshCw } from 'lucide-react';
+import { ChevronDown, Check, RefreshCw, AlertTriangle } from 'lucide-react';
 import { cn } from '@/src/lib/cn';
+import { t } from '@/src/i18n/t';
 import { useDismiss } from '@/src/hooks/useDismiss';
 import { useProvidersStore } from '@/src/stores/providers.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
@@ -19,6 +20,7 @@ export function ComposerModelPill() {
   const defaultProvider = useProvidersStore((s) => s.defaultProvider);
   const setDefault = useProvidersStore((s) => s.setDefault);
   const refresh = useProvidersStore((s) => s.refresh);
+  const issues = useProvidersStore((s) => s.issues);
 
   const activeId = useSessionsStore((s) => s.activeSessionId);
   const sessions = useSessionsStore((s) => s.sessions);
@@ -33,6 +35,11 @@ export function ComposerModelPill() {
     setOpen(false);
     if (activeId) await setProviderName(activeId, name).catch(() => {});
     setDefault(name);
+  };
+
+  const issueLabel = (transport: string, reason: string): string => {
+    const name = transport.charAt(0).toUpperCase() + transport.slice(1);
+    return t('composerModelPill.fetchFailed', { provider: name, reason });
   };
 
   return (
@@ -78,6 +85,18 @@ export function ComposerModelPill() {
               </button>
             );
           })}
+          {issues
+            .filter((iss) => !list.some((p) => p.transport === iss.transport))
+            .map((iss) => (
+              <div
+                key={`issue:${iss.transport}`}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-mono text-zinc-500 cursor-not-allowed"
+                aria-disabled="true"
+              >
+                <AlertTriangle size={13} className="shrink-0 text-yellow-500" aria-hidden="true" />
+                <span className="truncate">{issueLabel(iss.transport, iss.reason)}</span>
+              </div>
+            ))}
           <div className="border-t border-border-subtle my-1" />
           <button
             type="button"

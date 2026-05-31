@@ -65,4 +65,26 @@ describe('ComposerModelPill', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: /refresh models/i }));
     expect(refresh).toHaveBeenCalled();
   });
+
+  it('shows a disabled, non-selectable row for a discovery issue', async () => {
+    useProvidersStore.setState({
+      list: [
+        { name: 'fake:default', transport: 'fake', model: 'default',
+          capabilities: { thinking: false, toolCalling: false, vision: false }, displayName: 'Fake / default' },
+      ] as never,
+      defaultProvider: 'fake:default',
+      hydrated: true,
+      error: null,
+      issues: [{ transport: 'anthropic', reason: '401' }],
+    } as never);
+    useSessionsStore.setState({ activeSessionId: null, sessions: [] } as never);
+    render(<ComposerModelPill />);
+    await userEvent.click(screen.getByRole('button', { name: /select model/i }));
+    expect(
+      screen.getByText(/Anthropic — could not fetch models \(401\)/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitemradio', { name: /could not fetch/ }),
+    ).toBeNull();
+  });
 });
