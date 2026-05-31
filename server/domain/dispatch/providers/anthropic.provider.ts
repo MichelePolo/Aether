@@ -21,7 +21,7 @@ const AETHER_SERVER_SCOPE = `mcp__${AETHER_MCP_NAME}`;
 const MAX_TURNS = 24;
 
 export interface AnthropicProviderOpts {
-  model: 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5';
+  model: string;
 }
 
 interface SdkContentBlock {

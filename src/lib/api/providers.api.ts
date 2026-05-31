@@ -1,4 +1,4 @@
-import type { ProviderDescriptor } from '@/src/types/provider.types';
+import type { ProvidersResponse } from '@/src/types/provider.types';
 import type { AuthStatusReport, ProviderTransport } from '@/src/types/provider-auth.types';
 import type {
   KeyVaultListResponse,
@@ -20,15 +20,11 @@ async function jsonRes<T>(res: Response): Promise<T> {
 }
 
 export const providersApi = {
-  list: (): Promise<ProviderDescriptor[]> =>
-    fetch('/api/providers')
-      .then(jsonRes<{ providers: ProviderDescriptor[] }>)
-      .then((b) => b.providers),
+  list: (): Promise<ProvidersResponse> =>
+    fetch('/api/providers').then(jsonRes<ProvidersResponse>),
 
-  refresh: (): Promise<ProviderDescriptor[]> =>
-    fetch('/api/providers/refresh', { method: 'POST' })
-      .then(jsonRes<{ providers: ProviderDescriptor[] }>)
-      .then((b) => b.providers),
+  refresh: (): Promise<ProvidersResponse> =>
+    fetch('/api/providers/refresh', { method: 'POST' }).then(jsonRes<ProvidersResponse>),
 
   defaultName: (): Promise<string | null> =>
     fetch('/api/providers/default')

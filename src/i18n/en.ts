@@ -7,6 +7,9 @@ export const messages = {
     thinkingDisabled: 'Thinking disabled',
     thinkingUnsupported: 'Thinking not supported by {provider}',
   },
+  composerModelPill: {
+    fetchFailed: '{provider} — could not fetch models ({reason})',
+  },
   messageBubble: {
     streamInterrupted: 'Stream interrupted: {error}',
     interrupted: 'Interrupted · ~{tokens} tokens',

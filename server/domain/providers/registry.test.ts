@@ -89,10 +89,45 @@ describe('ProviderRegistry', () => {
     expect(reg.get('anthropic:claude-haiku-4-5')).not.toBeNull();
   });
 
-  it("registers all three anthropic entries when probe returns 'apikey'", async () => {
-    const reg = new ProviderRegistry(baseDeps({ detectAnthropicAuth: async () => 'apikey' }));
+  it('registers anthropic entries from dynamic discovery when apikey', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({ data: [{ id: 'claude-opus-4-8', created_at: '2026-05-01T00:00:00Z' }] }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch,
+    );
+    const reg = new ProviderRegistry(
+      baseDeps({
+        detectAnthropicAuth: async () => 'apikey',
+        resolveKey: (t) => (t === 'anthropic' ? 'sk-ant' : undefined),
+      }),
+    );
     await reg.refresh();
-    expect(reg.list().filter((d) => d.transport === 'anthropic')).toHaveLength(3);
+    const d = reg.describe('anthropic:claude-opus-4-8');
+    expect(d).not.toBeNull();
+    expect(d?.displayName).toContain('claude-opus-4-8');
+    expect(reg.issues()).toHaveLength(0);
+    vi.unstubAllGlobals();
+  });
+
+  it('records an issue and registers no anthropic entries when apikey discovery fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 401 })) as unknown as typeof fetch,
+    );
+    const reg = new ProviderRegistry(
+      baseDeps({
+        detectAnthropicAuth: async () => 'apikey',
+        resolveKey: (t) => (t === 'anthropic' ? 'sk-ant' : undefined),
+      }),
+    );
+    await reg.refresh();
+    expect(reg.get('anthropic:claude-opus-4-8')).toBeNull();
+    expect(reg.issues()).toEqual([{ transport: 'anthropic', reason: '401' }]);
+    vi.unstubAllGlobals();
   });
 
   it("skips anthropic entries when probe returns 'none'", async () => {

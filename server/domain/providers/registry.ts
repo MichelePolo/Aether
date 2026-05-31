@@ -1,5 +1,5 @@
 import type { AIProvider, ProviderCapabilities } from '@/server/domain/dispatch/providers/provider.types';
-import { discoverOllama, geminiHardcodedModels, anthropicHardcodedModels, openAIHardcodedModels } from './discovery';
+import { discoverOllama, geminiHardcodedModels, anthropicHardcodedModels, openAIHardcodedModels, discoverAnthropic } from './discovery';
 
 export type ProviderTransport = 'fake' | 'gemini' | 'ollama' | 'anthropic' | 'openai';
 
@@ -9,6 +9,11 @@ export interface ProviderDescriptor {
   model: string;
   capabilities: ProviderCapabilities;
   displayName: string;
+}
+
+export interface RegistryIssue {
+  transport: ProviderTransport;
+  reason: string;
 }
 
 export interface ProviderRegistryDeps {
@@ -33,11 +38,13 @@ function displayNameFor(transport: ProviderTransport, model: string): string {
 
 export class ProviderRegistry {
   private entries = new Map<string, { provider: AIProvider; descriptor: ProviderDescriptor }>();
+  private issuesList: RegistryIssue[] = [];
 
   constructor(private readonly deps: ProviderRegistryDeps) {}
 
   async refresh(): Promise<void> {
     const next = new Map<string, { provider: AIProvider; descriptor: ProviderDescriptor }>();
+    const nextIssues: RegistryIssue[] = [];
 
     // Always: fake
     {
@@ -73,7 +80,29 @@ export class ProviderRegistry {
 
     // Anthropic
     const auth = await this.deps.detectAnthropicAuth();
-    if (auth !== 'none') {
+    if (auth === 'apikey') {
+      const key = this.deps.resolveKey('anthropic');
+      const { models, error } = key
+        ? await discoverAnthropic(key)
+        : { models: [] as string[], error: 'no api key' };
+      if (models.length > 0) {
+        for (const model of models) {
+          const provider = this.deps.anthropicBuilder(model);
+          next.set(`anthropic:${model}`, {
+            provider,
+            descriptor: {
+              name: `anthropic:${model}`,
+              transport: 'anthropic',
+              model,
+              capabilities: provider.capabilities,
+              displayName: displayNameFor('anthropic', model),
+            },
+          });
+        }
+      } else {
+        nextIssues.push({ transport: 'anthropic', reason: error ?? 'no models' });
+      }
+    } else if (auth === 'oauth') {
       for (const model of anthropicHardcodedModels()) {
         const provider = this.deps.anthropicBuilder(model);
         next.set(`anthropic:${model}`, {
@@ -130,6 +159,7 @@ export class ProviderRegistry {
     }
 
     this.entries = next;
+    this.issuesList = nextIssues;
   }
 
   get(name: string): AIProvider | null {
@@ -138,6 +168,10 @@ export class ProviderRegistry {
 
   list(): ProviderDescriptor[] {
     return [...this.entries.values()].map((e) => e.descriptor);
+  }
+
+  issues(): RegistryIssue[] {
+    return [...this.issuesList];
   }
 
   describe(name: string): ProviderDescriptor | null {

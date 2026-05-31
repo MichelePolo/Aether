@@ -17,6 +17,7 @@ describe('useProvidersStore', () => {
             { name: 'fake:default', transport: 'fake', model: 'default',
               capabilities: { thinking: true, toolCalling: true, vision: false }, displayName: 'Fake' },
           ],
+          issues: [{ transport: 'anthropic', reason: '401' }],
         }),
       ),
       http.get('http://localhost/api/providers/default', () =>
@@ -26,6 +27,7 @@ describe('useProvidersStore', () => {
     await useProvidersStore.getState().init();
     expect(useProvidersStore.getState().defaultProvider).toBe('fake:default');
     expect(useProvidersStore.getState().hydrated).toBe(true);
+    expect(useProvidersStore.getState().issues).toEqual([{ transport: 'anthropic', reason: '401' }]);
   });
 
   it('init prefers localStorage value when present and valid', async () => {
