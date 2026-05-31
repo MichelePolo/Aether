@@ -44,6 +44,21 @@ describe('MessageBubble', () => {
     expect(strong.tagName).toBe('STRONG');
   });
 
+  it('renders GFM tables as a real <table> (not concatenated text)', () => {
+    const md = '| Anno | Titolo |\n|------|--------|\n| 1921 | Introduzione |';
+    seed({ id: 'tbl', role: 'model', text: md });
+    render(<MessageBubble id="tbl" />);
+    expect(document.querySelector('table')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Anno' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Introduzione' })).toBeInTheDocument();
+  });
+
+  it('renders GFM strikethrough', () => {
+    seed({ id: 'del', role: 'model', text: 'this is ~~gone~~ now' });
+    render(<MessageBubble id="del" />);
+    expect(screen.getByText('gone').tagName).toBe('DEL');
+  });
+
   it('shows error footer with Retry when retryable=true', async () => {
     const onRetry = vi.fn();
     seed({ id: 'e1', role: 'model', text: 'partial', error: 'Network down', retryable: true });
@@ -185,6 +200,23 @@ describe('MessageBubble', () => {
     const wrapper = document.querySelector('.max-w-\\[68ch\\]') as HTMLElement;
     expect(wrapper.title).toMatch(/Prompt: 80/);
     expect(wrapper.title).toMatch(/Reply: 40/);
+  });
+
+  it('copies the message markdown source to the clipboard on copy-button click', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    seed({ id: 'cp', role: 'model', text: 'Hello **bold**' });
+    render(<MessageBubble id="cp" />);
+    await userEvent.click(screen.getByRole('button', { name: /copy as markdown/i }));
+    expect(writeText).toHaveBeenCalledWith('Hello **bold**');
+    // toggles to the "copied" confirmation state
+    expect(await screen.findByRole('button', { name: /copied/i })).toBeInTheDocument();
+  });
+
+  it('does not render a copy button for an empty model bubble', () => {
+    seed({ id: 'empty', role: 'model', text: '' });
+    render(<MessageBubble id="empty" />);
+    expect(screen.queryByRole('button', { name: /copy as markdown/i })).not.toBeInTheDocument();
   });
 
   it('user bubble has no title attribute', () => {

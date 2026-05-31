@@ -17,6 +17,8 @@ export const messages = {
     emptyResponse: '(empty response)',
     you: 'You',
     assistant: 'Aether',
+    copy: 'Copy as Markdown',
+    copied: 'Copied',
   },
   sessionsSection: {
     heading: 'Sessions',

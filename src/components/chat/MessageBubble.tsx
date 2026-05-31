@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { File as FileIcon, Brain } from 'lucide-react';
+import remarkGfm from 'remark-gfm';
+import { File as FileIcon, Brain, Copy, Check } from 'lucide-react';
 import { useChatStore } from '@/src/stores/chat.store';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useStreamingDispatch } from '@/src/hooks/useStreamingDispatch';
@@ -39,6 +41,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
   );
   const openContextMenu = useUiStore((s) => s.openMessageContextMenu);
   const { resume } = useStreamingDispatch();
+  const [copied, setCopied] = useState(false);
 
   if (!message) return null;
 
@@ -53,6 +56,17 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
   const onContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     openContextMenu({ x: e.clientX, y: e.clientY, messageId: id, role: message.role });
+  };
+
+  // message.text is the markdown source for both roles (user text is authored, model
+  // text is the raw markdown we render below), so copying it yields markdown verbatim.
+  const handleCopy = () => {
+    void Promise.resolve(navigator.clipboard?.writeText(message.text))
+      .then(() => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {});
   };
 
   const tooltip =
@@ -80,12 +94,28 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
         onContextMenu={onContextMenu}
         title={tooltip}
         className={cn(
-          'max-w-[68ch] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm shadow-black/20',
+          'group relative max-w-[68ch] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm shadow-black/20',
           isUser
             ? 'bg-manipulation/10 border border-manipulation/30 text-zinc-100 rounded-tr-sm'
             : 'bg-surface-3 border border-border-subtle text-zinc-200 rounded-tl-sm',
         )}
       >
+        {!isStreaming && message.text.length > 0 && (
+          <button
+            type="button"
+            onClick={handleCopy}
+            aria-label={copied ? t('messageBubble.copied') : t('messageBubble.copy')}
+            title={copied ? t('messageBubble.copied') : t('messageBubble.copy')}
+            className="absolute top-1.5 right-1.5 z-10 rounded-md p-1 text-zinc-400 bg-surface-3/80 backdrop-blur-sm opacity-0 transition-opacity hover:bg-surface-4 hover:text-zinc-100 focus-visible:opacity-100 group-hover:opacity-100"
+          >
+            {copied ? (
+              <Check size={13} className="text-status-online" aria-hidden="true" />
+            ) : (
+              <Copy size={13} aria-hidden="true" />
+            )}
+          </button>
+        )}
+
         {isUser ? (
           <span className="whitespace-pre-wrap">{message.text}</span>
         ) : message.text.length === 0 && !isStreaming ? (
@@ -97,8 +127,8 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
             <StreamingIndicator />
           </>
         ) : (
-          <div className="prose prose-invert prose-sm max-w-none prose-code:text-cli prose-code:font-mono prose-code:before:content-none prose-code:after:content-none prose-pre:bg-surface-0 prose-pre:border prose-pre:border-border-subtle prose-pre:text-cli">
-            <ReactMarkdown>{message.text}</ReactMarkdown>
+          <div className="prose prose-invert prose-sm max-w-none prose-code:text-cli prose-code:font-mono prose-code:before:content-none prose-code:after:content-none prose-pre:bg-surface-0 prose-pre:border prose-pre:border-border-subtle prose-pre:text-cli prose-table:block prose-table:overflow-x-auto prose-table:w-fit prose-table:max-w-full prose-th:border prose-th:border-border-subtle prose-th:px-2 prose-th:py-1 prose-td:border prose-td:border-border-subtle prose-td:px-2 prose-td:py-1">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.text}</ReactMarkdown>
           </div>
         )}
 
