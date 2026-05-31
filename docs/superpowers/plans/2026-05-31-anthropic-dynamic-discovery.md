@@ -50,7 +50,7 @@ git checkout -b feat/anthropic-dynamic-discovery
 `server/domain/providers/discovery.test.ts` already exists and tests `discoverOllama` (it imports `{ describe, it, expect, vi, afterEach }` and has an `afterEach(() => vi.restoreAllMocks())`). Update its import from `./discovery`:
 
 ```ts
-import { discoverOllama, discoverAnthropic, ANTHROPIC_MODELS_URL } from './discovery';
+import { discoverOllama, geminiHardcodedModels, discoverAnthropic, ANTHROPIC_MODELS_URL } from './discovery';
 ```
 
 Then append this self-contained describe block to the end of the file (it stubs the global `fetch` and unstubs it after each test):
