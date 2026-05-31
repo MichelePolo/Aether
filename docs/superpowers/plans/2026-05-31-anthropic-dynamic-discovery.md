@@ -20,7 +20,7 @@ git checkout -b feat/anthropic-dynamic-discovery
 ## File Structure
 
 - `server/domain/providers/discovery.ts` — add `discoverAnthropic()` + shared `ANTHROPIC_MODELS_URL` / `ANTHROPIC_VERSION` constants. *(Task 1)*
-- `server/domain/providers/discovery.test.ts` — **new**, unit tests for `discoverAnthropic`. *(Task 1)*
+- `server/domain/providers/discovery.test.ts` — **exists** (tests `discoverOllama`); append `discoverAnthropic` tests. *(Task 1)*
 - `server/domain/providers/registry.ts` — `RegistryIssue` type, `issues` field + getter, dynamic apikey branch / hardcoded oauth branch. *(Task 2)*
 - `server/domain/providers/registry.test.ts` — update apikey test, add failure + issues tests. *(Task 2)*
 - `server/domain/dispatch/providers/anthropic.provider.ts` — widen `model` to `string`. *(Task 3)*
@@ -43,25 +43,28 @@ git checkout -b feat/anthropic-dynamic-discovery
 
 **Files:**
 - Modify: `server/domain/providers/discovery.ts`
-- Test: `server/domain/providers/discovery.test.ts` (create)
+- Test: `server/domain/providers/discovery.test.ts` (append — file already exists)
 
 - [ ] **Step 1: Write the failing test**
 
-Create `server/domain/providers/discovery.test.ts`:
+`server/domain/providers/discovery.test.ts` already exists and tests `discoverOllama` (it imports `{ describe, it, expect, vi, afterEach }` and has an `afterEach(() => vi.restoreAllMocks())`). Update its import from `./discovery`:
 
 ```ts
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { discoverAnthropic, ANTHROPIC_MODELS_URL } from './discovery';
+import { discoverOllama, discoverAnthropic, ANTHROPIC_MODELS_URL } from './discovery';
+```
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
+Then append this self-contained describe block to the end of the file (it stubs the global `fetch` and unstubs it after each test):
 
-function stubFetch(impl: typeof fetch): void {
-  vi.stubGlobal('fetch', vi.fn(impl) as unknown as typeof fetch);
-}
-
+```ts
 describe('discoverAnthropic', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function stubFetch(impl: typeof fetch): void {
+    vi.stubGlobal('fetch', vi.fn(impl) as unknown as typeof fetch);
+  }
+
   it('returns ids sorted newest-first on success', async () => {
     stubFetch(async () =>
       new Response(
@@ -93,22 +96,19 @@ describe('discoverAnthropic', () => {
 
   it('returns the status code as error on non-2xx', async () => {
     stubFetch(async () => new Response(null, { status: 401 }));
-    const out = await discoverAnthropic('sk-ant');
-    expect(out).toEqual({ models: [], error: '401' });
+    expect(await discoverAnthropic('sk-ant')).toEqual({ models: [], error: '401' });
   });
 
   it('returns a parse error on a malformed body', async () => {
     stubFetch(async () => new Response(JSON.stringify({ nope: true }), { status: 200 }));
-    const out = await discoverAnthropic('sk-ant');
-    expect(out).toEqual({ models: [], error: 'parse' });
+    expect(await discoverAnthropic('sk-ant')).toEqual({ models: [], error: 'parse' });
   });
 
   it('returns an error reason when fetch throws', async () => {
     stubFetch(async () => {
       throw new Error('ENOTFOUND api.anthropic.com');
     });
-    const out = await discoverAnthropic('sk-ant');
-    expect(out).toEqual({ models: [], error: 'ENOTFOUND' });
+    expect(await discoverAnthropic('sk-ant')).toEqual({ models: [], error: 'ENOTFOUND' });
   });
 });
 ```
@@ -187,13 +187,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 - [ ] **Step 1: Write the failing tests**
 
-In `server/domain/providers/registry.test.ts`, add `vi` to the import on line 1 so it reads:
-
-```ts
-import { describe, it, expect, vi } from 'vitest';
-```
-
-Replace the existing test block at lines 40-46 (`registers anthropic entries when probe returns 'apikey'`) with:
+`server/domain/providers/registry.test.ts` already imports `vi`/`beforeEach`/`afterEach` and has a top-level `beforeEach` that stubs the global `fetch` to `{ ok: false, status: 503 }` (with an `afterEach` calling `vi.unstubAllGlobals()`). Replace the existing apikey test — the block titled `registers all three anthropic entries when probe returns 'apikey'` (around lines 92-96) — with the two tests below; each installs its own `fetch` stub that overrides the `beforeEach` default:
 
 ```ts
   it('registers anthropic entries from dynamic discovery when apikey', async () => {
@@ -408,32 +402,21 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 - Modify: `server/routes/providers.routes.ts:71-84`
 - Test: `server/routes/providers.routes.test.ts:15-28`
 
-- [ ] **Step 1: Update the failing tests**
+- [ ] **Step 1: Add the failing test**
 
-In `server/routes/providers.routes.test.ts`, replace the `GET /` test (lines 15-19) and the `POST /refresh` test (lines 21-28) with:
+The test file's `makeApp()` builds a **real** `ProviderRegistry` with `detectAnthropicAuth: async () => 'none'`, so `issues()` returns `[]`. The existing `GET /` and `POST /refresh` tests assert only on `res.body.providers`, so they keep passing once the route adds `issues`. Add one new test inside the `describe('providers routes', ...)` block (right after the `POST /api/providers/refresh re-runs discovery` test) to lock in the new field:
 
 ```ts
-  it('GET / returns the provider list and issues', async () => {
-    const app = makeApp({ list: () => [], issues: () => [] } as unknown as Partial<ProviderRegistry>);
+  it('GET /api/providers includes an issues array', async () => {
     const res = await request(app).get('/api/providers');
-    expect(res.body).toEqual({ providers: [], issues: [] });
-  });
-
-  it('POST /refresh refreshes and returns the list and issues', async () => {
-    const refresh = vi.fn(async () => {});
-    const list = vi.fn(() => []);
-    const issues = vi.fn(() => [{ transport: 'anthropic', reason: '401' }]);
-    const app = makeApp({ refresh, list, issues } as unknown as Partial<ProviderRegistry>);
-    const res = await request(app).post('/api/providers/refresh');
-    expect(refresh).toHaveBeenCalled();
-    expect(res.body).toEqual({ providers: [], issues: [{ transport: 'anthropic', reason: '401' }] });
+    expect(res.body.issues).toEqual([]);
   });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [ ] **Step 2: Run tests to verify the new test fails**
 
 Run: `npx vitest run server/routes/providers.routes.test.ts`
-Expected: FAIL — response body lacks `issues`.
+Expected: FAIL on the new test — `res.body.issues` is `undefined`.
 
 - [ ] **Step 3: Update the routes**
 
@@ -626,31 +609,34 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 - [ ] **Step 1: Update the failing tests**
 
-In `src/lib/api/providers.api.test.ts`, replace the `list()` test (lines 24-29) and the `refresh()` test (lines 31-41) with:
+The test file uses MSW (`server.use(http.get(...))`). Replace the `list returns descriptors` test (lines 9-25) and the `refresh re-fetches` test (lines 27-35) with:
 
 ```ts
-  it('list() returns providers and issues', async () => {
-    mockJson({
-      providers: [{ name: 'fake:default', transport: 'fake', model: 'default', displayName: 'Fake', capabilities: {} }],
-      issues: [{ transport: 'anthropic', reason: '401' }],
-    });
+  it('list returns providers and issues', async () => {
+    server.use(
+      http.get('http://localhost/api/providers', () =>
+        HttpResponse.json({
+          providers: [{
+            name: 'fake:default', transport: 'fake', model: 'default',
+            capabilities: { thinking: true, toolCalling: true }, displayName: 'Fake (default)',
+          }],
+          issues: [{ transport: 'anthropic', reason: '401' }],
+        }),
+      ),
+    );
     const out = await providersApi.list();
-    expect(out.providers).toHaveLength(1);
     expect(out.providers[0].name).toBe('fake:default');
     expect(out.issues).toEqual([{ transport: 'anthropic', reason: '401' }]);
   });
 
-  it('refresh() POSTs and returns providers and issues', async () => {
-    const spy = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      json: async () => ({ providers: [], issues: [] }),
-    }));
-    globalThis.fetch = spy as unknown as typeof fetch;
-    const out = await providersApi.refresh();
-    expect(spy).toHaveBeenCalledWith('/api/providers/refresh', { method: 'POST' });
-    expect(out).toEqual({ providers: [], issues: [] });
+  it('refresh re-fetches and returns providers + issues', async () => {
+    server.use(
+      http.post('http://localhost/api/providers/refresh', () =>
+        HttpResponse.json({ providers: [], issues: [] }),
+      ),
+    );
+    const r = await providersApi.refresh();
+    expect(r).toEqual({ providers: [], issues: [] });
   });
 ```
 
@@ -659,15 +645,20 @@ In `src/lib/api/providers.api.test.ts`, replace the `list()` test (lines 24-29) 
 Run: `npx vitest run --project frontend src/lib/api/providers.api.test.ts`
 Expected: FAIL — `out.providers` undefined (list currently returns an array).
 
-- [ ] **Step 3: Add the type**
+- [ ] **Step 3: Add the types**
 
-In `src/types/provider.types.ts`, append after the `ProviderDescriptor` interface:
+`src/types/provider.types.ts` re-exports the backend registry types (it currently re-exports `ProviderTransport` and `ProviderDescriptor`). Update it to also re-export `RegistryIssue` (added to the registry in Task 2) and define the response wrapper. The full file becomes:
 
 ```ts
-export interface RegistryIssue {
-  transport: string;
-  reason: string;
-}
+export type {
+  ProviderTransport,
+  ProviderDescriptor,
+  RegistryIssue,
+} from '@/server/domain/providers/registry';
+
+export type { ProviderCapabilities } from '@/server/domain/dispatch/providers/provider.types';
+
+import type { ProviderDescriptor, RegistryIssue } from '@/server/domain/providers/registry';
 
 export interface ProvidersResponse {
   providers: ProviderDescriptor[];
@@ -719,26 +710,25 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 - Modify: `src/stores/providers.store.ts`
 - Test: `src/stores/providers.store.test.ts`
 
-- [ ] **Step 1: Update the failing tests**
+- [ ] **Step 1: Update the failing test**
 
-In `src/stores/providers.store.test.ts`, the existing `init` test mocks `providersApi.list` to resolve an array. Update its mock (the `vi.spyOn(providersApi, 'list')...` call) to resolve the new shape, and add an issues assertion. Replace the first test (the `init fetches...` block) with:
+The store tests use MSW and already return `{ providers: [...] }` from the mocked `GET /api/providers`; after the store change they keep passing (a missing `issues` falls back to `[]`). To lock in the new behaviour, edit the first test (`init fetches the list and defaults to the server default...`, lines 12-29): add an `issues` array to the mocked response and assert the store stored it. Change the mocked `HttpResponse.json(...)` to:
 
 ```ts
-  it('init fetches the list and defaults to the server default when no localStorage entry', async () => {
-    vi.spyOn(providersApi, 'list').mockResolvedValue({
-      providers: [
-        { name: 'fake:default', transport: 'fake', model: 'default', displayName: 'Fake', capabilities: {} as never },
-      ],
-      issues: [{ transport: 'anthropic', reason: '401' }],
-    });
-    vi.spyOn(providersApi, 'defaultName').mockResolvedValue('fake:default');
-    await useProvidersStore.getState().init();
-    expect(useProvidersStore.getState().defaultProvider).toBe('fake:default');
-    expect(useProvidersStore.getState().issues).toEqual([{ transport: 'anthropic', reason: '401' }]);
-  });
+        HttpResponse.json({
+          providers: [
+            { name: 'fake:default', transport: 'fake', model: 'default',
+              capabilities: { thinking: true, toolCalling: true, vision: false }, displayName: 'Fake' },
+          ],
+          issues: [{ transport: 'anthropic', reason: '401' }],
+        }),
 ```
 
-Any other tests in this file that mock `providersApi.list` or `providersApi.refresh` must be updated to resolve `{ providers: [...], issues: [] }` instead of a bare array. Update each such mock accordingly (wrap the previous array as `{ providers: <array>, issues: [] }`).
+and append this assertion at the end of that test:
+
+```ts
+    expect(useProvidersStore.getState().issues).toEqual([{ transport: 'anthropic', reason: '401' }]);
+```
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -836,26 +826,26 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 
 - [ ] **Step 1: Write the failing test**
 
-In `src/components/chat/ComposerModelPill.test.tsx`, ensure the `beforeEach` resets issues. Replace the `beforeEach` (lines 14-17) with:
-
-```ts
-beforeEach(() => {
-  useProvidersStore.setState({ list: [], defaultProvider: null, issues: [] } as never);
-  useSessionsStore.setState({ sessions: [], activeSessionId: null } as never);
-});
-```
-
-Then add this test inside the `describe('ComposerModelPill', ...)` block:
+The test file resets state via `_reset()` in `beforeEach` and seeds with a `seed()` helper whose `PROVIDERS` already include an anthropic entry — not what we want here (the issue row only renders when the transport has **no** entry). Add a self-contained test inside the `describe('ComposerModelPill', ...)` block that seeds a list without anthropic plus an anthropic issue (uses the already-imported `userEvent` and `screen`):
 
 ```ts
   it('shows a disabled, non-selectable row for a discovery issue', async () => {
-    setProviders([
-      { name: 'fake:default', transport: 'fake', model: 'default', displayName: 'Fake (default)' },
-    ]);
-    useProvidersStore.setState({ issues: [{ transport: 'anthropic', reason: '401' }] } as never);
+    useProvidersStore.setState({
+      list: [
+        { name: 'fake:default', transport: 'fake', model: 'default',
+          capabilities: { thinking: false, toolCalling: false, vision: false }, displayName: 'Fake / default' },
+      ] as never,
+      defaultProvider: 'fake:default',
+      hydrated: true,
+      error: null,
+      issues: [{ transport: 'anthropic', reason: '401' }],
+    } as never);
+    useSessionsStore.setState({ activeSessionId: null, sessions: [] } as never);
     render(<ComposerModelPill />);
-    fireEvent.click(screen.getByLabelText('Select model'));
-    expect(screen.getByText(/Anthropic — impossibile recuperare i modelli \(401\)/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /select model/i }));
+    expect(
+      screen.getByText(/Anthropic — impossibile recuperare i modelli \(401\)/),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('menuitemradio', { name: /impossibile recuperare/ }),
     ).toBeNull();
