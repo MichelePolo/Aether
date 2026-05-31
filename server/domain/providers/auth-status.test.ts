@@ -5,6 +5,7 @@ import { TRANSPORT_ORDER } from './auth-status.types';
 function makeService(overrides: Partial<ConstructorParameters<typeof AuthStatusService>[0]> = {}) {
   return new AuthStatusService({
     detectAnthropicAuth: async () => 'none',
+    getAnthropicKey: () => undefined,
     getOpenAIKey: () => undefined,
     getGeminiKey: () => undefined,
     listOllamaEndpoints: () => [{ id: 'local', label: 'local', baseUrl: 'http://localhost:11434' }],
@@ -47,12 +48,14 @@ describe('AuthStatusService.probe — mixed', () => {
   it('handles ok / unconfigured / error / error in a single report', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
+      if (url.includes('api.anthropic.com')) return new Response(null, { status: 200 });
       if (url.includes('generativelanguage')) return new Response(null, { status: 401 });
       if (url.endsWith('/api/tags')) throw new Error('ECONNREFUSED');
       return new Response(null, { status: 599 });
     });
     const svc = makeService({
       detectAnthropicAuth: async () => 'apikey',
+      getAnthropicKey: () => 'ak-x',
       getOpenAIKey: () => undefined,
       getGeminiKey: () => 'gk-x',
       fetch: fetchMock as typeof fetch,
@@ -129,6 +132,7 @@ describe('AuthStatusService.probe — per-endpoint Ollama', () => {
 
     const svc = new AuthStatusService({
       detectAnthropicAuth: async () => 'none',
+      getAnthropicKey: () => undefined,
       getOpenAIKey: () => undefined,
       getGeminiKey: () => undefined,
       listOllamaEndpoints: () => [
@@ -151,6 +155,7 @@ describe('AuthStatusService.probe — per-endpoint Ollama', () => {
   it('marks an unreachable Ollama endpoint as error', async () => {
     const svc = new AuthStatusService({
       detectAnthropicAuth: async () => 'none',
+      getAnthropicKey: () => undefined,
       getOpenAIKey: () => undefined,
       getGeminiKey: () => undefined,
       listOllamaEndpoints: () => [{ id: 'local', label: 'local', baseUrl: 'http://localhost:11434' }],
@@ -159,5 +164,41 @@ describe('AuthStatusService.probe — per-endpoint Ollama', () => {
     });
     const report = await svc.probe();
     expect(report.ollama[0].state).toBe('error');
+  });
+});
+
+describe('AuthStatusService.probeAnthropic — apikey', () => {
+  it('reports unconfigured when apikey auth is detected but no key resolves', async () => {
+    const svc = makeService({
+      detectAnthropicAuth: async () => 'apikey',
+      getAnthropicKey: () => undefined,
+      fetch: vi.fn(async () => new Response(null, { status: 200 })) as unknown as typeof fetch,
+    });
+    const report = await svc.probe(['anthropic']);
+    expect(report.statuses[0]).toMatchObject({ transport: 'anthropic', state: 'unconfigured' });
+  });
+
+  it('reports error with the status code when /v1/models rejects the key', async () => {
+    const svc = makeService({
+      detectAnthropicAuth: async () => 'apikey',
+      getAnthropicKey: () => 'ak-bad',
+      fetch: vi.fn(async () => new Response(null, { status: 401 })) as unknown as typeof fetch,
+    });
+    const report = await svc.probe(['anthropic']);
+    expect(report.statuses[0]).toMatchObject({
+      transport: 'anthropic',
+      state: 'error',
+      reason: '401',
+    });
+  });
+
+  it('reports ok when /v1/models accepts the key', async () => {
+    const svc = makeService({
+      detectAnthropicAuth: async () => 'apikey',
+      getAnthropicKey: () => 'ak-good',
+      fetch: vi.fn(async () => new Response(null, { status: 200 })) as unknown as typeof fetch,
+    });
+    const report = await svc.probe(['anthropic']);
+    expect(report.statuses[0]).toMatchObject({ transport: 'anthropic', state: 'ok' });
   });
 });

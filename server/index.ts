@@ -142,6 +142,7 @@ async function bootstrap() {
 
   const authStatusService = new AuthStatusService({
     detectAnthropicAuth,
+    getAnthropicKey: () => resolver.get('anthropic'),
     getOpenAIKey: () => resolver.get('openai'),
     getGeminiKey: () => resolver.get('gemini'),
     listOllamaEndpoints,
