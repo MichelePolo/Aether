@@ -103,7 +103,10 @@ describe('discoverAnthropic', () => {
   });
 
   it('sends auth headers to the models endpoint', async () => {
-    const spy = vi.fn(async () => new Response(JSON.stringify({ data: [] }), { status: 200 }));
+    const spy = vi.fn(
+      async (_url: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ data: [] }), { status: 200 }),
+    );
     stubFetch(spy as unknown as typeof fetch);
     await discoverAnthropic('sk-secret');
     const [url, init] = spy.mock.calls[0];
