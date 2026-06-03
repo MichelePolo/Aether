@@ -22,6 +22,14 @@ const MAX_TURNS = 24;
 
 export interface AnthropicProviderOpts {
   model: string;
+  /**
+   * Resolve extra auth env vars (e.g. `CLAUDE_CODE_OAUTH_TOKEN` or
+   * `ANTHROPIC_API_KEY`) to hand the spawned `claude` explicitly. We keep
+   * `settingSources: []` for isolation, but isolation also stops the SDK from
+   * reusing the interactive login config — so on OAuth/Teams setups auth must
+   * travel through `env` instead. Returns `{}` when nothing is resolvable.
+   */
+  resolveAuthEnv?: () => Record<string, string>;
 }
 
 interface SdkContentBlock {
@@ -52,9 +60,11 @@ interface SdkUserMessageEnvelope {
 export class AnthropicProvider implements AIProvider {
   readonly capabilities: ProviderCapabilities = { thinking: true, toolCalling: true, vision: true };
   readonly model: string;
+  private readonly resolveAuthEnv?: () => Record<string, string>;
 
   constructor(opts: AnthropicProviderOpts) {
     this.model = opts.model;
+    this.resolveAuthEnv = opts.resolveAuthEnv;
   }
 
   async *stream(req: ProviderRequest, signal: AbortSignal): AsyncIterable<ProviderChunk> {
@@ -85,6 +95,13 @@ export class AnthropicProvider implements AIProvider {
         // WHY instead of the SDK's generic "exited with code 1".
         stderr: (data: string): void => { stderrBuf += data; },
       };
+      // Hand auth to the isolated `claude` explicitly via env. The SDK defaults
+      // env to process.env, so we only override (merging over process.env) when
+      // there is a resolved token to inject — otherwise leave it unset.
+      const authEnv = this.resolveAuthEnv?.();
+      if (authEnv && Object.keys(authEnv).length > 0) {
+        options.env = { ...process.env, ...authEnv };
+      }
       if (req.thinking === true) {
         options.thinking = { type: 'enabled', budgetTokens: 8000 };
       }

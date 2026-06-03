@@ -162,6 +162,60 @@ describe('providers routes — auth status', () => {
     expect(res.status).toBe(503);
     expect(res.body.error.code).toBe('NO_AUTH_STATUS');
   });
+
+  it('GET /api/providers/auth-status refreshes the registry when Anthropic is authed but absent', async () => {
+    // Registry built at boot while auth was still 'none' (cold-start probe
+    // failed): no anthropic models registered. Auth later flips to 'oauth'.
+    let authMode: 'none' | 'oauth' = 'none';
+    const reg = new ProviderRegistry({
+      resolveKey: () => undefined,
+      detectAnthropicAuth: async () => authMode,
+      fakeProvider: makeFake('fake-1'),
+      geminiBuilder: () => makeFake('g'),
+      listOllamaEndpoints: () => [{ id: 'local', label: 'local', baseUrl: 'http://localhost:11434' }],
+      ollamaBuilder: (_b: string, model: string) => makeFake(model),
+      anthropicBuilder: (model) => makeFake(model),
+      openAIBuilder: (model) => makeFake(model),
+    });
+    await reg.refresh();
+    expect(reg.list().some((p) => p.transport === 'anthropic')).toBe(false);
+
+    authMode = 'oauth';
+    const report: AuthStatusReport = {
+      checkedAt: 1,
+      statuses: [{ transport: 'anthropic', state: 'ok', reason: 'oauth' }],
+      ollama: [],
+    };
+    const app = createApp({ providers: reg, authStatusService: makeAuthSvc(report) });
+
+    const res = await request(app).get('/api/providers/auth-status');
+    expect(res.status).toBe(200);
+    expect(reg.list().some((p) => p.transport === 'anthropic')).toBe(true);
+  });
+
+  it('GET /api/providers/auth-status does not refresh when Anthropic already present', async () => {
+    const reg = new ProviderRegistry({
+      resolveKey: () => undefined,
+      detectAnthropicAuth: async () => 'oauth',
+      fakeProvider: makeFake('fake-1'),
+      geminiBuilder: () => makeFake('g'),
+      listOllamaEndpoints: () => [{ id: 'local', label: 'local', baseUrl: 'http://localhost:11434' }],
+      ollamaBuilder: (_b: string, model: string) => makeFake(model),
+      anthropicBuilder: (model) => makeFake(model),
+      openAIBuilder: (model) => makeFake(model),
+    });
+    await reg.refresh();
+    const refreshSpy = vi.spyOn(reg, 'refresh');
+    const report: AuthStatusReport = {
+      checkedAt: 1,
+      statuses: [{ transport: 'anthropic', state: 'ok', reason: 'oauth' }],
+      ollama: [],
+    };
+    const app = createApp({ providers: reg, authStatusService: makeAuthSvc(report) });
+
+    await request(app).get('/api/providers/auth-status');
+    expect(refreshSpy).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------

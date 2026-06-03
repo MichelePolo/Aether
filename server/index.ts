@@ -115,7 +115,22 @@ async function bootstrap() {
     geminiBuilder: (model) => new GeminiProvider({ apiKey: resolver.get('gemini') ?? '', model }),
     listOllamaEndpoints,
     ollamaBuilder: (baseUrl, model, token) => new OllamaProvider({ host: baseUrl, model, token }),
-    anthropicBuilder: (model) => new AnthropicProvider({ model }),
+    anthropicBuilder: (model) =>
+      new AnthropicProvider({
+        model,
+        // Hand auth to the isolated `claude` explicitly (settingSources:[] stops
+        // it from reusing the interactive login). Env-first, then KeyVault — the
+        // same precedence as KeyResolver. OAuth/Teams users provide a token via
+        // `claude setup-token` → CLAUDE_CODE_OAUTH_TOKEN.
+        resolveAuthEnv: () => {
+          const env: Record<string, string> = {};
+          const oauth = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+          if (oauth) env.CLAUDE_CODE_OAUTH_TOKEN = oauth;
+          const apiKey = resolver.get('anthropic');
+          if (apiKey) env.ANTHROPIC_API_KEY = apiKey;
+          return env;
+        },
+      }),
     openAIBuilder: (model) =>
       new OpenAIProvider({
         apiKey: resolver.get('openai') ?? '',
