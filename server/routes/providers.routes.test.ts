@@ -78,6 +78,11 @@ describe('providers routes', () => {
     expect(res.body.providers).toEqual(expect.any(Array));
   });
 
+  it('GET /api/providers includes an issues array', async () => {
+    const res = await request(app).get('/api/providers');
+    expect(res.body.issues).toEqual([]);
+  });
+
   it('GET /api/providers/default returns the registry default name', async () => {
     const res = await request(app).get('/api/providers/default');
     expect(res.status).toBe(200);

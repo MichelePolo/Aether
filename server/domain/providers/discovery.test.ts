@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { discoverOllama, geminiHardcodedModels } from './discovery';
+import { discoverOllama, geminiHardcodedModels, discoverAnthropic, ANTHROPIC_MODELS_URL } from './discovery';
 
 describe('discoverOllama', () => {
   beforeEach(() => {
@@ -73,5 +73,65 @@ describe('geminiHardcodedModels', () => {
     const models = geminiHardcodedModels();
     expect(models.length).toBeGreaterThan(0);
     expect(models).toEqual(expect.arrayContaining(['gemini-2.0-flash-exp']));
+  });
+});
+
+describe('discoverAnthropic', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function stubFetch(impl: typeof fetch): void {
+    vi.stubGlobal('fetch', vi.fn(impl) as unknown as typeof fetch);
+  }
+
+  it('returns ids sorted newest-first on success', async () => {
+    stubFetch(async () =>
+      new Response(
+        JSON.stringify({
+          data: [
+            { id: 'claude-old', created_at: '2024-01-01T00:00:00Z' },
+            { id: 'claude-new', created_at: '2026-05-01T00:00:00Z' },
+            { id: 'claude-mid', created_at: '2025-03-01T00:00:00Z' },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+    const out = await discoverAnthropic('sk-ant');
+    expect(out).toEqual({ models: ['claude-new', 'claude-mid', 'claude-old'], error: null });
+  });
+
+  it('sends auth headers to the models endpoint', async () => {
+    const spy = vi.fn(
+      async (_url: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ data: [] }), { status: 200 }),
+    );
+    stubFetch(spy as unknown as typeof fetch);
+    await discoverAnthropic('sk-secret');
+    const [url, init] = spy.mock.calls[0];
+    expect(String(url)).toContain(ANTHROPIC_MODELS_URL);
+    expect(String(url)).toContain('limit=1000');
+    expect((init as RequestInit).headers).toMatchObject({
+      'x-api-key': 'sk-secret',
+      'anthropic-version': '2023-06-01',
+    });
+  });
+
+  it('returns the status code as error on non-2xx', async () => {
+    stubFetch(async () => new Response(null, { status: 401 }));
+    expect(await discoverAnthropic('sk-ant')).toEqual({ models: [], error: '401' });
+  });
+
+  it('returns a parse error on a malformed body', async () => {
+    stubFetch(async () => new Response(JSON.stringify({ nope: true }), { status: 200 }));
+    expect(await discoverAnthropic('sk-ant')).toEqual({ models: [], error: 'parse' });
+  });
+
+  it('returns an error reason when fetch throws', async () => {
+    stubFetch(async () => {
+      throw new Error('ENOTFOUND api.anthropic.com');
+    });
+    expect(await discoverAnthropic('sk-ant')).toEqual({ models: [], error: 'ENOTFOUND' });
   });
 });

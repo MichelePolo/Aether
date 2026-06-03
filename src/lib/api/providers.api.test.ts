@@ -6,32 +6,31 @@ import type { AuthStatusReport } from '@/src/types/provider-auth.types';
 import type { OllamaEndpoint, SaveOllamaEndpointResponse } from '@/src/types/ollama-endpoints.types';
 
 describe('providersApi', () => {
-  it('list returns descriptors', async () => {
+  it('list returns providers and issues', async () => {
     server.use(
       http.get('http://localhost/api/providers', () =>
         HttpResponse.json({
           providers: [{
-            name: 'fake:default',
-            transport: 'fake',
-            model: 'default',
-            capabilities: { thinking: true, toolCalling: true },
-            displayName: 'Fake (default)',
+            name: 'fake:default', transport: 'fake', model: 'default',
+            capabilities: { thinking: true, toolCalling: true }, displayName: 'Fake (default)',
           }],
+          issues: [{ transport: 'anthropic', reason: '401' }],
         }),
       ),
     );
-    const list = await providersApi.list();
-    expect(list[0].name).toBe('fake:default');
+    const out = await providersApi.list();
+    expect(out.providers[0].name).toBe('fake:default');
+    expect(out.issues).toEqual([{ transport: 'anthropic', reason: '401' }]);
   });
 
-  it('refresh re-fetches', async () => {
+  it('refresh re-fetches and returns providers + issues', async () => {
     server.use(
       http.post('http://localhost/api/providers/refresh', () =>
-        HttpResponse.json({ providers: [] }),
+        HttpResponse.json({ providers: [], issues: [] }),
       ),
     );
     const r = await providersApi.refresh();
-    expect(r).toEqual([]);
+    expect(r).toEqual({ providers: [], issues: [] });
   });
 
   it('defaultName returns the server default', async () => {

@@ -5,11 +5,13 @@ import type {
   OllamaEndpointStatus,
 } from './auth-status.types';
 import { TRANSPORT_ORDER } from './auth-status.types';
+import { ANTHROPIC_MODELS_URL, ANTHROPIC_VERSION } from './discovery';
 
 type AnthropicAuth = 'oauth' | 'apikey' | 'none';
 
 export interface AuthStatusServiceDeps {
   detectAnthropicAuth: () => Promise<AnthropicAuth>;
+  getAnthropicKey: () => string | undefined;
   getOpenAIKey: () => string | undefined;
   getGeminiKey: () => string | undefined;
   listOllamaEndpoints: () => Array<{ id: string; label: string; baseUrl: string; token?: string }>;
@@ -53,7 +55,20 @@ export class AuthStatusService {
   private async probeAnthropic(): Promise<TransportStatus> {
     const result = await this.deps.detectAnthropicAuth();
     if (result === 'oauth') return { transport: 'anthropic', state: 'ok', reason: 'oauth' };
-    if (result === 'apikey') return { transport: 'anthropic', state: 'ok', reason: 'api key set' };
+    if (result === 'apikey') {
+      const apiKey = this.deps.getAnthropicKey();
+      if (!apiKey) return { transport: 'anthropic', state: 'unconfigured', reason: 'no api key' };
+      const res = await this.fetchWithTimeout(`${ANTHROPIC_MODELS_URL}?limit=1`, {
+        headers: { 'x-api-key': apiKey, 'anthropic-version': ANTHROPIC_VERSION },
+      });
+      if (res.ok) return { transport: 'anthropic', state: 'ok', reason: 'api key set' };
+      return {
+        transport: 'anthropic',
+        state: 'error',
+        reason: String(res.status),
+        detail: res.statusText || `HTTP ${res.status}`,
+      };
+    }
     return { transport: 'anthropic', state: 'unconfigured', reason: 'no api key' };
   }
 

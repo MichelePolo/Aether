@@ -83,7 +83,7 @@ export function createProvidersRoutes(
   router.get(
     '/',
     asyncHandler(async (_req, res) => {
-      res.json({ providers: registry.list() });
+      res.json({ providers: registry.list(), issues: registry.issues() });
     }),
   );
 
@@ -91,7 +91,7 @@ export function createProvidersRoutes(
     '/refresh',
     asyncHandler(async (_req, res) => {
       await registry.refresh();
-      res.json({ providers: registry.list() });
+      res.json({ providers: registry.list(), issues: registry.issues() });
     }),
   );
 

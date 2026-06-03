@@ -117,7 +117,7 @@ async function bootstrap() {
     ollamaBuilder: (baseUrl, model, token) => new OllamaProvider({ host: baseUrl, model, token }),
     anthropicBuilder: (model) =>
       new AnthropicProvider({
-        model: model as 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5',
+        model,
         // Hand auth to the isolated `claude` explicitly (settingSources:[] stops
         // it from reusing the interactive login). Env-first, then KeyVault — the
         // same precedence as KeyResolver. OAuth/Teams users provide a token via
@@ -138,7 +138,7 @@ async function bootstrap() {
       }),
     defaultOverride:
       process.env.AETHER_DEFAULT_PROVIDER ||
-      (cfg.fakeProvider ? 'fake:default' : undefined),
+      (cfg.fakeProvider ? 'fake:default' : 'anthropic:claude-opus-4-8'),
   });
 
   await providers.refresh();
@@ -157,6 +157,7 @@ async function bootstrap() {
 
   const authStatusService = new AuthStatusService({
     detectAnthropicAuth,
+    getAnthropicKey: () => resolver.get('anthropic'),
     getOpenAIKey: () => resolver.get('openai'),
     getGeminiKey: () => resolver.get('gemini'),
     listOllamaEndpoints,
