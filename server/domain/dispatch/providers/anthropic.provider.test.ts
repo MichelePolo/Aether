@@ -200,6 +200,33 @@ describe('AnthropicProvider', () => {
     expect(arg.options.settingSources).toEqual([]);
   });
 
+  it('injects resolved auth into the SDK env while keeping settingSources isolated', async () => {
+    querySpy.mockReturnValue(asyncIterableFrom([
+      { type: 'result', usage: { input_tokens: 0, output_tokens: 0 } },
+    ]));
+    const p = new AnthropicProvider({
+      model: 'claude-haiku-4-5',
+      resolveAuthEnv: () => ({ CLAUDE_CODE_OAUTH_TOKEN: 'tok-123' }),
+    });
+    await collect(p.stream(baseReq(), new AbortController().signal));
+    const arg = querySpy.mock.calls[0][0] as {
+      options: { env?: Record<string, string | undefined>; settingSources?: unknown };
+    };
+    // Auth travels via env so isolation mode (settingSources:[]) is preserved.
+    expect(arg.options.env?.CLAUDE_CODE_OAUTH_TOKEN).toBe('tok-123');
+    expect(arg.options.settingSources).toEqual([]);
+  });
+
+  it('leaves env unset when no auth is resolvable (SDK default of process.env)', async () => {
+    querySpy.mockReturnValue(asyncIterableFrom([
+      { type: 'result', usage: { input_tokens: 0, output_tokens: 0 } },
+    ]));
+    const p = new AnthropicProvider({ model: 'claude-haiku-4-5', resolveAuthEnv: () => ({}) });
+    await collect(p.stream(baseReq(), new AbortController().signal));
+    const arg = querySpy.mock.calls[0][0] as { options: { env?: unknown } };
+    expect(arg.options.env).toBeUndefined();
+  });
+
   it('forwards the abort signal as an AbortController to the SDK', async () => {
     const aborter = new AbortController();
     querySpy.mockReturnValue(asyncIterableFrom([

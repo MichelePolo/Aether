@@ -68,6 +68,7 @@ These are the environment variables the code actually reads:
 | `AETHER_DATA_DIR` | Directory for the SQLite database | `./data` |
 | `GEMINI_API_KEY` | Enable the Gemini provider | — |
 | `ANTHROPIC_API_KEY` | Enable Anthropic/Claude (Claude CLI OAuth is also auto-detected) | — |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Anthropic OAuth/Teams without an API key — generate via `claude setup-token`; passed explicitly to the spawned agent so dispatch authenticates under isolation | — |
 | `OPENAI_API_KEY` | Enable the OpenAI provider | — |
 | `OLLAMA_HOST` | Ollama daemon URL (models are auto-discovered) | `http://localhost:11434` |
 | `AETHER_DEFAULT_PROVIDER` | Force the default provider (e.g. `gemini:gemini-1.5-pro`) | — |

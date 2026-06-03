@@ -118,6 +118,18 @@ async function bootstrap() {
     anthropicBuilder: (model) =>
       new AnthropicProvider({
         model: model as 'claude-opus-4-7' | 'claude-sonnet-4-6' | 'claude-haiku-4-5',
+        // Hand auth to the isolated `claude` explicitly (settingSources:[] stops
+        // it from reusing the interactive login). Env-first, then KeyVault — the
+        // same precedence as KeyResolver. OAuth/Teams users provide a token via
+        // `claude setup-token` → CLAUDE_CODE_OAUTH_TOKEN.
+        resolveAuthEnv: () => {
+          const env: Record<string, string> = {};
+          const oauth = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+          if (oauth) env.CLAUDE_CODE_OAUTH_TOKEN = oauth;
+          const apiKey = resolver.get('anthropic');
+          if (apiKey) env.ANTHROPIC_API_KEY = apiKey;
+          return env;
+        },
       }),
     openAIBuilder: (model) =>
       new OpenAIProvider({
