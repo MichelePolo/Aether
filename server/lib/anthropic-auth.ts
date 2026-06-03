@@ -3,8 +3,13 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 
 type AuthMode = 'oauth' | 'apikey' | 'none';
 
-const CLI_TIMEOUT_MS = 2_000;
-const SDK_PROBE_TIMEOUT_MS = 5_000;
+// Windows è più lento al cold-start (lo shim `claude.cmd`/`.ps1` viene lanciato
+// via cmd.exe) e in ufficio la rete passa spesso da un proxy: timeout più
+// generosi evitano falsi 'none' al boot. Su altre piattaforme restano i valori
+// stretti originali.
+const isWindows = process.platform === 'win32';
+const CLI_TIMEOUT_MS = isWindows ? 8_000 : 2_000;
+const SDK_PROBE_TIMEOUT_MS = isWindows ? 12_000 : 5_000;
 
 export async function detectAnthropicAuth(): Promise<AuthMode> {
   const cliOk = await checkClaudeCli();
@@ -27,7 +32,11 @@ function checkClaudeCli(): Promise<boolean> {
       resolve(ok);
     };
 
-    const child = spawn('claude', ['--version']);
+    // Su Windows `claude` è uno shim `.cmd`/`.ps1`: Node recente rifiuta di
+    // eseguirlo senza shell, perciò spawn senza `shell:true` emetterebbe sempre
+    // 'error' → falso 'none'. Comando e args sono costanti: nessun input utente,
+    // quindi `shell:true` qui non introduce injection.
+    const child = spawn('claude', ['--version'], isWindows ? { shell: true } : undefined);
     const timer = setTimeout(() => {
       try {
         child.kill();

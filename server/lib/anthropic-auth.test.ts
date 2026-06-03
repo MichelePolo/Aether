@@ -99,6 +99,23 @@ describe('detectAnthropicAuth', () => {
     expect(result).toBe('none');
   }, 7_000);
 
+  it('spawns the claude CLI with shell:true on Windows so .cmd/.ps1 shims resolve', async () => {
+    const original = Object.getOwnPropertyDescriptor(process, 'platform');
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
+    vi.resetModules();
+    try {
+      spawnSpy.mockImplementation(() => fakeChild({ exitCode: 0 }));
+      process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+      const { detectAnthropicAuth: detectWin } = await import('./anthropic-auth');
+      const result = await detectWin();
+      expect(result).toBe('apikey');
+      expect(spawnSpy).toHaveBeenCalledWith('claude', ['--version'], { shell: true });
+    } finally {
+      if (original) Object.defineProperty(process, 'platform', original);
+      vi.resetModules();
+    }
+  });
+
   it("returns 'none' when SDK probe hangs past 5s timeout", async () => {
     spawnSpy.mockImplementation(() => fakeChild({ exitCode: 0 }));
     querySpy.mockImplementation(() => (async function* () {

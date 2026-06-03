@@ -68,6 +68,18 @@ export function createProvidersRoutes(
   // last-known report cached for merge on targeted refresh
   let lastReport: AuthStatusReport | null = null;
 
+  // Riallinea il registry quando un probe rileva Anthropic autenticato ma la
+  // lista modelli non lo contiene: succede se al boot detectAnthropicAuth() era
+  // fallito (cold-start lento / proxy) e ha registrato 0 modelli, mentre il
+  // probe successivo — più caldo — ora riesce. Senza questo, indicatore verde e
+  // chat vuota restano disallineati finché l'utente non preme "Refresh".
+  const reconcileAnthropic = async (report: AuthStatusReport): Promise<void> => {
+    const anthropic = report.statuses.find((s) => s.transport === 'anthropic');
+    if (anthropic?.state !== 'ok') return;
+    if (registry.list().some((p) => p.transport === 'anthropic')) return;
+    await registry.refresh();
+  };
+
   router.get(
     '/',
     asyncHandler(async (_req, res) => {
@@ -100,6 +112,7 @@ export function createProvidersRoutes(
       }
       const report = await authStatusService.probe();
       lastReport = report;
+      await reconcileAnthropic(report);
       res.json(report);
     }),
   );
@@ -120,6 +133,7 @@ export function createProvidersRoutes(
       const fresh = await authStatusService.probe(filter);
       const merged = mergeReport(lastReport, fresh);
       lastReport = merged;
+      await reconcileAnthropic(merged);
       res.json(merged);
     }),
   );
