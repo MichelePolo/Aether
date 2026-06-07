@@ -10,6 +10,8 @@ export const GIT_SUBCOMMANDS = new Set([
   'log', 'show', 'rev-parse', 'status', 'diff',
   // write (slice 28)
   'add', 'commit', 'checkout', 'switch', 'restore',
+  // remote (slice 29)
+  'fetch', 'push', 'pull', 'merge',
 ]);
 
 /** Fixed flags prepended to every invocation. */
@@ -39,7 +41,7 @@ function isValidCwd(cwd: string): boolean {
 export async function runGit(
   args: string[],
   cwd: string,
-  opts?: { timeoutMs?: number },
+  opts?: { timeoutMs?: number; maxTimeoutMs?: number; env?: NodeJS.ProcessEnv },
 ): Promise<GitRunResult> {
   // Allowlist check — reject BEFORE spawning.
   const subcommand = args[0];
@@ -57,12 +59,16 @@ export async function runGit(
 
   const effectiveTimeout = Math.min(
     opts?.timeoutMs ?? GIT_DEFAULTS.timeoutMs,
-    GIT_DEFAULTS.maxTimeoutMs,
+    opts?.maxTimeoutMs ?? GIT_DEFAULTS.maxTimeoutMs,
   );
   const cap = SHELL_DEFAULTS.outputCapBytes;
 
   return new Promise<GitRunResult>((resolve, reject) => {
-    const child = spawn('git', [...FIXED_FLAGS, ...args], { cwd, shell: false });
+    const child = spawn('git', [...FIXED_FLAGS, ...args], {
+      cwd,
+      shell: false,
+      env: opts?.env ? { ...process.env, ...opts.env } : process.env,
+    });
 
     let stdoutBuf = '';
     let stderrBuf = '';

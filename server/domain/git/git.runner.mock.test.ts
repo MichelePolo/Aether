@@ -73,3 +73,30 @@ describe('runGit (mocked spawn) — defensive branches', () => {
     expect(result).toEqual({ stdout: 'hello', stderr: '', code: 0 });
   });
 });
+
+describe('runGit (mocked spawn) — slice 29 opts', () => {
+  it('opts.maxTimeoutMs raises the clamp above the local 30s default', async () => {
+    vi.useFakeTimers();
+    const child = fakeChild();
+    spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+    const p = runGit(['fetch'], CWD, { timeoutMs: 60_000, maxTimeoutMs: 120_000 });
+    p.catch(() => {});
+    // At 31s the local-default clamp (30s) would already have fired; it must NOT.
+    await vi.advanceTimersByTimeAsync(31_000);
+    expect(child.kill).not.toHaveBeenCalled();
+    // It fires at the raised 60s ceiling.
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+    await expect(p).rejects.toThrow(/timed out/);
+  });
+
+  it('opts.env is merged into the spawn environment', async () => {
+    const child = fakeChild();
+    spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+    const p = runGit(['fetch'], CWD, { env: { GIT_TERMINAL_PROMPT: '0' } });
+    child.emit('exit', 0);
+    await p;
+    const passedEnv = (spawnMock.mock.calls[0][2] as { env: Record<string, string> }).env;
+    expect(passedEnv.GIT_TERMINAL_PROMPT).toBe('0');
+  });
+});

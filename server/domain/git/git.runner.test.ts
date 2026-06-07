@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { runGit, GitError } from '@/server/domain/git/git.runner';
 
+// Force deterministic English git output (the host locale may differ).
+process.env.LC_ALL = 'C';
+
 const tempDirs: string[] = [];
 
 function makeRepo(): string {
@@ -78,6 +81,32 @@ describe('runGit — write subcommand allowlist (slice 28)', () => {
     const repo = makeRepo();
     try {
       await expect(runGit(['clone', 'x'], repo)).rejects.toThrow(/unsupported git subcommand/);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('runGit — remote subcommands (slice 29)', () => {
+  it('permits merge (allowlisted) — merging HEAD is a no-op', async () => {
+    const repo = makeRepo();
+    try {
+      const r = await runGit(['merge', '--ff-only', 'HEAD'], repo);
+      expect(r.code).toBe(0);
+      expect(r.stdout + r.stderr).toMatch(/up to date/i);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it('permits fetch/push/pull as subcommands (not rejected by allowlist)', async () => {
+    const repo = makeRepo();
+    try {
+      // No remote configured, so these exit non-zero — but they must NOT throw
+      // the GIT_SUBCOMMAND allowlist error (which would reject before spawn).
+      for (const sub of ['fetch', 'push', 'pull']) {
+        await expect(runGit([sub], repo)).resolves.toBeDefined();
+      }
     } finally {
       rmSync(repo, { recursive: true, force: true });
     }
