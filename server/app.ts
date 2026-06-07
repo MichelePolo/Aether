@@ -22,6 +22,8 @@ import type { KeyVaultService } from './domain/providers/key-vault';
 import type { KeyVaultHooks } from './routes/providers.routes';
 import { createSearchRoutes } from '@/server/routes/search.routes';
 import type { SearchService } from '@/server/domain/search/search.service';
+import { createGitRoutes } from '@/server/routes/git.routes';
+import type { GitService } from '@/server/domain/git/git.service';
 import { createSessionsRoutes } from './routes/sessions.routes';
 import { createAttachmentsRoutes } from './routes/attachments.routes';
 import type { BuiltinMcpStore } from '@/server/domain/mcp/builtin/builtin.store';
@@ -45,6 +47,7 @@ export interface AppDeps {
   builtinStore?: BuiltinMcpStore;
   providers?: ProviderRegistry;
   searchService?: SearchService;
+  gitService?: GitService;
   authStatusService?: AuthStatusService;
   keyVault?: KeyVaultService;
   keyVaultHooks?: KeyVaultHooks;
@@ -129,6 +132,10 @@ export function createApp(
 
   if (deps.searchService) {
     app.use('/api/search', createSearchRoutes(deps.searchService));
+  }
+
+  if (deps.gitService) {
+    app.use('/api/git', createGitRoutes(deps.gitService));
   }
 
   if (deps.policyStore && deps.previewService) {

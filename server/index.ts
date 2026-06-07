@@ -30,6 +30,7 @@ import { AnthropicProvider } from './domain/dispatch/providers/anthropic.provide
 import { OpenAIProvider } from './domain/dispatch/providers/openai.provider';
 import { detectAnthropicAuth } from './lib/anthropic-auth';
 import { SearchService } from './domain/search/search.service';
+import { GitService } from './domain/git/git.service';
 import { AuthStatusService } from './domain/providers/auth-status';
 import { KeyVaultService } from './domain/providers/key-vault';
 import { KeyResolver } from './domain/providers/key-resolver';
@@ -70,6 +71,7 @@ async function bootstrap() {
 
   const workspacesStore = new WorkspacesStore(db);
   const filesystemBrowser = new FilesystemBrowserService();
+  const gitService = new GitService(workspacesStore);
 
   const fakeProvider = new FakeProvider({
     chunks: ['pong'],
@@ -214,6 +216,7 @@ async function bootstrap() {
     builtinStore,
     providers,
     searchService,
+    gitService,
     authStatusService,
     keyVault,
     keyVaultHooks,
