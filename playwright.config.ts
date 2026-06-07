@@ -17,7 +17,14 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  // PW_CHANNEL lets you run against a system-installed browser (e.g. 'chrome')
+  // on platforms where Playwright's bundled chromium isn't available.
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], channel: process.env.PW_CHANNEL || undefined },
+    },
+  ],
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3000',
