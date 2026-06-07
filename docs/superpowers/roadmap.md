@@ -37,13 +37,14 @@ Forward-looking slice plan. Each entry is a stub — when we pick one up, the fu
 | 25 | Multi-Agent Swarms (linear DSL, per-step approval, SSE run) | `feat/slice-25-swarms` | ✅ |
 | 26 | Test-Driven Auto-Resolution (configurable command, fixer sub-agent, SSE loop) | `feat/slice-26-tdd-loop` | ✅ |
 | 27 | Git Swimlanes (read-only history viz: deterministic per-branch colors, first-parent swimlanes, inferred PRs, on-demand diff; dedicated git domain + History view) | `feat/slice-27-git-swimlanes` | ✅ |
+| 28 | Git write actions (Tier 2): agent-initiated add/commit/checkout/restore via a builtin `aether-git` MCP, gated through the slice-22 breakpoint machinery with an in-process git diff preview | `feat/slice-28-git-write` | ✅ |
 
 ## Planned
 
-The **agentic-depth Killer Features track (slices 24–26) is fully shipped**, and the
-**first tier of Git integration (slice 27, read-only Git Swimlanes) is shipped.** Next
-candidates live in the section below — including Git integration **Tier 2/3** (write &
-remote actions), which build directly on slice 27.
+The **agentic-depth Killer Features track (slices 24–26) is fully shipped**, and Git
+integration **Tier 1 (slice 27, read-only Git Swimlanes) and Tier 2 (slice 28, write
+actions) are shipped.** Next candidate is Git integration **Tier 3** (remote: push/pull/
+fetch, fast-forward merge), plus the other candidates in the section below.
 
 ## Candidate Killer Features (hypothetical — eligible, not yet sequenced)
 
@@ -65,9 +66,12 @@ Tiers:
   **History view**. Note: the working-tree-vs-HEAD "Changes" pane (`diff`/`diff --staged`)
   was **not** part of slice 27 — slice 27 visualizes committed history; the uncommitted-
   changes pane is a follow-up.
-- **Tier 2 (write):** `add` (selective staging), `commit` (message draftable by the
-  agent from the diff), `switch`/`checkout -b` (e.g. per-session branches), `restore`
-  (discard — destructive, gated).
+- **Tier 2 (write):** ✅ **shipped as slice 28 (Git write actions).** `add` (selective
+  staging), `commit` (message draftable by the agent), `checkout`/`checkout -b`, `restore`
+  (discard). Delivered as **agent-initiated** tools on a builtin `aether-git` MCP server
+  (not UI buttons): each write is a real MCP tool call, so it flows through the existing
+  slice-22 breakpoint gate (classified dangerous → gate) with an in-process git diff
+  preview before execution. The git cwd auto-roots to the active session's workspace.
 - **Tier 3 (remote):** `push` / `pull` / `fetch`, fast-forward `merge` with conflict
   surfacing.
 - **Deferred (high risk):** interactive `rebase`, `cherry-pick`, conflict resolution,
