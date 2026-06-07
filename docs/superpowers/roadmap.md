@@ -36,11 +36,14 @@ Forward-looking slice plan. Each entry is a stub — when we pick one up, the fu
 | 24.1 | Runnable production server bundle (esbuild import.meta.url + migrations in dist, smoke CI) | `feat/slice-24.1-prod-bundle` | ✅ |
 | 25 | Multi-Agent Swarms (linear DSL, per-step approval, SSE run) | `feat/slice-25-swarms` | ✅ |
 | 26 | Test-Driven Auto-Resolution (configurable command, fixer sub-agent, SSE loop) | `feat/slice-26-tdd-loop` | ✅ |
+| 27 | Git Swimlanes (read-only history viz: deterministic per-branch colors, first-parent swimlanes, inferred PRs, on-demand diff; dedicated git domain + History view) | `feat/slice-27-git-swimlanes` | ✅ |
 
 ## Planned
 
-The **agentic-depth Killer Features track (slices 24–26) is fully shipped.** Next candidates
-live in the section below.
+The **agentic-depth Killer Features track (slices 24–26) is fully shipped**, and the
+**first tier of Git integration (slice 27, read-only Git Swimlanes) is shipped.** Next
+candidates live in the section below — including Git integration **Tier 2/3** (write &
+remote actions), which build directly on slice 27.
 
 ## Candidate Killer Features (hypothetical — eligible, not yet sequenced)
 
@@ -56,9 +59,12 @@ Discipline assumed: **trunk-based / GitHub Flow** (short-lived branches → PR �
 matching how this repo is already governed.
 
 Tiers:
-- **Tier 1 (read-only, MVP):** `status`, `diff` / `diff --staged` (feeds the existing
-  `DiffView`), `log`, current branch + branch list. Unlocks a real "Changes" pane and
-  working-tree-vs-HEAD compare.
+- **Tier 1 (read-only, MVP):** ✅ **shipped as slice 27 (Git Swimlanes).** `status`, `log`
+  (`--all` → deterministic swimlanes), per-commit per-file `diff` (`git show`, on-demand).
+  Delivered as a dedicated `server/domain/git/` (allowlisted, no-shell runner) + a dedicated
+  **History view**. Note: the working-tree-vs-HEAD "Changes" pane (`diff`/`diff --staged`)
+  was **not** part of slice 27 — slice 27 visualizes committed history; the uncommitted-
+  changes pane is a follow-up.
 - **Tier 2 (write):** `add` (selective staging), `commit` (message draftable by the
   agent from the diff), `switch`/`checkout -b` (e.g. per-session branches), `restore`
   (discard — destructive, gated).
