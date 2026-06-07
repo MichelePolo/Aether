@@ -102,6 +102,23 @@ export function ApprovalGate() {
         </div>
       )}
 
+      {preview.kind === 'commitList' && (
+        <div className="mb-3">
+          <div className="text-zinc-500 text-[10px] font-mono mb-1 uppercase tracking-wider">
+            {preview.title}
+          </div>
+          <ul className="bg-zinc-950 border border-border-subtle rounded max-h-60 overflow-auto p-2 font-mono text-[11px] text-zinc-300">
+            {preview.commits.length === 0 ? (
+              <li className="text-zinc-600">(no commits)</li>
+            ) : (
+              preview.commits.map((c, i) => (
+                <li key={i} className="truncate">{c}</li>
+              ))
+            )}
+          </ul>
+        </div>
+      )}
+
       <label className="flex items-center gap-2 text-zinc-400 text-[12px] mb-3 cursor-pointer">
         <input
           type="checkbox"
