@@ -32,8 +32,8 @@ afterAll(() => {
 describe('runGit', () => {
   it('rejects a subcommand not in the allowlist (status 400)', async () => {
     const repo = makeRepo();
-    await expect(runGit(['status'], repo)).rejects.toBeInstanceOf(GitError);
-    await expect(runGit(['status'], repo)).rejects.toMatchObject({ status: 400 });
+    await expect(runGit(['clone'], repo)).rejects.toBeInstanceOf(GitError);
+    await expect(runGit(['clone'], repo)).rejects.toMatchObject({ status: 400 });
   });
 
   it('runs log and returns stdout/code', async () => {
@@ -59,5 +59,27 @@ describe('runGit', () => {
   it('rejects an invalid cwd (status 400)', async () => {
     await expect(runGit(['log'], '/no/such/dir/xyz')).rejects.toBeInstanceOf(GitError);
     await expect(runGit(['log'], '/no/such/dir/xyz')).rejects.toMatchObject({ status: 400 });
+  });
+});
+
+describe('runGit — write subcommand allowlist (slice 28)', () => {
+  it('permits write subcommands (does not reject as unsupported)', async () => {
+    const repo = makeRepo(); // existing helper in this file
+    try {
+      // 'status' is now allowlisted: resolves instead of throwing GIT_SUBCOMMAND.
+      const r = await runGit(['status', '--porcelain=v2'], repo);
+      expect(r.code).toBe(0);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  it('still rejects a non-allowlisted subcommand', async () => {
+    const repo = makeRepo();
+    try {
+      await expect(runGit(['clone', 'x'], repo)).rejects.toThrow(/unsupported git subcommand/);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
   });
 });

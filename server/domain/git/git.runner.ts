@@ -4,8 +4,13 @@ import { AppError } from '@/server/lib/errors';
 import { SHELL_DEFAULTS } from '@/server/domain/mcp/builtin/builtin.types';
 import { GIT_DEFAULTS, type GitRunResult } from '@/server/domain/git/git.types';
 
-/** Read-only git subcommands the runner is allowed to invoke. */
-export const GIT_SUBCOMMANDS = new Set(['log', 'show', 'rev-parse']);
+/** Git subcommands the runner is allowed to invoke. */
+export const GIT_SUBCOMMANDS = new Set([
+  // read (slice 27)
+  'log', 'show', 'rev-parse', 'status', 'diff',
+  // write (slice 28)
+  'add', 'commit', 'checkout', 'switch', 'restore',
+]);
 
 /** Fixed flags prepended to every invocation. */
 const FIXED_FLAGS = ['-c', 'core.quotepath=false', '--no-pager'];
