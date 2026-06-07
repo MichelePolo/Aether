@@ -22,6 +22,7 @@ import { ProviderAuthSection } from '@/src/components/sidebar/ProviderAuthSectio
 import { ConnectionFooter } from '@/src/components/sidebar/ConnectionFooter';
 import { ChatView } from '@/src/components/chat/ChatView';
 import { ToolCallBanner } from '@/src/components/chat/ToolCallBanner';
+import { GitSwimlanesView } from '@/src/components/git/GitSwimlanesView';
 import { ReasoningDrawer } from '@/src/components/reasoning/ReasoningDrawer';
 import { ProfilesModal } from '@/src/components/profiles/ProfilesModal';
 import { KeyVaultModal } from '@/src/components/profiles/KeyVaultModal';
@@ -45,6 +46,7 @@ import { useToolCallDecisions } from '@/src/hooks/useToolCallDecisions';
 export default function App() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
+  const mainView = useUiStore((s) => s.mainView);
   const initContext = useContextStore((s) => s.init);
   const initSessions = useSessionsStore((s) => s.init);
   const initUi = useUiStore((s) => s.initFromStorage);
@@ -112,8 +114,14 @@ export default function App() {
           sidebarOpen={sidebarOpen}
           onToggleSidebar={toggleSidebar}
         />
-        <ChatView />
-        <ToolCallBanner />
+        {mainView === 'history' ? (
+          <GitSwimlanesView />
+        ) : (
+          <>
+            <ChatView />
+            <ToolCallBanner />
+          </>
+        )}
       </AppShell>
       <ReasoningDrawer />
       <ProfilesModal />

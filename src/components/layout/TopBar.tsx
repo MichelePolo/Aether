@@ -1,3 +1,4 @@
+import { GitBranch, MessageSquare } from 'lucide-react';
 import { IconButton } from '@/src/components/ui/IconButton';
 import { ProfilesButton } from '@/src/components/profiles/ProfilesButton';
 import { TokenChip } from './TokenChip';
@@ -12,6 +13,9 @@ export interface TopBarProps {
 
 export function TopBar({ title, sidebarOpen, onToggleSidebar }: TopBarProps) {
   const openPalette = useUiStore((s) => s.openPalette);
+  const mainView = useUiStore((s) => s.mainView);
+  const toggleMainView = useUiStore((s) => s.toggleMainView);
+  const historyActive = mainView === 'history';
   return (
     <header className="h-12 border-b border-border-subtle flex items-center gap-2 px-4 bg-surface-2 sticky top-0 z-10 glass">
       <IconButton
@@ -35,6 +39,18 @@ export function TopBar({ title, sidebarOpen, onToggleSidebar }: TopBarProps) {
         <kbd className="font-mono text-[9px]">⌘K</kbd>
       </button>
       <div className="ml-auto flex items-center gap-2">
+        <IconButton
+          label={historyActive ? 'Back to chat' : 'Open git history'}
+          aria-pressed={historyActive}
+          onClick={toggleMainView}
+          variant={historyActive ? 'active' : 'default'}
+        >
+          {historyActive ? (
+            <MessageSquare size={14} aria-hidden="true" />
+          ) : (
+            <GitBranch size={14} aria-hidden="true" />
+          )}
+        </IconButton>
         <ProfilesButton />
         <TokenChip />
         <WorkspaceChip />

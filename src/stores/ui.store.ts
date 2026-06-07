@@ -5,10 +5,14 @@ import type { PreviewResult } from '@/src/types/breakpoints.types';
 
 const THINKING_KEY = 'aether.thinkingEnabled';
 const SIDEBAR_KEY = 'aether.sidebarOpen';
+const MAINVIEW_KEY = 'aether.mainView';
+
+export type MainView = 'chat' | 'history';
 
 interface UiState {
   reasoningDrawerOpen: boolean;
   thinkingEnabled: boolean;
+  mainView: MainView;
   focusedMessageId: string | null;
   profilesModalOpen: boolean;
   paletteOpen: boolean;
@@ -62,6 +66,8 @@ interface UiState {
   setSearchResults: (results: SessionHits[]) => void;
   setSidebarOpen: (v: boolean) => void;
   toggleSidebar: () => void;
+  setMainView: (v: MainView) => void;
+  toggleMainView: () => void;
   initFromStorage: () => void;
   _reset: () => void;
 }
@@ -69,6 +75,7 @@ interface UiState {
 const initial = {
   reasoningDrawerOpen: false,
   thinkingEnabled: false,
+  mainView: 'chat' as MainView,
   focusedMessageId: null as string | null,
   profilesModalOpen: false,
   paletteOpen: false,
@@ -178,9 +185,36 @@ export const useUiStore = create<UiState>((set, get) => ({
     set({ sidebarOpen: next });
   },
 
+  setMainView: (v) => {
+    try {
+      localStorage.setItem(MAINVIEW_KEY, v);
+    } catch {
+      // ignore
+    }
+    set({ mainView: v });
+  },
+  toggleMainView: () => {
+    const next: MainView = get().mainView === 'history' ? 'chat' : 'history';
+    try {
+      localStorage.setItem(MAINVIEW_KEY, next);
+    } catch {
+      // ignore
+    }
+    set({ mainView: next });
+  },
+
   initFromStorage: () =>
     set({
       thinkingEnabled: readBool(THINKING_KEY, false),
       sidebarOpen: readBool(SIDEBAR_KEY, true),
+      mainView: readMainView(),
     }),
 }));
+
+function readMainView(): MainView {
+  try {
+    return localStorage.getItem(MAINVIEW_KEY) === 'history' ? 'history' : 'chat';
+  } catch {
+    return 'chat';
+  }
+}
