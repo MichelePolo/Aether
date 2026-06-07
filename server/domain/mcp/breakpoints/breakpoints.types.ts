@@ -15,6 +15,7 @@ export interface ClassifiedTool {
 
 export type PreviewResult =
   | { kind: 'diff'; oldText: string; newText: string; path: string }
+  | { kind: 'gitDiff'; unified: string; title: string }
   | { kind: 'plain' };
 
 export const DANGEROUS_NAME_PATTERNS: RegExp[] = [
