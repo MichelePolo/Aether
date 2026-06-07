@@ -150,3 +150,51 @@ describe('PreviewService — git diff (slice 28)', () => {
     expect(r.kind).toBe('plain');
   });
 });
+
+describe('PreviewService — commitList for remote (slice 29)', () => {
+  function repoWithOutgoing(): string {
+    const bare = mkdtempSync(join(tmpdir(), 'aether-pbare-'));
+    execFileSync('git', ['init', '--bare', '-q', bare], { stdio: 'pipe' });
+    const work = mkdtempSync(join(tmpdir(), 'aether-pwork-'));
+    git(work, 'init', '-q');
+    git(work, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+    writeFileSync(join(work, 'a.txt'), 'A1\n');
+    git(work, 'add', '.'); git(work, 'commit', '-q', '-m', 'first');
+    git(work, 'remote', 'add', 'origin', bare);
+    git(work, 'push', '-q', '-u', 'origin', 'main');
+    writeFileSync(join(work, 'b.txt'), 'B\n');
+    git(work, 'add', '.'); git(work, 'commit', '-q', '-m', 'outgoing commit');
+    return work; // origin/main is now 1 commit behind HEAD
+  }
+
+  it('git_push → commitList of outgoing commits', async () => {
+    const work = repoWithOutgoing();
+    try {
+      const svc = new PreviewService({ safeRoots: () => [], gitRoot: () => work });
+      const r = await svc.previewToolCall({ qualifiedName: 'Git.git_push', args: { remote: 'origin' } });
+      expect(r.kind).toBe('commitList');
+      if (r.kind === 'commitList') {
+        expect(r.commits.length).toBe(1);
+        expect(r.commits[0]).toMatch(/outgoing commit/);
+        expect(r.title).toMatch(/origin\/main/);
+      }
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
+  });
+
+  it('degrades to plain when there is no upstream', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'aether-pnoup-'));
+    git(dir, 'init', '-q');
+    git(dir, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+    writeFileSync(join(dir, 'a.txt'), 'A\n');
+    git(dir, 'add', '.'); git(dir, 'commit', '-q', '-m', 'x');
+    try {
+      const svc = new PreviewService({ safeRoots: () => [], gitRoot: () => dir });
+      const r = await svc.previewToolCall({ qualifiedName: 'Git.git_push', args: { remote: 'origin' } });
+      expect(r.kind).toBe('plain');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
