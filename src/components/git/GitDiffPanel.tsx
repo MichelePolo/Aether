@@ -5,6 +5,7 @@ import { gitApi } from '@/src/lib/api/git.api';
 import { classifyDiffLine } from '@/src/lib/git-swimlanes';
 import type { DiffRequest } from '@/src/lib/git-swimlanes';
 import { useGitStore } from '@/src/stores/git.store';
+import { t } from '@/src/i18n/t';
 
 interface GitDiffPanelProps {
   req: DiffRequest;
@@ -39,7 +40,7 @@ export function GitDiffPanel({ req, onClose }: GitDiffPanelProps) {
   useEffect(() => {
     let cancelled = false;
     if (!workspaceId) {
-      setState({ kind: 'error', message: 'No active workspace.' });
+      setState({ kind: 'error', message: t('git.diff.noWorkspace') });
       return;
     }
     setState({ kind: 'loading' });
@@ -52,7 +53,7 @@ export function GitDiffPanel({ req, onClose }: GitDiffPanelProps) {
         if (!cancelled)
           setState({
             kind: 'error',
-            message: e instanceof Error ? e.message : 'Failed to load diff',
+            message: e instanceof Error ? e.message : t('git.diff.loadFailed'),
           });
       });
     return () => {
@@ -67,7 +68,8 @@ export function GitDiffPanel({ req, onClose }: GitDiffPanelProps) {
     >
       <div
         role="dialog"
-        aria-label={`Diff for ${req.path}`}
+        aria-modal="true"
+        aria-label={t('git.diff.label', { path: req.path })}
         className="glass flex max-h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-border-default"
         onClick={(e) => e.stopPropagation()}
       >
@@ -80,7 +82,7 @@ export function GitDiffPanel({ req, onClose }: GitDiffPanelProps) {
           </span>
           <button
             type="button"
-            aria-label="Close diff"
+            aria-label={t('git.diff.close')}
             onClick={onClose}
             className="shrink-0 text-zinc-500 hover:text-white"
           >
@@ -92,7 +94,7 @@ export function GitDiffPanel({ req, onClose }: GitDiffPanelProps) {
           {state.kind === 'loading' && (
             <div className="flex items-center gap-2 p-4 text-[12px] text-zinc-500">
               <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-              Loading diff…
+              {t('git.diff.loading')}
             </div>
           )}
           {state.kind === 'error' && (

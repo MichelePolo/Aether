@@ -63,6 +63,47 @@ export const messages = {
   toast: {
     pastedImage: 'Pasted {name} attached',
   },
+  git: {
+    title: 'History',
+    loadMore: 'Load more',
+    refresh: 'Refresh history',
+    noFileChanges: 'No file changes.',
+    fileCountSingular: 'file',
+    fileCountPlural: 'files',
+    toggleCommit: 'Toggle commit {hash}',
+    viewDiff: 'View diff for {path} ({label})',
+    diffAffordance: 'diff ›',
+    prBadge: 'PR #{id}',
+    empty: {
+      noWorkspaceTitle: 'No workspace',
+      noWorkspace:
+        'This session has no workspace. Attach one to view its git history.',
+      notARepoTitle: 'Not a git repository',
+      notARepo: 'The active workspace is not a git repository.',
+      emptyRepoTitle: 'No commits',
+      emptyRepo: 'This repository has no commits yet.',
+    },
+    fileStatus: {
+      added: 'added',
+      modified: 'modified',
+      deleted: 'deleted',
+      renamed: 'renamed',
+      copied: 'copied',
+      typechange: 'typechange',
+    },
+    legend: {
+      noRef: '(no branch ref)',
+      noRefHint:
+        'commits not reachable from any branch tip (e.g. a merged & deleted branch, or beyond the loaded window)',
+    },
+    diff: {
+      label: 'Diff for {path}',
+      loading: 'Loading diff…',
+      loadFailed: 'Failed to load diff',
+      noWorkspace: 'No active workspace.',
+      close: 'Close diff',
+    },
+  },
 } as const;
 
 export type MessageMap = typeof messages;
