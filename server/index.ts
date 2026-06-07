@@ -66,7 +66,7 @@ async function bootstrap() {
       const fsRoot = builtinStore.read().find((r) => r.transport === 'filesystem')?.fsRoot;
       return [process.cwd(), ...(fsRoot ? [fsRoot] : [])];
     },
-    gitRoot: () => null,
+    gitRoot: () => builtinStore.read().find((r) => r.transport === 'git')?.fsRoot ?? null,
   });
   const breakpointService = new BreakpointService({ mcpRegistry, policyStore });
 

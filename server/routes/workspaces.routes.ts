@@ -80,17 +80,23 @@ export function createWorkspacesRoutes(deps: WorkspacesRoutesDeps): Router {
       const workspace = workspaceId ? deps.store.get(workspaceId) : undefined;
       const targetRoot = workspace?.rootPath ?? null;
 
-      const fsRow = deps.builtinStore.read().find((r) => r.transport === 'filesystem');
-      if (!fsRow || !fsRow.enabled) {
+      const rootable = deps.builtinStore
+        .read()
+        .filter((r) => (r.transport === 'filesystem' || r.transport === 'git') && r.enabled);
+      if (rootable.length === 0) {
         res.json({ rooted: null });
         return;
       }
-      if (targetRoot === null || targetRoot === fsRow.fsRoot) {
-        res.json({ rooted: targetRoot });
+      if (targetRoot === null) {
+        res.json({ rooted: null });
         return;
       }
-      deps.builtinStore.setFsRoot('filesystem', targetRoot);
-      await deps.mcpRegistry.reconnectBuiltin('filesystem');
+      for (const row of rootable) {
+        if (row.fsRoot !== targetRoot) {
+          deps.builtinStore.setFsRoot(row.transport, targetRoot);
+          await deps.mcpRegistry.reconnectBuiltin(row.transport);
+        }
+      }
       res.json({ rooted: targetRoot });
     }),
   );
