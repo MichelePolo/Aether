@@ -39,10 +39,10 @@ beforeEach(() => {
 afterEach(() => db.close());
 
 describe('builtin MCP routes', () => {
-  it('GET /api/mcp/builtin returns 2 disabled rows', async () => {
+  it('GET /api/mcp/builtin returns 3 disabled rows', async () => {
     const res = await request(app).get('/api/mcp/builtin');
     expect(res.status).toBe(200);
-    expect(res.body.builtins).toHaveLength(2);
+    expect(res.body.builtins).toHaveLength(3);
     expect(res.body.builtins.every((b: { enabled: boolean }) => !b.enabled)).toBe(true);
   });
 

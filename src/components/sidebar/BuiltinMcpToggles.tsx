@@ -8,6 +8,7 @@ const ROW_ORDER: BuiltinTransport[] = ['filesystem', 'terminal'];
 const LABEL: Record<BuiltinTransport, string> = {
   filesystem: 'Filesystem',
   terminal: 'Terminal',
+  git: 'Git',
 };
 
 const DOT_CLASS: Record<string, string> = {

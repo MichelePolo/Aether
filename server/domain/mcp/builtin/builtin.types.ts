@@ -1,4 +1,4 @@
-export type BuiltinTransport = 'filesystem' | 'terminal';
+export type BuiltinTransport = 'filesystem' | 'terminal' | 'git';
 
 export interface BuiltinMcpState {
   transport: BuiltinTransport;

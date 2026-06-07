@@ -17,8 +17,8 @@ afterEach(() => db.close());
 describe('BuiltinMcpStore', () => {
   it('read() returns 2 pre-seeded rows, both disabled', () => {
     const rows = store.read();
-    expect(rows).toHaveLength(2);
-    expect(rows.map((r) => r.transport).sort()).toEqual(['filesystem', 'terminal']);
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => r.transport).sort()).toEqual(['filesystem', 'git', 'terminal']);
     expect(rows.every((r) => r.enabled === false)).toBe(true);
     expect(rows.every((r) => r.fsRoot === null)).toBe(true);
   });
@@ -95,4 +95,23 @@ describe('BuiltinMcpStore', () => {
     const parsed = JSON.parse(line) as { result?: { serverInfo?: { name?: string } } };
     expect(parsed.result?.serverInfo?.name).toBe('aether-shell');
   }, 15_000);
+});
+
+describe('BuiltinMcpStore — git transport (slice 28)', () => {
+  it('seeds a disabled git row', () => {
+    const git = store.read().find((r) => r.transport === 'git');
+    expect(git).toBeDefined();
+    expect(git!.enabled).toBe(false);
+    expect(git!.fsRoot).toBeNull();
+  });
+
+  it('toConfigs includes a Git config when enabled, rooted at the last arg', () => {
+    store.setEnabled('git', true);
+    const configs = store.toConfigs('/tmp/work');
+    const git = configs.find((c) => c.id === 'builtin:git');
+    expect(git).toBeDefined();
+    expect(git!.name).toBe('Git');
+    const args = git!.args ?? [];
+    expect(args[args.length - 1]).toBe('/tmp/work');
+  });
 });

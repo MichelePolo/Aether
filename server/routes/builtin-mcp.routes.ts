@@ -11,7 +11,7 @@ function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => P
   };
 }
 
-const VALID_TRANSPORTS: readonly BuiltinTransport[] = ['filesystem', 'terminal'];
+const VALID_TRANSPORTS: readonly BuiltinTransport[] = ['filesystem', 'terminal', 'git'];
 
 function isValidTransport(t: string): t is BuiltinTransport {
   return (VALID_TRANSPORTS as readonly string[]).includes(t);
