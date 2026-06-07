@@ -20,9 +20,14 @@
   credential helper / token-in-remote-URL work as configured on the host. Aether stores no
   git credentials. `GIT_TERMINAL_PROMPT=0` is set on remote spawns so missing credentials
   **fail fast** instead of blocking on an interactive prompt.
-- **Remote target = name only, never a URL.** Tool args (`remote`/`branch`/`ref`) must match
-  `^[\w./-]+$`; this charset excludes `:` and thus rejects URLs (`https://…`, `git@host:…`),
-  enforcing that the agent can only target a remote that already exists in the repo config.
+- **Remote target = a configured remote name, never a URL or path.** Two layers: (1) a cheap
+  charset guard `^[\w./-]+$` rejects URLs (`https://…`, `git@host:…`, `ext::`, `fd::`) and
+  `-`-leading flags (the `:` exclusion kills the URL/transport-helper class); (2) the `remote`
+  arg is then checked for **membership in the repo's configured remotes** (`git remote`), which
+  is what actually enforces "already exists in config" — the charset alone still admits
+  filesystem paths (`/tmp/x`, `../x`), so the membership check is required to prevent
+  agent-driven push-to-arbitrary-path exfiltration. (`merge` takes a local `ref`, charset-guarded
+  only — refs legitimately contain `/`.)
 - **Merge/pull = `--ff-only`.** On divergence, git aborts cleanly (working tree untouched)
   and the tool reports the failure → escalate to human. No conflict markers, no half-merged
   state. Never `--force` on push.
@@ -62,10 +67,14 @@ function runRemote(args: string[], cwd: string): Promise<GitToolResult> {
 ```
 (`run` is the slice-28 wrapper; extend it to forward an opts arg to `runGit`.)
 
+`remote` validation is two-layer: `badRef` (charset) **then** membership in `git remote`
+(`configuredRemotes(cwd)`), so only an already-configured remote name is accepted — a
+filesystem path passes the charset but fails membership. `merge`'s `ref` is charset-only.
+
 Tools:
-- `git_fetch({ remote? })` → default `origin`; validate via `badRef`; `runRemote(['fetch', remote], cwd)`.
-- `git_push({ remote?, branch?, setUpstream? })` → default remote `origin`; if `branch` given validate it, else use `HEAD`; args `['push', ...(setUpstream ? ['-u'] : []), remote, branch ?? 'HEAD']`. Never `--force`.
-- `git_pull({ remote?, branch? })` → `['pull', '--ff-only', remote, ...(branch ? [branch] : [])]`.
+- `git_fetch({ remote? })` → default `origin`; `badRef` + configured-remote membership; `runRemote(['fetch', remote], cwd)`.
+- `git_push({ remote?, branch?, setUpstream? })` → default remote `origin` (membership-checked); if `branch` given validate it, else `HEAD`; when `setUpstream` and no `branch`, resolve the current branch (`-u HEAD` is invalid); args `['push', ...(setUpstream ? ['-u'] : []), remote, branch ?? 'HEAD']`. Never `--force`.
+- `git_pull({ remote?, branch? })` → membership-checked remote; `['pull', '--ff-only', remote, ...(branch ? [branch] : [])]`.
 - `git_merge({ ref })` → require `ref` (validate); `['merge', '--ff-only', ref]`.
 
 ### 3.3 Server — `server/mcp/builtin/aether-git.ts`
