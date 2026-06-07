@@ -47,6 +47,16 @@ function runRemote(args: string[], cwd: string): Promise<GitToolResult> {
   });
 }
 
+/** Lists the names of remotes configured in the repo (e.g. `origin`). */
+async function configuredRemotes(cwd: string): Promise<Set<string>> {
+  try {
+    const r = await runGit(['remote'], cwd);
+    return new Set(r.stdout.split('\n').map((s) => s.trim()).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
 export function gitStatus(cwd: string): Promise<GitToolResult> {
   return run(['status', '--porcelain=v2', '--branch'], cwd);
 }
@@ -95,36 +105,50 @@ export function gitRestore(args: { paths?: unknown; staged?: unknown }, cwd: str
   return run(a, cwd);
 }
 
-export function gitFetch(args: { remote?: unknown }, cwd: string): Promise<GitToolResult> {
+export async function gitFetch(args: { remote?: unknown }, cwd: string): Promise<GitToolResult> {
   const remote = args.remote ?? 'origin';
-  if (badRef(remote)) return Promise.resolve(err('invalid remote'));
+  if (badRef(remote)) return err('invalid remote');
+  const remotes = await configuredRemotes(cwd);
+  if (!remotes.has(remote as string)) return err(`unknown remote: ${String(remote)}`);
   return runRemote(['fetch', remote as string], cwd);
 }
 
-export function gitPush(
+export async function gitPush(
   args: { remote?: unknown; branch?: unknown; setUpstream?: unknown },
   cwd: string,
 ): Promise<GitToolResult> {
   const remote = args.remote ?? 'origin';
-  if (badRef(remote)) return Promise.resolve(err('invalid remote'));
+  if (badRef(remote)) return err('invalid remote');
   if (args.branch !== undefined && badRef(args.branch)) {
-    return Promise.resolve(err('invalid branch'));
+    return err('invalid branch');
   }
+  const remotes = await configuredRemotes(cwd);
+  if (!remotes.has(remote as string)) return err(`unknown remote: ${String(remote)}`);
+
+  let branch = args.branch as string | undefined;
+  if (args.setUpstream === true && branch === undefined) {
+    const cur = await runGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd);
+    branch = cur.stdout.trim();
+    if (!branch || branch === 'HEAD') return err('cannot set upstream for a detached HEAD');
+  }
+
   const a = ['push'];
   if (args.setUpstream === true) a.push('-u');
-  a.push(remote as string, (args.branch as string) ?? 'HEAD');
+  a.push(remote as string, branch ?? 'HEAD');
   return runRemote(a, cwd);
 }
 
-export function gitPull(
+export async function gitPull(
   args: { remote?: unknown; branch?: unknown },
   cwd: string,
 ): Promise<GitToolResult> {
   const remote = args.remote ?? 'origin';
-  if (badRef(remote)) return Promise.resolve(err('invalid remote'));
+  if (badRef(remote)) return err('invalid remote');
   if (args.branch !== undefined && badRef(args.branch)) {
-    return Promise.resolve(err('invalid branch'));
+    return err('invalid branch');
   }
+  const remotes = await configuredRemotes(cwd);
+  if (!remotes.has(remote as string)) return err(`unknown remote: ${String(remote)}`);
   const a = ['pull', '--ff-only', remote as string];
   if (args.branch !== undefined) a.push(args.branch as string);
   return runRemote(a, cwd);

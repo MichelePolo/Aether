@@ -11,7 +11,7 @@ export const GIT_SUBCOMMANDS = new Set([
   // write (slice 28)
   'add', 'commit', 'checkout', 'switch', 'restore',
   // remote (slice 29)
-  'fetch', 'push', 'pull', 'merge',
+  'fetch', 'push', 'pull', 'merge', 'remote',
 ]);
 
 /** Fixed flags prepended to every invocation. */

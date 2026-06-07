@@ -163,3 +163,45 @@ describe('aether-git.handler — remote (slice 29)', () => {
     expect((await gitFetch({ remote: '--upload-pack=x' }, work)).isError).toBe(true);
   });
 });
+
+describe('aether-git.handler — remote target safety (slice 29 fix)', () => {
+  let work: string;
+  let bare: string;
+  beforeEach(() => { ({ work, bare } = makeRepoWithRemote()); });
+  afterEach(() => {
+    rmSync(work, { recursive: true, force: true });
+    rmSync(bare, { recursive: true, force: true });
+  });
+
+  it('rejects an absolute filesystem path as a push remote', async () => {
+    const evil = mkdtempSync(join(tmpdir(), 'aether-evil-'));
+    execFileSync('git', ['init', '--bare', '-q', evil], { stdio: 'pipe' });
+    try {
+      const r = await gitPush({ remote: evil }, work);
+      expect(r.isError).toBe(true);
+      expect(r.content[0].text).toMatch(/unknown remote|invalid remote/i);
+      // and nothing was pushed to the evil path (empty bare repo → no commits)
+      let log = '';
+      try {
+        log = execFileSync('git', ['-C', evil, 'log', '--oneline'], { stdio: 'pipe' }).toString().trim();
+      } catch {
+        log = ''; // `git log` exits non-zero on a repo with no commits — that's the expected state
+      }
+      expect(log).toBe('');
+    } finally {
+      rmSync(evil, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects a relative path / unconfigured name as a fetch remote', async () => {
+    expect((await gitFetch({ remote: '../evil' }, work)).isError).toBe(true);
+    expect((await gitFetch({ remote: 'not-a-remote' }, work)).isError).toBe(true);
+  });
+
+  it('still allows the configured origin remote', async () => {
+    writeFileSync(join(work, 'z.txt'), 'Z\n');
+    git(work, 'add', '.'); git(work, 'commit', '-q', '-m', 'z');
+    const r = await gitPush({ remote: 'origin' }, work);
+    expect(r.isError).toBe(false);
+  });
+});
