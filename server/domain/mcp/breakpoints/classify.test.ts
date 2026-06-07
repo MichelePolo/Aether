@@ -60,3 +60,14 @@ describe('classifyTool — git tools (slice 28)', () => {
     });
   }
 });
+
+describe('classifyTool — git remote tools (slice 29)', () => {
+  for (const name of ['Git.git_push', 'Git.git_pull', 'Git.git_merge']) {
+    it(`classifies ${name} as dangerous`, () => {
+      expect(classifyTool({ qualifiedName: name, args: {} }).category).toBe('dangerous');
+    });
+  }
+  it('classifies Git.git_fetch as safe (read-only remote)', () => {
+    expect(classifyTool({ qualifiedName: 'Git.git_fetch', args: {} }).category).toBe('safe');
+  });
+});
