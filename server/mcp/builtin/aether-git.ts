@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import {
   gitStatus, gitDiff, gitAdd, gitCommit, gitCheckout, gitRestore,
+  gitFetch, gitPush, gitPull, gitMerge,
 } from './aether-git.handler';
 
 type JsonRpcRequest = {
@@ -29,6 +30,10 @@ const TOOLS = [
   { name: 'git_commit', description: 'Commit staged changes with a message.', inputSchema: { type: 'object', properties: { message: { type: 'string' } }, required: ['message'] } },
   { name: 'git_checkout', description: 'Switch to a branch; create=true makes a new branch.', inputSchema: { type: 'object', properties: { branch: { type: 'string' }, create: { type: 'boolean' } }, required: ['branch'] } },
   { name: 'git_restore', description: 'Discard changes in the given paths. staged=true unstages.', inputSchema: { type: 'object', properties: { paths: { type: 'array', items: { type: 'string' } }, staged: { type: 'boolean' } }, required: ['paths'] } },
+  { name: 'git_fetch', description: 'Fetch from a remote (default origin). Updates remote-tracking refs.', inputSchema: { type: 'object', properties: { remote: { type: 'string' } }, required: [] } },
+  { name: 'git_push', description: 'Push the current branch to a remote (default origin). Never force.', inputSchema: { type: 'object', properties: { remote: { type: 'string' }, branch: { type: 'string' }, setUpstream: { type: 'boolean' } }, required: [] } },
+  { name: 'git_pull', description: 'Pull with --ff-only from a remote (default origin). Aborts on divergence.', inputSchema: { type: 'object', properties: { remote: { type: 'string' }, branch: { type: 'string' } }, required: [] } },
+  { name: 'git_merge', description: 'Merge a ref into the current branch with --ff-only.', inputSchema: { type: 'object', properties: { ref: { type: 'string' } }, required: ['ref'] } },
 ];
 
 async function handle(req: JsonRpcRequest): Promise<JsonRpcResponse> {
@@ -59,6 +64,10 @@ async function handle(req: JsonRpcRequest): Promise<JsonRpcResponse> {
       case 'git_commit': return { ...base, result: await gitCommit(args, CWD) };
       case 'git_checkout': return { ...base, result: await gitCheckout(args, CWD) };
       case 'git_restore': return { ...base, result: await gitRestore(args, CWD) };
+      case 'git_fetch': return { ...base, result: await gitFetch(args, CWD) };
+      case 'git_push': return { ...base, result: await gitPush(args, CWD) };
+      case 'git_pull': return { ...base, result: await gitPull(args, CWD) };
+      case 'git_merge': return { ...base, result: await gitMerge(args, CWD) };
       default: return { ...base, error: { code: -32601, message: `Unknown tool: ${params.name}` } };
     }
   }
