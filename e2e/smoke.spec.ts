@@ -505,12 +505,12 @@ test('attachments: paperclip → pick file → chip → send', async ({ page }) 
   await expect(page.getByText('tiny.png').first()).not.toBeVisible({ timeout: 2000 });
 });
 
-test('builtin MCPs: 2 toggle rows visible, click Filesystem twice to toggle on/off', async ({ page }) => {
+test('builtin MCPs: 3 toggle rows visible, click Filesystem twice to toggle on/off', async ({ page }) => {
   await page.goto('/');
   await page.getByText('AETHER_CORE').waitFor();
 
   const rows = page.getByTestId('builtin-mcp-row');
-  await expect(rows).toHaveCount(2);
+  await expect(rows).toHaveCount(3);
 
   await page.getByLabel('Toggle Filesystem').click();
   await page.waitForTimeout(500);
@@ -518,7 +518,7 @@ test('builtin MCPs: 2 toggle rows visible, click Filesystem twice to toggle on/o
   await page.getByLabel('Toggle Filesystem').click();
   await page.waitForTimeout(500);
 
-  await expect(rows).toHaveCount(2);
+  await expect(rows).toHaveCount(3);
 });
 
 test('breakpoints: sidebar shows 3 rows + toggling dangerous flips its mode', async ({ page }) => {

@@ -3,7 +3,7 @@ import { useMcpStore } from '@/src/stores/mcp.store';
 import type { BuiltinTransport } from '@/src/types/mcp.types';
 import { cn } from '@/src/lib/cn';
 
-const ROW_ORDER: BuiltinTransport[] = ['filesystem', 'terminal'];
+const ROW_ORDER: BuiltinTransport[] = ['filesystem', 'terminal', 'git'];
 
 const LABEL: Record<BuiltinTransport, string> = {
   filesystem: 'Filesystem',

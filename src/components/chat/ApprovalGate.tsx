@@ -7,6 +7,7 @@ import { useChatStore } from '@/src/stores/chat.store';
 import { breakpointsApi } from '@/src/lib/api/breakpoints.api';
 import { mcpApi } from '@/src/lib/api/mcp.api';
 import { DiffView } from './DiffView';
+import { UnifiedDiff } from '@/src/components/git/UnifiedDiff';
 import { t } from '@/src/i18n/t';
 import type { ToolCategory } from '@/src/types/breakpoints.types';
 
@@ -87,6 +88,17 @@ export function ApprovalGate() {
       {preview.kind === 'diff' && (
         <div className="mb-3">
           <DiffView oldText={preview.oldText} newText={preview.newText} path={preview.path} />
+        </div>
+      )}
+
+      {preview.kind === 'gitDiff' && (
+        <div className="mb-3">
+          <div className="text-zinc-500 text-[10px] font-mono mb-1 uppercase tracking-wider">
+            {preview.title}
+          </div>
+          <div className="bg-zinc-950 border border-border-subtle rounded max-h-60 overflow-auto">
+            <UnifiedDiff unified={preview.unified} />
+          </div>
         </div>
       )}
 
