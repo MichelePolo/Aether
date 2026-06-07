@@ -1,4 +1,5 @@
 import { FolderGit2, GitBranch } from 'lucide-react';
+import { t } from '@/src/i18n/t';
 
 interface GitEmptyStateProps {
   kind: 'no-workspace' | 'not-a-repo' | 'empty-repo';
@@ -6,28 +7,29 @@ interface GitEmptyStateProps {
 
 const CONTENT: Record<
   GitEmptyStateProps['kind'],
-  { icon: typeof GitBranch; title: string; message: string }
+  { icon: typeof GitBranch; titleKey: 'git.empty.noWorkspaceTitle' | 'git.empty.notARepoTitle' | 'git.empty.emptyRepoTitle'; messageKey: 'git.empty.noWorkspace' | 'git.empty.notARepo' | 'git.empty.emptyRepo' }
 > = {
   'no-workspace': {
     icon: FolderGit2,
-    title: 'No workspace',
-    message:
-      'This session has no workspace. Attach one to view its git history.',
+    titleKey: 'git.empty.noWorkspaceTitle',
+    messageKey: 'git.empty.noWorkspace',
   },
   'not-a-repo': {
     icon: GitBranch,
-    title: 'Not a git repository',
-    message: 'The active workspace is not a git repository.',
+    titleKey: 'git.empty.notARepoTitle',
+    messageKey: 'git.empty.notARepo',
   },
   'empty-repo': {
     icon: GitBranch,
-    title: 'No commits',
-    message: 'This repository has no commits yet.',
+    titleKey: 'git.empty.emptyRepoTitle',
+    messageKey: 'git.empty.emptyRepo',
   },
 };
 
 export function GitEmptyState({ kind }: GitEmptyStateProps) {
-  const { icon: Icon, title, message } = CONTENT[kind];
+  const { icon: Icon, titleKey, messageKey } = CONTENT[kind];
+  const title = t(titleKey);
+  const message = t(messageKey);
   return (
     <div
       data-empty={kind}

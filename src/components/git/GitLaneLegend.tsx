@@ -1,13 +1,12 @@
 import { colorFor } from '@/src/lib/git-swimlanes';
 import type { LaneModel } from '@/src/lib/git-swimlanes';
+import { t } from '@/src/i18n/t';
 
 interface GitLaneLegendProps {
   model: LaneModel;
 }
 
 const NO_REF = '(no branch ref)';
-const NO_REF_HINT =
-  'commits not reachable from any branch tip (e.g. a merged & deleted branch, or beyond the loaded window)';
 
 export function GitLaneLegend({ model }: GitLaneLegendProps) {
   return (
@@ -18,7 +17,7 @@ export function GitLaneLegend({ model }: GitLaneLegendProps) {
           <span
             key={name}
             className="flex items-center gap-1.5 text-[10px] font-mono"
-            title={noRef ? NO_REF_HINT : undefined}
+            title={noRef ? t('git.legend.noRefHint') : undefined}
           >
             <span
               aria-hidden="true"

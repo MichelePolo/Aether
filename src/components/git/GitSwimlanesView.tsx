@@ -14,6 +14,7 @@ import { GitCommitRow } from './GitCommitRow';
 import { GitLaneLegend } from './GitLaneLegend';
 import { GitDiffPanel } from './GitDiffPanel';
 import { GitEmptyState } from './GitEmptyState';
+import { t } from '@/src/i18n/t';
 
 const DEFAULT_MAX = 500;
 
@@ -65,7 +66,7 @@ export function GitSwimlanesView() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-border-subtle bg-surface-2 px-3 py-2">
-        <span className="text-sm font-mono text-white">History</span>
+        <span className="text-sm font-mono text-white">{t('git.title')}</span>
         <div className="flex-1" />
         {truncated && (
           <button
@@ -73,12 +74,12 @@ export function GitSwimlanesView() {
             onClick={loadMore}
             className="rounded border border-border-subtle px-2 py-0.5 text-[11px] text-zinc-300 hover:bg-surface-3"
           >
-            Load more
+            {t('git.loadMore')}
           </button>
         )}
         <button
           type="button"
-          aria-label="Refresh history"
+          aria-label={t('git.refresh')}
           onClick={() => void refresh()}
           className="text-zinc-400 hover:text-white"
         >

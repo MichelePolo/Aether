@@ -1,5 +1,6 @@
 import { cn } from '@/src/lib/cn';
 import type { FileChange } from '@/src/lib/git-swimlanes';
+import { t } from '@/src/i18n/t';
 
 interface GitFileRowProps {
   file: FileChange;
@@ -8,12 +9,17 @@ interface GitFileRowProps {
 
 function describe(file: FileChange): { label: string; color: string } {
   const code = file.code;
-  if (code === 'A') return { label: 'added', color: '#5fc77f' };
-  if (code === 'M') return { label: 'modified', color: '#e8b04b' };
-  if (code === 'D') return { label: 'deleted', color: '#e06c75' };
-  if (code[0] === 'R') return { label: 'renamed', color: '#b48ead' };
-  if (code[0] === 'C') return { label: 'copied', color: '#56b6c2' };
-  if (code === 'T') return { label: 'typechange', color: '#8a96a8' };
+  if (code === 'A') return { label: t('git.fileStatus.added'), color: '#5fc77f' };
+  if (code === 'M')
+    return { label: t('git.fileStatus.modified'), color: '#e8b04b' };
+  if (code === 'D')
+    return { label: t('git.fileStatus.deleted'), color: '#e06c75' };
+  if (code[0] === 'R')
+    return { label: t('git.fileStatus.renamed'), color: '#b48ead' };
+  if (code[0] === 'C')
+    return { label: t('git.fileStatus.copied'), color: '#56b6c2' };
+  if (code === 'T')
+    return { label: t('git.fileStatus.typechange'), color: '#8a96a8' };
   return { label: code, color: '#8a96a8' };
 }
 
@@ -25,7 +31,7 @@ export function GitFileRow({ file, onSelect }: GitFileRowProps) {
     <button
       type="button"
       data-path={file.path}
-      aria-label={`View diff for ${file.path} (${label})`}
+      aria-label={t('git.viewDiff', { path: file.path, label })}
       onClick={(e) => {
         e.stopPropagation();
         onSelect();
@@ -55,7 +61,7 @@ export function GitFileRow({ file, onSelect }: GitFileRowProps) {
         )}
       </span>
       <span className="shrink-0 text-zinc-500 opacity-0 group-hover:opacity-100">
-        diff ›
+        {t('git.diffAffordance')}
       </span>
     </button>
   );

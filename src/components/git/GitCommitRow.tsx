@@ -3,6 +3,7 @@ import { cn } from '@/src/lib/cn';
 import { colorFor, detectPR, LAYOUT, panelHeight } from '@/src/lib/git-swimlanes';
 import type { CommitNode, FileChange } from '@/src/lib/git-swimlanes';
 import { GitFileRow } from './GitFileRow';
+import { t } from '@/src/i18n/t';
 
 interface GitCommitRowProps {
   commit: CommitNode;
@@ -21,19 +22,13 @@ export function GitCommitRow({
 
   return (
     <div data-hash={commit.hash} className="border-b border-border-subtle/50">
-      <div
-        role="button"
-        tabIndex={0}
+      <button
+        type="button"
         aria-expanded={expanded}
+        aria-label={t('git.toggleCommit', { hash: commit.hash.slice(0, 7) })}
         onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onToggle();
-          }
-        }}
         className={cn(
-          'crow flex cursor-pointer select-none items-center gap-2 px-2',
+          'crow flex w-full cursor-pointer select-none items-center gap-2 px-2 text-left',
           'text-[12px] font-mono hover:bg-surface-3',
         )}
         style={{ height: LAYOUT.rowH, minHeight: LAYOUT.rowH }}
@@ -46,7 +41,7 @@ export function GitCommitRow({
 
         {pr && (
           <span className="shrink-0 rounded bg-disclosure/10 px-1 py-px text-[10px] text-disclosure">
-            PR #{pr.id}
+            {t('git.prBadge', { id: pr.id })}
           </span>
         )}
 
@@ -74,13 +69,16 @@ export function GitCommitRow({
         </span>
 
         <span className="shrink-0 text-[10px] text-zinc-500">
-          {commit.files.length} {commit.files.length === 1 ? 'file' : 'files'}
+          {commit.files.length}{' '}
+          {commit.files.length === 1
+            ? t('git.fileCountSingular')
+            : t('git.fileCountPlural')}
         </span>
 
         <span className="shrink-0 max-w-[120px] truncate text-zinc-500">
           {commit.author}
         </span>
-      </div>
+      </button>
 
       {expanded && (
         <div
@@ -88,7 +86,9 @@ export function GitCommitRow({
           style={{ maxHeight: panelHeight(commit) }}
         >
           {commit.files.length === 0 ? (
-            <div className="px-2 text-[11px] text-zinc-500">No file changes.</div>
+            <div className="px-2 text-[11px] text-zinc-500">
+              {t('git.noFileChanges')}
+            </div>
           ) : (
             commit.files.map((f, i) => (
               <GitFileRow
