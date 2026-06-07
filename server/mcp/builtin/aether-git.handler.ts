@@ -1,4 +1,5 @@
 import { runGit } from '@/server/domain/git/git.runner';
+import { GIT_REMOTE_DEFAULTS } from '@/server/domain/git/git.types';
 
 export interface GitToolResult {
   isError: boolean;
@@ -18,13 +19,32 @@ function badPath(p: unknown): boolean {
   return typeof p !== 'string' || p.length === 0 || p.startsWith('-');
 }
 
-async function run(args: string[], cwd: string): Promise<GitToolResult> {
+/** Validates a remote/branch/ref name. The charset excludes ':' so URLs are rejected. */
+function badRef(s: unknown): boolean {
+  return typeof s !== 'string' || s.length === 0 || !/^[\w./-]+$/.test(s);
+}
+
+const REMOTE_ENV: NodeJS.ProcessEnv = { GIT_TERMINAL_PROMPT: '0' };
+
+async function run(
+  args: string[],
+  cwd: string,
+  opts?: { timeoutMs?: number; maxTimeoutMs?: number; env?: NodeJS.ProcessEnv },
+): Promise<GitToolResult> {
   try {
-    const r = await runGit(args, cwd);
+    const r = await runGit(args, cwd, opts);
     return ok(r.stdout, r.stderr, r.code);
   } catch (e) {
     return err(e instanceof Error ? e.message : 'git failed');
   }
+}
+
+function runRemote(args: string[], cwd: string): Promise<GitToolResult> {
+  return run(args, cwd, {
+    timeoutMs: GIT_REMOTE_DEFAULTS.timeoutMs,
+    maxTimeoutMs: GIT_REMOTE_DEFAULTS.maxTimeoutMs,
+    env: REMOTE_ENV,
+  });
 }
 
 export function gitStatus(cwd: string): Promise<GitToolResult> {
@@ -73,4 +93,44 @@ export function gitRestore(args: { paths?: unknown; staged?: unknown }, cwd: str
   if (args.staged === true) a.push('--staged');
   a.push('--', ...(paths as string[]));
   return run(a, cwd);
+}
+
+export function gitFetch(args: { remote?: unknown }, cwd: string): Promise<GitToolResult> {
+  const remote = args.remote ?? 'origin';
+  if (badRef(remote)) return Promise.resolve(err('invalid remote'));
+  return runRemote(['fetch', remote as string], cwd);
+}
+
+export function gitPush(
+  args: { remote?: unknown; branch?: unknown; setUpstream?: unknown },
+  cwd: string,
+): Promise<GitToolResult> {
+  const remote = args.remote ?? 'origin';
+  if (badRef(remote)) return Promise.resolve(err('invalid remote'));
+  if (args.branch !== undefined && badRef(args.branch)) {
+    return Promise.resolve(err('invalid branch'));
+  }
+  const a = ['push'];
+  if (args.setUpstream === true) a.push('-u');
+  a.push(remote as string, (args.branch as string) ?? 'HEAD');
+  return runRemote(a, cwd);
+}
+
+export function gitPull(
+  args: { remote?: unknown; branch?: unknown },
+  cwd: string,
+): Promise<GitToolResult> {
+  const remote = args.remote ?? 'origin';
+  if (badRef(remote)) return Promise.resolve(err('invalid remote'));
+  if (args.branch !== undefined && badRef(args.branch)) {
+    return Promise.resolve(err('invalid branch'));
+  }
+  const a = ['pull', '--ff-only', remote as string];
+  if (args.branch !== undefined) a.push(args.branch as string);
+  return runRemote(a, cwd);
+}
+
+export function gitMerge(args: { ref?: unknown }, cwd: string): Promise<GitToolResult> {
+  if (badRef(args.ref)) return Promise.resolve(err('ref (string) required'));
+  return runRemote(['merge', '--ff-only', args.ref as string], cwd);
 }

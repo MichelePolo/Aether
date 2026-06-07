@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   gitStatus, gitDiff, gitAdd, gitCommit, gitCheckout, gitRestore,
+  gitFetch, gitPush, gitPull, gitMerge,
 } from './aether-git.handler';
 
 // Force English git output so message assertions are locale-independent.
@@ -72,5 +73,93 @@ describe('aether-git.handler', () => {
   it('rejects empty paths and path starting with dash', async () => {
     expect((await gitAdd({ paths: [] }, repo)).isError).toBe(true);
     expect((await gitAdd({ paths: ['-rf'] }, repo)).isError).toBe(true);
+  });
+});
+
+function makeRepoWithRemote(): { work: string; bare: string } {
+  const bare = mkdtempSync(join(tmpdir(), 'aether-bare-'));
+  execFileSync('git', ['init', '--bare', '-q', bare], { stdio: 'pipe' });
+  // Align the bare's default branch with the work repo's 'main' so that a
+  // ref-less `git log` on the bare resolves correctly (host default may be master).
+  execFileSync('git', ['-C', bare, 'symbolic-ref', 'HEAD', 'refs/heads/main'], { stdio: 'pipe' });
+  const work = mkdtempSync(join(tmpdir(), 'aether-work-'));
+  git(work, 'init', '-q');
+  git(work, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+  writeFileSync(join(work, 'a.txt'), 'A1\n');
+  git(work, 'add', '.');
+  git(work, 'commit', '-q', '-m', 'first');
+  git(work, 'remote', 'add', 'origin', bare);
+  git(work, 'push', '-q', '-u', 'origin', 'main');
+  return { work, bare };
+}
+
+// Advance the bare remote's main by one commit, via a throwaway clone.
+function advanceRemote(bare: string): void {
+  const tmp = mkdtempSync(join(tmpdir(), 'aether-adv-'));
+  execFileSync('git', ['clone', '-q', bare, tmp], { stdio: 'pipe' });
+  writeFileSync(join(tmp, 'remote.txt'), 'R\n');
+  git(tmp, 'add', '.');
+  git(tmp, 'commit', '-q', '-m', 'remote commit');
+  git(tmp, 'push', '-q', 'origin', 'HEAD:main');
+  rmSync(tmp, { recursive: true, force: true });
+}
+
+describe('aether-git.handler — remote (slice 29)', () => {
+  let work: string;
+  let bare: string;
+  beforeEach(() => { ({ work, bare } = makeRepoWithRemote()); });
+  afterEach(() => {
+    rmSync(work, { recursive: true, force: true });
+    rmSync(bare, { recursive: true, force: true });
+  });
+
+  it('git_push sends a new local commit to the bare remote', async () => {
+    writeFileSync(join(work, 'b.txt'), 'B\n');
+    git(work, 'add', '.');
+    git(work, 'commit', '-q', '-m', 'second');
+    const r = await gitPush({ remote: 'origin' }, work);
+    expect(r.isError).toBe(false);
+    const remoteLog = execFileSync('git', ['-C', bare, 'log', '--oneline'], { stdio: 'pipe' }).toString();
+    expect(remoteLog).toMatch(/second/);
+  });
+
+  it('git_fetch updates the remote-tracking ref without error', async () => {
+    advanceRemote(bare);
+    const r = await gitFetch({ remote: 'origin' }, work);
+    expect(r.isError).toBe(false);
+    // origin/main is now resolvable and ahead of local main.
+    expect(() => execFileSync('git', ['-C', work, 'rev-parse', 'origin/main'], { stdio: 'pipe' })).not.toThrow();
+  });
+
+  it('git_pull --ff-only fast-forwards when the remote is ahead', async () => {
+    advanceRemote(bare);
+    const r = await gitPull({ remote: 'origin', branch: 'main' }, work);
+    expect(r.isError).toBe(false);
+    expect(execFileSync('git', ['-C', work, 'log', '--oneline'], { stdio: 'pipe' }).toString()).toMatch(/remote commit/);
+  });
+
+  it('git_pull --ff-only fails (isError) on a diverged branch', async () => {
+    advanceRemote(bare);                 // remote has a new commit
+    writeFileSync(join(work, 'c.txt'), 'C\n');
+    git(work, 'add', '.');
+    git(work, 'commit', '-q', '-m', 'local commit'); // local also diverged
+    const r = await gitPull({ remote: 'origin', branch: 'main' }, work);
+    expect(r.isError).toBe(true);
+  });
+
+  it('git_merge --ff-only fast-forwards an ahead branch', async () => {
+    git(work, 'checkout', '-q', '-b', 'feature');
+    writeFileSync(join(work, 'f.txt'), 'F\n');
+    git(work, 'add', '.');
+    git(work, 'commit', '-q', '-m', 'feature commit');
+    git(work, 'checkout', '-q', 'main');
+    const r = await gitMerge({ ref: 'feature' }, work);
+    expect(r.isError).toBe(false);
+    expect(execFileSync('git', ['-C', work, 'log', '--oneline'], { stdio: 'pipe' }).toString()).toMatch(/feature commit/);
+  });
+
+  it('rejects a remote that is a URL or starts with dash', async () => {
+    expect((await gitFetch({ remote: 'https://evil.example/x' }, work)).isError).toBe(true);
+    expect((await gitFetch({ remote: '--upload-pack=x' }, work)).isError).toBe(true);
   });
 });
