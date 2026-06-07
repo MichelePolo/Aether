@@ -270,6 +270,48 @@ describe('useUiStore.approvalGateState', () => {
   });
 });
 
+describe('useUiStore.mainView', () => {
+  it('defaults to chat', () => {
+    expect(useUiStore.getState().mainView).toBe('chat');
+  });
+
+  it('setMainView updates and persists', () => {
+    useUiStore.getState().setMainView('history');
+    expect(useUiStore.getState().mainView).toBe('history');
+    expect(localStorage.getItem('aether.mainView')).toBe('history');
+    useUiStore.getState().setMainView('chat');
+    expect(localStorage.getItem('aether.mainView')).toBe('chat');
+  });
+
+  it('toggleMainView flips between chat and history and persists', () => {
+    useUiStore.getState().toggleMainView();
+    expect(useUiStore.getState().mainView).toBe('history');
+    expect(localStorage.getItem('aether.mainView')).toBe('history');
+    useUiStore.getState().toggleMainView();
+    expect(useUiStore.getState().mainView).toBe('chat');
+  });
+
+  it('initFromStorage hydrates history; falls back to chat on missing/garbage', () => {
+    localStorage.setItem('aether.mainView', 'history');
+    useUiStore.getState().initFromStorage();
+    expect(useUiStore.getState().mainView).toBe('history');
+
+    localStorage.setItem('aether.mainView', 'garbage');
+    useUiStore.getState().initFromStorage();
+    expect(useUiStore.getState().mainView).toBe('chat');
+
+    localStorage.removeItem('aether.mainView');
+    useUiStore.getState().initFromStorage();
+    expect(useUiStore.getState().mainView).toBe('chat');
+  });
+
+  it('_reset returns mainView to chat', () => {
+    useUiStore.getState().setMainView('history');
+    useUiStore.getState()._reset();
+    expect(useUiStore.getState().mainView).toBe('chat');
+  });
+});
+
 describe('useUiStore.workspaceBrowserOpen', () => {
   it('opens and closes', () => {
     useUiStore.getState().openWorkspaceBrowser();
