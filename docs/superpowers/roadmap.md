@@ -38,13 +38,16 @@ Forward-looking slice plan. Each entry is a stub — when we pick one up, the fu
 | 26 | Test-Driven Auto-Resolution (configurable command, fixer sub-agent, SSE loop) | `feat/slice-26-tdd-loop` | ✅ |
 | 27 | Git Swimlanes (read-only history viz: deterministic per-branch colors, first-parent swimlanes, inferred PRs, on-demand diff; dedicated git domain + History view) | `feat/slice-27-git-swimlanes` | ✅ |
 | 28 | Git write actions (Tier 2): agent-initiated add/commit/checkout/restore via a builtin `aether-git` MCP, gated through the slice-22 breakpoint machinery with an in-process git diff preview | `feat/slice-28-git-write` | ✅ |
+| 29 | Git remote actions (Tier 3): agent-initiated fetch/push/pull(ff-only)/merge(ff-only) on the `aether-git` MCP; ambient host auth (GIT_TERMINAL_PROMPT=0), configured-remote-only targets, commitList gate preview | `feat/slice-29-git-remote` | ✅ |
 
 ## Planned
 
-The **agentic-depth Killer Features track (slices 24–26) is fully shipped**, and Git
-integration **Tier 1 (slice 27, read-only Git Swimlanes) and Tier 2 (slice 28, write
-actions) are shipped.** Next candidate is Git integration **Tier 3** (remote: push/pull/
-fetch, fast-forward merge), plus the other candidates in the section below.
+The **agentic-depth Killer Features track (slices 24–26) is fully shipped**, and **all three
+tiers of Git integration are shipped**: Tier 1 (slice 27, read-only Git Swimlanes), Tier 2
+(slice 28, write actions), and Tier 3 (slice 29, remote actions). What remains of Git
+integration is only the high-risk **Deferred** bucket (interactive rebase, cherry-pick,
+conflict resolution, reset --hard, history rewrite → escalate to human). Other candidates
+live in the section below.
 
 ## Candidate Killer Features (hypothetical — eligible, not yet sequenced)
 
@@ -72,8 +75,13 @@ Tiers:
   (not UI buttons): each write is a real MCP tool call, so it flows through the existing
   slice-22 breakpoint gate (classified dangerous → gate) with an in-process git diff
   preview before execution. The git cwd auto-roots to the active session's workspace.
-- **Tier 3 (remote):** `push` / `pull` / `fetch`, fast-forward `merge` with conflict
-  surfacing.
+- **Tier 3 (remote):** ✅ **shipped as slice 29 (Git remote actions).** `fetch`, `push`,
+  `pull --ff-only`, `merge --ff-only` — agent-initiated tools on the `aether-git` MCP.
+  `push`/`pull`/`merge` gate (dangerous) with a **commitList** preview (outgoing/incoming
+  commits); `fetch` is safe→auto. Auth is **ambient** (host git credentials, `GIT_TERMINAL_
+  PROMPT=0` fail-fast; Aether stores none); targets are **configured-remote names only**
+  (charset + `git remote` membership → no URLs, no filesystem paths). `--ff-only` aborts
+  cleanly on divergence → escalate to human; never `--force`.
 - **Deferred (high risk):** interactive `rebase`, `cherry-pick`, conflict resolution,
   `reset --hard`, history rewrite → escalate to the human.
 
