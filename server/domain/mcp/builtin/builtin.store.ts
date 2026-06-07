@@ -45,6 +45,19 @@ function resolveAetherShellArgs(): string[] {
   }
 }
 
+function resolveAetherGitArgs(): string[] {
+  // Mirrors resolveAetherShellArgs for the aether-git MCP entry.
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const srcEntry = path.resolve(here, '../../../mcp/builtin/aether-git.ts');
+  const distEntry = path.resolve(process.cwd(), 'dist/server/mcp/builtin/aether-git.js');
+  try {
+    require.resolve(distEntry);
+    return [distEntry];
+  } catch {
+    return ['--import', 'tsx', srcEntry];
+  }
+}
+
 export class BuiltinMcpStore {
   constructor(private readonly db: DatabaseHandle) {}
 
@@ -81,6 +94,17 @@ export class BuiltinMcpStore {
           transport: 'stdio',
           command: process.execPath,
           args: [resolveFilesystemServerEntry(), r.fsRoot ?? defaultCwd],
+          env: {},
+          status: 'offline',
+        } as McpServerConfig;
+      }
+      if (r.transport === 'git') {
+        return {
+          id: 'builtin:git',
+          name: 'Git',
+          transport: 'stdio',
+          command: process.execPath,
+          args: [...resolveAetherGitArgs(), r.fsRoot ?? defaultCwd],
           env: {},
           status: 'offline',
         } as McpServerConfig;
