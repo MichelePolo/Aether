@@ -92,7 +92,7 @@ describe('contextApi', () => {
   it('bulkOverwrite PUTs whole context and returns new state', async () => {
     const incoming = {
       systemInstruction: 'New',
-      skills: ['s'],
+      skills: [{ name: 's', enabled: true }],
       tools: [],
       mcpServers: [],
     };
@@ -124,6 +124,16 @@ describe('contextApi', () => {
       ),
     );
     await expect(contextApi.removeSkillAt(3)).resolves.toBeUndefined();
+  });
+
+  it('setSkillEnabledAt PATCHes the enabled sub-route', async () => {
+    server.use(
+      http.patch(
+        'http://localhost/api/context/skills/2/enabled',
+        () => new HttpResponse(null, { status: 204 }),
+      ),
+    );
+    await expect(contextApi.setSkillEnabledAt(2, false)).resolves.toBeUndefined();
   });
 
   it('updateTool PATCHes and resolves on 204', async () => {

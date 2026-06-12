@@ -9,7 +9,7 @@ export type {
 
 export type { LiveTool } from '@/server/domain/mcp/registry';
 
-export type BuiltinTransport = 'filesystem' | 'terminal';
+export type BuiltinTransport = 'filesystem' | 'terminal' | 'git';
 
 export interface BuiltinMcpState {
   transport: BuiltinTransport;

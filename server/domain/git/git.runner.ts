@@ -4,8 +4,15 @@ import { AppError } from '@/server/lib/errors';
 import { SHELL_DEFAULTS } from '@/server/domain/mcp/builtin/builtin.types';
 import { GIT_DEFAULTS, type GitRunResult } from '@/server/domain/git/git.types';
 
-/** Read-only git subcommands the runner is allowed to invoke. */
-export const GIT_SUBCOMMANDS = new Set(['log', 'show', 'rev-parse']);
+/** Git subcommands the runner is allowed to invoke. */
+export const GIT_SUBCOMMANDS = new Set([
+  // read (slice 27)
+  'log', 'show', 'rev-parse', 'status', 'diff',
+  // write (slice 28)
+  'add', 'commit', 'checkout', 'switch', 'restore',
+  // remote (slice 29)
+  'fetch', 'push', 'pull', 'merge', 'remote',
+]);
 
 /** Fixed flags prepended to every invocation. */
 const FIXED_FLAGS = ['-c', 'core.quotepath=false', '--no-pager'];
@@ -34,7 +41,7 @@ function isValidCwd(cwd: string): boolean {
 export async function runGit(
   args: string[],
   cwd: string,
-  opts?: { timeoutMs?: number },
+  opts?: { timeoutMs?: number; maxTimeoutMs?: number; env?: NodeJS.ProcessEnv },
 ): Promise<GitRunResult> {
   // Allowlist check — reject BEFORE spawning.
   const subcommand = args[0];
@@ -52,12 +59,16 @@ export async function runGit(
 
   const effectiveTimeout = Math.min(
     opts?.timeoutMs ?? GIT_DEFAULTS.timeoutMs,
-    GIT_DEFAULTS.maxTimeoutMs,
+    opts?.maxTimeoutMs ?? GIT_DEFAULTS.maxTimeoutMs,
   );
   const cap = SHELL_DEFAULTS.outputCapBytes;
 
   return new Promise<GitRunResult>((resolve, reject) => {
-    const child = spawn('git', [...FIXED_FLAGS, ...args], { cwd, shell: false });
+    const child = spawn('git', [...FIXED_FLAGS, ...args], {
+      cwd,
+      shell: false,
+      env: opts?.env ? { ...process.env, ...opts.env } : process.env,
+    });
 
     let stdoutBuf = '';
     let stderrBuf = '';

@@ -46,6 +46,9 @@ export const contextApi = {
   removeSkillAt: (index: number) =>
     fetch(`${BASE}/skills/${index}`, { method: 'DELETE' }).then(noContent),
 
+  setSkillEnabledAt: (index: number, enabled: boolean) =>
+    fetch(`${BASE}/skills/${index}/enabled`, json('PATCH', { enabled })).then(noContent),
+
   addTool: (input: Omit<Tool, 'id'>) =>
     fetch(`${BASE}/tools`, json('POST', input)).then((r) => asJson<Tool>(r)),
 

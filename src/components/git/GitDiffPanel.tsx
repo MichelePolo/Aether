@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
-import { cn } from '@/src/lib/cn';
 import { gitApi } from '@/src/lib/api/git.api';
-import { classifyDiffLine } from '@/src/lib/git-swimlanes';
 import type { DiffRequest } from '@/src/lib/git-swimlanes';
 import { useGitStore } from '@/src/stores/git.store';
 import { t } from '@/src/i18n/t';
+import { UnifiedDiff } from './UnifiedDiff';
 
 interface GitDiffPanelProps {
   req: DiffRequest;
@@ -16,14 +15,6 @@ type State =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
   | { kind: 'ready'; unified: string };
-
-const LINE_CLASS: Record<ReturnType<typeof classifyDiffLine>, string> = {
-  add: 'text-status-online bg-status-online/10',
-  del: 'text-status-error bg-status-error/10',
-  hunk: 'text-sky-400 bg-sky-500/10',
-  meta: 'text-zinc-500',
-  ctx: 'text-zinc-400',
-};
 
 export function GitDiffPanel({ req, onClose }: GitDiffPanelProps) {
   const workspaceId = useGitStore((s) => s.activeWorkspaceId);
@@ -102,22 +93,7 @@ export function GitDiffPanel({ req, onClose }: GitDiffPanelProps) {
               {state.message}
             </div>
           )}
-          {state.kind === 'ready' && (
-            <pre className="overflow-auto whitespace-pre p-0 font-mono text-[11px]">
-              {state.unified.split('\n').map((line, i) => {
-                const kind = classifyDiffLine(line);
-                return (
-                  <div
-                    key={i}
-                    data-diff={kind}
-                    className={cn('px-3', LINE_CLASS[kind])}
-                  >
-                    {line || ' '}
-                  </div>
-                );
-              })}
-            </pre>
-          )}
+          {state.kind === 'ready' && <UnifiedDiff unified={state.unified} />}
         </div>
       </div>
     </div>

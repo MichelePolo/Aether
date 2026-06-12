@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/src/test/msw-server';
 import { useContextStore } from './context.store';
+import { contextApi } from '@/src/lib/api/context.api';
 
 const fixture = {
   systemInstruction: 'You are X',
-  skills: ['s1', 's2'],
+  skills: [{ name: 's1', enabled: true }, { name: 's2', enabled: true }],
   tools: [],
   mcpServers: [],
 };
@@ -42,7 +43,11 @@ describe('useContextStore', () => {
     );
     await useContextStore.getState().init();
     await useContextStore.getState().addSkill('s3');
-    expect(useContextStore.getState().context?.skills).toEqual(['s1', 's2', 's3']);
+    expect(useContextStore.getState().context?.skills).toEqual([
+      { name: 's1', enabled: true },
+      { name: 's2', enabled: true },
+      { name: 's3', enabled: true },
+    ]);
   });
 
   it('addSkill rolls back on error', async () => {
@@ -54,7 +59,10 @@ describe('useContextStore', () => {
     );
     await useContextStore.getState().init();
     await expect(useContextStore.getState().addSkill('s3')).rejects.toThrow();
-    expect(useContextStore.getState().context?.skills).toEqual(['s1', 's2']);
+    expect(useContextStore.getState().context?.skills).toEqual([
+      { name: 's1', enabled: true },
+      { name: 's2', enabled: true },
+    ]);
     expect(useContextStore.getState().error).toMatch(/bad/);
   });
 
@@ -68,7 +76,7 @@ describe('useContextStore', () => {
     );
     await useContextStore.getState().init();
     await useContextStore.getState().removeSkillAt(0);
-    expect(useContextStore.getState().context?.skills).toEqual(['s2']);
+    expect(useContextStore.getState().context?.skills).toEqual([{ name: 's2', enabled: true }]);
   });
 
   it('addTool adds with returned id', async () => {
@@ -153,7 +161,10 @@ describe('useContextStore', () => {
     );
     await useContextStore.getState().init();
     await expect(useContextStore.getState().updateSkillAt(0, 'sx')).rejects.toThrow();
-    expect(useContextStore.getState().context?.skills).toEqual(['s1', 's2']);
+    expect(useContextStore.getState().context?.skills).toEqual([
+      { name: 's1', enabled: true },
+      { name: 's2', enabled: true },
+    ]);
     expect(useContextStore.getState().error).toMatch(/nope/);
   });
 
@@ -166,7 +177,10 @@ describe('useContextStore', () => {
     );
     await useContextStore.getState().init();
     await expect(useContextStore.getState().removeSkillAt(0)).rejects.toThrow();
-    expect(useContextStore.getState().context?.skills).toEqual(['s1', 's2']);
+    expect(useContextStore.getState().context?.skills).toEqual([
+      { name: 's1', enabled: true },
+      { name: 's2', enabled: true },
+    ]);
     expect(useContextStore.getState().error).toMatch(/gone/);
   });
 
@@ -282,7 +296,7 @@ describe('useContextStore', () => {
       http.get('http://localhost/api/context', () =>
         HttpResponse.json({
           systemInstruction: 'hydrated sys',
-          skills: ['skillA'],
+          skills: [{ name: 'skillA', enabled: true }],
           tools: [],
           mcpServers: [],
         }),
@@ -317,5 +331,16 @@ describe('useContextStore', () => {
     const next = { systemInstruction: 'x', skills: [], tools: [], mcpServers: [] };
     await expect(useContextStore.getState().bulkOverwrite(next)).rejects.toThrow(/bad/);
     expect(useContextStore.getState().error).toBeTruthy();
+  });
+
+  it('toggleSkillAt optimistically flips enabled and rolls back on error', async () => {
+    const spy = vi.spyOn(contextApi, 'setSkillEnabledAt').mockRejectedValueOnce(new Error('boom'));
+    useContextStore.setState({
+      context: { systemInstruction: '', skills: [{ name: 'a', enabled: true }], tools: [], mcpServers: [] },
+      error: null,
+    });
+    await expect(useContextStore.getState().toggleSkillAt(0)).rejects.toThrow();
+    expect(useContextStore.getState().context?.skills[0]).toEqual({ name: 'a', enabled: true });
+    spy.mockRestore();
   });
 });

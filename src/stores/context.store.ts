@@ -11,6 +11,7 @@ interface ContextState {
   setSystemInstruction: (v: string) => Promise<void>;
   addSkill: (name: string) => Promise<void>;
   updateSkillAt: (i: number, v: string) => Promise<void>;
+  toggleSkillAt: (i: number) => Promise<void>;
   removeSkillAt: (i: number) => Promise<void>;
   addTool: (input: Omit<Tool, 'id'>) => Promise<void>;
   updateTool: (id: string, patch: Partial<Omit<Tool, 'id'>>) => Promise<void>;
@@ -59,7 +60,7 @@ export const useContextStore = create<ContextState>((set, get) => ({
   addSkill: async (name) => {
     const prev = get().context;
     if (!prev) return;
-    set({ context: { ...prev, skills: [...prev.skills, name] } });
+    set({ context: { ...prev, skills: [...prev.skills, { name, enabled: true }] } });
     try {
       await contextApi.addSkill(name);
     } catch (e) {
@@ -72,10 +73,27 @@ export const useContextStore = create<ContextState>((set, get) => ({
     const prev = get().context;
     if (!prev) return;
     const next = [...prev.skills];
-    next[i] = v;
+    next[i] = { ...next[i], name: v };
     set({ context: { ...prev, skills: next } });
     try {
       await contextApi.updateSkillAt(i, v);
+    } catch (e) {
+      set({ context: prev, error: errMsg(e) });
+      throw e;
+    }
+  },
+
+  toggleSkillAt: async (i) => {
+    const prev = get().context;
+    if (!prev) return;
+    const current = prev.skills[i];
+    if (!current) return;
+    const nextEnabled = !current.enabled;
+    const next = [...prev.skills];
+    next[i] = { ...current, enabled: nextEnabled };
+    set({ context: { ...prev, skills: next } });
+    try {
+      await contextApi.setSkillEnabledAt(i, nextEnabled);
     } catch (e) {
       set({ context: prev, error: errMsg(e) });
       throw e;

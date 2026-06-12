@@ -66,6 +66,9 @@ async function bootstrap() {
       const fsRoot = builtinStore.read().find((r) => r.transport === 'filesystem')?.fsRoot;
       return [process.cwd(), ...(fsRoot ? [fsRoot] : [])];
     },
+    // Mirror toConfigs' defaultCwd fallback so the preview reflects the cwd the
+    // git MCP actually runs in (process.cwd()) when git is enabled but unrooted.
+    gitRoot: () => builtinStore.read().find((r) => r.transport === 'git')?.fsRoot ?? process.cwd(),
   });
   const breakpointService = new BreakpointService({ mcpRegistry, policyStore });
 

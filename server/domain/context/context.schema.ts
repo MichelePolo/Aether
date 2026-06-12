@@ -64,9 +64,21 @@ export const McpServerConfigSchema = z.preprocess(
   ]),
 );
 
+export const SkillSchema = z.object({
+  name: z.string().min(1),
+  enabled: z.boolean(),
+});
+
+// Accept legacy plain-string skills (export envelopes, profiles) and normalize
+// them to { name, enabled: true }.
+const SkillEntrySchema = z.union([
+  z.string().min(1).transform((name) => ({ name, enabled: true })),
+  SkillSchema,
+]);
+
 export const AetherContextSchema = z.object({
   systemInstruction: z.string(),
-  skills: z.array(z.string()),
+  skills: z.array(SkillEntrySchema),
   tools: z.array(ToolSchema),
   mcpServers: z.array(McpServerSchema),
 });

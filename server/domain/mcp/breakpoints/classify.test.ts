@@ -47,3 +47,27 @@ describe('classifyTool', () => {
     expect(r2.category).toBe('safe');
   });
 });
+
+describe('classifyTool — git tools (slice 28)', () => {
+  for (const name of ['Git.git_add', 'Git.git_commit', 'Git.git_checkout', 'Git.git_restore']) {
+    it(`classifies ${name} as dangerous`, () => {
+      expect(classifyTool({ qualifiedName: name, args: {} }).category).toBe('dangerous');
+    });
+  }
+  for (const name of ['Git.git_status', 'Git.git_diff']) {
+    it(`classifies ${name} as safe`, () => {
+      expect(classifyTool({ qualifiedName: name, args: {} }).category).toBe('safe');
+    });
+  }
+});
+
+describe('classifyTool — git remote tools (slice 29)', () => {
+  for (const name of ['Git.git_push', 'Git.git_pull', 'Git.git_merge']) {
+    it(`classifies ${name} as dangerous`, () => {
+      expect(classifyTool({ qualifiedName: name, args: {} }).category).toBe('dangerous');
+    });
+  }
+  it('classifies Git.git_fetch as safe (read-only remote)', () => {
+    expect(classifyTool({ qualifiedName: 'Git.git_fetch', args: {} }).category).toBe('safe');
+  });
+});

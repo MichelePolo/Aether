@@ -15,4 +15,6 @@ export interface ClassifiedTool {
 
 export type PreviewResult =
   | { kind: 'diff'; oldText: string; newText: string; path: string }
+  | { kind: 'gitDiff'; unified: string; title: string }
+  | { kind: 'commitList'; title: string; commits: string[] }
   | { kind: 'plain' };

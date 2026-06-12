@@ -15,12 +15,14 @@ export interface ClassifiedTool {
 
 export type PreviewResult =
   | { kind: 'diff'; oldText: string; newText: string; path: string }
+  | { kind: 'gitDiff'; unified: string; title: string }
+  | { kind: 'commitList'; title: string; commits: string[] }
   | { kind: 'plain' };
 
 export const DANGEROUS_NAME_PATTERNS: RegExp[] = [
   /^[^.]+\.(write|edit|delete|move|create|remove|rename|drop|truncate)_/i,
   /^[^.]+\.execute_command$/i,
-  /^[^.]+\.git_(rebase|push|reset)/i,
+  /^[^.]+\.git_(rebase|push|reset|add|commit|checkout|switch|restore|pull|merge)/i,
 ];
 
 export const DANGEROUS_SHELL_PATTERNS: RegExp[] = [
