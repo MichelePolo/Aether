@@ -141,4 +141,24 @@ describe('/api/context routes', () => {
     expect(res.status).toBe(204);
     expect((await store.read()).mcpServers).toHaveLength(0);
   });
+
+  it('PATCH /api/context/skills/:index/enabled toggles a skill', async () => {
+    await request(app).post('/api/context/skills').send({ name: 'web-search' });
+
+    const res = await request(app)
+      .patch('/api/context/skills/0/enabled')
+      .send({ enabled: false });
+    expect(res.status).toBe(200);
+
+    const ctx = await request(app).get('/api/context');
+    expect(ctx.body.skills[0]).toEqual({ name: 'web-search', enabled: false });
+  });
+
+  it('PATCH /skills/:index/enabled rejects a non-boolean body', async () => {
+    await request(app).post('/api/context/skills').send({ name: 'x' });
+    const res = await request(app)
+      .patch('/api/context/skills/0/enabled')
+      .send({ enabled: 'nope' });
+    expect(res.status).toBe(400);
+  });
 });

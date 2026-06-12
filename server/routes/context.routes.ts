@@ -11,6 +11,7 @@ import { ValidationError } from '@/server/lib/errors';
 
 const SkillBody = z.object({ name: z.string().min(1) });
 const SkillUpdateBody = z.object({ value: z.string().min(1) });
+const SkillEnabledBody = z.object({ enabled: z.boolean() });
 
 function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -64,6 +65,18 @@ export function createContextRoutes(store: ContextStore): Router {
       const parsed = SkillUpdateBody.safeParse(req.body);
       if (!parsed.success) throw new ValidationError('Invalid update body', parsed.error);
       await store.updateSkillAt(index, parsed.data.value);
+      res.json({ status: 'ok' });
+    }),
+  );
+
+  router.patch(
+    '/skills/:index/enabled',
+    asyncHandler(async (req, res) => {
+      const index = parseInt(req.params.index, 10);
+      if (Number.isNaN(index)) throw new ValidationError('Invalid index');
+      const parsed = SkillEnabledBody.safeParse(req.body);
+      if (!parsed.success) throw new ValidationError('Invalid enabled body', parsed.error);
+      await store.setSkillEnabledAt(index, parsed.data.enabled);
       res.json({ status: 'ok' });
     }),
   );
