@@ -46,7 +46,7 @@ describe('/api/context routes', () => {
   it('PUT /api/context overwrites with valid payload', async () => {
     const next = {
       systemInstruction: 'New',
-      skills: ['a'],
+      skills: [{ name: 'a', enabled: true }],
       tools: [],
       mcpServers: [],
     };
@@ -66,7 +66,7 @@ describe('/api/context routes', () => {
     const res = await request(app).post('/api/context/skills').send({ name: 'NewSkill' });
     expect(res.status).toBe(201);
     const ctx = await store.read();
-    expect(ctx.skills).toContain('NewSkill');
+    expect(ctx.skills).toContainEqual({ name: 'NewSkill', enabled: true });
   });
 
   it('POST /api/context/skills rejects empty name', async () => {
@@ -80,7 +80,7 @@ describe('/api/context routes', () => {
       .patch('/api/context/skills/0')
       .send({ value: 'Updated' });
     expect(res.status).toBe(200);
-    expect((await store.read()).skills[0]).toBe('Updated');
+    expect((await store.read()).skills[0]).toEqual({ name: 'Updated', enabled: true });
   });
 
   it('PATCH /api/context/skills/:index returns 404 for missing index', async () => {
