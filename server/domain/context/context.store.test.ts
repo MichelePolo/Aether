@@ -49,7 +49,7 @@ describe('ContextStore', () => {
   });
 
   it('updateSkillAt replaces by index', async () => {
-    await store.patch({ skills: ['a', 'b', 'c'] });
+    await store.patch({ skills: [{ name: 'a', enabled: true }, { name: 'b', enabled: true }, { name: 'c', enabled: true }] });
     await store.updateSkillAt(1, 'B');
     expect((await store.read()).skills).toEqual([
       { name: 'a', enabled: true },
@@ -59,7 +59,7 @@ describe('ContextStore', () => {
   });
 
   it('updateSkillAt throws on out-of-bounds', async () => {
-    await store.patch({ skills: ['a'] });
+    await store.patch({ skills: [{ name: 'a', enabled: true }] });
     await expect(store.updateSkillAt(5, 'x')).rejects.toThrow();
   });
 
@@ -68,7 +68,7 @@ describe('ContextStore', () => {
   });
 
   it('removeSkillAt removes by index', async () => {
-    await store.patch({ skills: ['a', 'b', 'c'] });
+    await store.patch({ skills: [{ name: 'a', enabled: true }, { name: 'b', enabled: true }, { name: 'c', enabled: true }] });
     await store.removeSkillAt(1);
     expect((await store.read()).skills).toEqual([
       { name: 'a', enabled: true },
@@ -77,13 +77,13 @@ describe('ContextStore', () => {
   });
 
   it('removeSkillAt throws on out-of-bounds index', async () => {
-    await store.patch({ skills: ['a'] });
+    await store.patch({ skills: [{ name: 'a', enabled: true }] });
     await expect(store.removeSkillAt(5)).rejects.toThrow();
     await expect(store.removeSkillAt(-1)).rejects.toThrow();
   });
 
   it('updateSkillAt rejects empty value', async () => {
-    await store.patch({ skills: ['a'] });
+    await store.patch({ skills: [{ name: 'a', enabled: true }] });
     await expect(store.updateSkillAt(0, '   ')).rejects.toThrow();
   });
 
@@ -251,7 +251,7 @@ describe('ContextStore', () => {
   it('bulkOverwrite validates and replaces all fields', async () => {
     const next = {
       systemInstruction: 'Hi',
-      skills: ['s1'],
+      skills: [{ name: 's1', enabled: true }],
       tools: [{ id: 't1', name: 'T', version: '1.0', status: 'online' as const }],
       mcpServers: [],
     };
@@ -265,7 +265,7 @@ describe('ContextStore', () => {
   it('bulkOverwrite() replaces everything atomically', async () => {
     await store.bulkOverwrite({
       systemInstruction: 'new',
-      skills: ['a', 'b'],
+      skills: [{ name: 'a', enabled: true }, { name: 'b', enabled: true }],
       tools: [{ id: 't1', name: 'X', version: '1.0', status: 'online' }],
       mcpServers: [],
     });
@@ -283,7 +283,7 @@ describe('ContextStore', () => {
     await expect(
       store.bulkOverwrite({
         systemInstruction: 'x',
-        skills: ['a'],
+        skills: [{ name: 'a', enabled: true }],
         tools: [{ id: 't1', name: 'X', version: '1', status: 'busy' as 'online' }],
         mcpServers: [],
       }),

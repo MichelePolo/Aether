@@ -92,7 +92,7 @@ describe('contextApi', () => {
   it('bulkOverwrite PUTs whole context and returns new state', async () => {
     const incoming = {
       systemInstruction: 'New',
-      skills: ['s'],
+      skills: [{ name: 's', enabled: true }],
       tools: [],
       mcpServers: [],
     };
