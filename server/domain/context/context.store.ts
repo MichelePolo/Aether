@@ -48,8 +48,8 @@ export class ContextStore {
 
   async patch(partial: Partial<AetherContext>): Promise<AetherContext> {
     const parsed = AetherContextPatchSchema.safeParse(partial);
-    const normalized = parsed.success ? parsed.data : partial;
-    return this.writeAll({ ...this.readSync(), ...normalized });
+    if (!parsed.success) throw new ValidationError('Invalid context patch', parsed.error);
+    return this.writeAll({ ...this.readSync(), ...parsed.data });
   }
 
   async bulkOverwrite(next: AetherContext): Promise<AetherContext> {

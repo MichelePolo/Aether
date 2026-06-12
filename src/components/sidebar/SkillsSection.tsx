@@ -38,7 +38,7 @@ export function SkillsSection() {
   return (
     <section>
       <div className="flex items-center justify-between mb-2">
-        <div className="mono-label">Active Skills</div>
+        <div className="mono-label">Skills</div>
         <span className="text-[10px] text-zinc-600">
           [{skills.filter((s) => s.enabled).length}/{skills.length}]
         </span>

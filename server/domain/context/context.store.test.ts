@@ -279,6 +279,10 @@ describe('ContextStore', () => {
     await expect(store.bulkOverwrite({ systemInstruction: 1 } as never)).rejects.toThrow();
   });
 
+  it('patch rejects an invalid partial instead of writing it raw', async () => {
+    await expect(store.patch({ systemInstruction: 1 } as never)).rejects.toThrow();
+  });
+
   it('bulkOverwrite() rejects invalid payloads', async () => {
     await expect(
       store.bulkOverwrite({
