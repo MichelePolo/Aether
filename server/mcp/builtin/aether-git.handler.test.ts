@@ -16,6 +16,10 @@ const ENV = {
   GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@a.dev',
   GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@a.dev',
 };
+// The handler commits via runGit using process.env (no global git identity in
+// CI), so the author/committer identity must live on process.env too — not only
+// in the setup `git()` helper below.
+Object.assign(process.env, ENV);
 function git(cwd: string, ...a: string[]) {
   execFileSync('git', a, { cwd, stdio: 'pipe', env: { ...process.env, ...ENV } });
 }
