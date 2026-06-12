@@ -70,7 +70,7 @@ export class ProfilesStore {
       this.db
         .prepare('SELECT name FROM profile_skills WHERE profile_id = ? ORDER BY position')
         .all(id) as { name: string }[]
-    ).map((r) => r.name);
+    ).map((r) => ({ name: r.name, enabled: true }));
 
     const tools = this.db
       .prepare(
@@ -225,7 +225,7 @@ export class ProfilesStore {
     const insertSkill = this.db.prepare(
       'INSERT INTO profile_skills (profile_id, position, name) VALUES (?, ?, ?)',
     );
-    context.skills.forEach((s, i) => insertSkill.run(profileId, i, s));
+    context.skills.forEach((s, i) => insertSkill.run(profileId, i, s.name));
 
     this.db.prepare('DELETE FROM profile_tools WHERE profile_id = ?').run(profileId);
     const insertTool = this.db.prepare(

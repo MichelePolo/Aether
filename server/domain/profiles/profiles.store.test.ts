@@ -15,7 +15,7 @@ const validContext: AetherContext = {
 
 const richContext: AetherContext = {
   systemInstruction: 'You are Aether',
-  skills: ['s1', 's2'],
+  skills: [{ name: 's1', enabled: true }, { name: 's2', enabled: true }],
   tools: [{ id: 't1', name: 'X', version: '1', status: 'online' }],
   mcpServers: [
     {
@@ -74,7 +74,7 @@ describe('ProfilesStore', () => {
     const rec = await store.read(meta.id);
     expect(rec).not.toBeNull();
     expect(rec!.thinkingEnabled).toBe(true);
-    expect(rec!.context.skills).toEqual(['s1', 's2']);
+    expect(rec!.context.skills).toEqual([{ name: 's1', enabled: true }, { name: 's2', enabled: true }]);
     expect(rec!.context.tools).toEqual([{ id: 't1', name: 'X', version: '1', status: 'online' }]);
     expect(rec!.context.mcpServers[0].toolPolicies).toEqual({ echo: { autoApprove: true } });
   });
@@ -141,14 +141,14 @@ describe('ProfilesStore', () => {
     const meta = await store.create({ name: 'p1', context: richContext, thinkingEnabled: false });
     const newCtx: AetherContext = {
       systemInstruction: 'replaced',
-      skills: ['only'],
+      skills: [{ name: 'only', enabled: true }],
       tools: [],
       mcpServers: [],
     };
     await store.update(meta.id, { context: newCtx });
     const rec = await store.read(meta.id);
     expect(rec!.context.systemInstruction).toBe('replaced');
-    expect(rec!.context.skills).toEqual(['only']);
+    expect(rec!.context.skills).toEqual([{ name: 'only', enabled: true }]);
     expect(rec!.context.tools).toEqual([]);
     expect(rec!.context.mcpServers).toEqual([]);
   });
@@ -207,5 +207,22 @@ describe('ProfilesStore', () => {
     const store2 = new ProfilesStore(db);
     const rec = await store2.read(meta.id);
     expect(rec).toMatchObject({ name: 'A', thinkingEnabled: true });
+  });
+});
+
+describe('ProfilesStore skills shape', () => {
+  it('round-trips context skills as enabled Skill objects', async () => {
+    const created = await store.create({
+      name: 'p1',
+      context: {
+        systemInstruction: 's',
+        skills: [{ name: 'web-search', enabled: true }],
+        tools: [],
+        mcpServers: [],
+      },
+      thinkingEnabled: false,
+    });
+    const read = await store.read(created.id);
+    expect(read?.context.skills).toEqual([{ name: 'web-search', enabled: true }]);
   });
 });
