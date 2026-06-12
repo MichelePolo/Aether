@@ -37,7 +37,7 @@ describe('ContextStore', () => {
 
   it('addSkill appends to skills', async () => {
     await store.addSkill('AnalysisV2');
-    expect((await store.read()).skills).toContain('AnalysisV2');
+    expect((await store.read()).skills).toContainEqual({ name: 'AnalysisV2', enabled: true });
   });
 
   it('addSkill rejects empty string', async () => {
@@ -51,7 +51,11 @@ describe('ContextStore', () => {
   it('updateSkillAt replaces by index', async () => {
     await store.patch({ skills: ['a', 'b', 'c'] });
     await store.updateSkillAt(1, 'B');
-    expect((await store.read()).skills).toEqual(['a', 'B', 'c']);
+    expect((await store.read()).skills).toEqual([
+      { name: 'a', enabled: true },
+      { name: 'B', enabled: true },
+      { name: 'c', enabled: true },
+    ]);
   });
 
   it('updateSkillAt throws on out-of-bounds', async () => {
@@ -66,7 +70,10 @@ describe('ContextStore', () => {
   it('removeSkillAt removes by index', async () => {
     await store.patch({ skills: ['a', 'b', 'c'] });
     await store.removeSkillAt(1);
-    expect((await store.read()).skills).toEqual(['a', 'c']);
+    expect((await store.read()).skills).toEqual([
+      { name: 'a', enabled: true },
+      { name: 'c', enabled: true },
+    ]);
   });
 
   it('removeSkillAt throws on out-of-bounds index', async () => {
@@ -87,7 +94,10 @@ describe('ContextStore', () => {
     await store.updateSkillAt(1, 'TWO');
     await store.removeSkillAt(0);
     const ctx = await store.read();
-    expect(ctx.skills).toEqual(['TWO', 'three']);
+    expect(ctx.skills).toEqual([
+      { name: 'TWO', enabled: true },
+      { name: 'three', enabled: true },
+    ]);
   });
 
   it('updateTool throws on unknown id', async () => {
@@ -246,7 +256,10 @@ describe('ContextStore', () => {
       mcpServers: [],
     };
     await store.bulkOverwrite(next);
-    expect(await store.read()).toEqual(next);
+    const ctx = await store.read();
+    expect(ctx.systemInstruction).toBe('Hi');
+    expect(ctx.skills).toEqual([{ name: 's1', enabled: true }]);
+    expect(ctx.tools).toEqual(next.tools);
   });
 
   it('bulkOverwrite() replaces everything atomically', async () => {
@@ -258,7 +271,7 @@ describe('ContextStore', () => {
     });
     const ctx = await store.read();
     expect(ctx.systemInstruction).toBe('new');
-    expect(ctx.skills).toEqual(['a', 'b']);
+    expect(ctx.skills).toEqual([{ name: 'a', enabled: true }, { name: 'b', enabled: true }]);
     expect(ctx.tools).toEqual([{ id: 't1', name: 'X', version: '1.0', status: 'online' }]);
   });
 
@@ -280,6 +293,24 @@ describe('ContextStore', () => {
   it('persists across instances', async () => {
     await store.addSkill('persisted');
     const fresh = new ContextStore(db);
-    expect((await fresh.read()).skills).toContain('persisted');
+    expect((await fresh.read()).skills).toContainEqual({ name: 'persisted', enabled: true });
+  });
+});
+
+describe('ContextStore skill enabled flag', () => {
+  it('adds skills enabled by default and toggles them', async () => {
+    const store = new ContextStore(makeTestDb());
+    await store.addSkill('web-search');
+    let ctx = await store.read();
+    expect(ctx.skills).toEqual([{ name: 'web-search', enabled: true }]);
+
+    await store.setSkillEnabledAt(0, false);
+    ctx = await store.read();
+    expect(ctx.skills[0]).toEqual({ name: 'web-search', enabled: false });
+  });
+
+  it('throws for an out-of-range toggle index', async () => {
+    const store = new ContextStore(makeTestDb());
+    await expect(store.setSkillEnabledAt(5, true)).rejects.toThrow();
   });
 });
