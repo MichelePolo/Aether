@@ -42,7 +42,9 @@ describe('context schemas', () => {
 
   it('AetherContextPatch makes all fields optional', () => {
     expect(AetherContextPatchSchema.parse({})).toEqual({});
-    expect(AetherContextPatchSchema.parse({ skills: ['a'] })).toEqual({ skills: ['a'] });
+    expect(AetherContextPatchSchema.parse({ skills: ['a'] })).toEqual({
+      skills: [{ name: 'a', enabled: true }],
+    });
   });
 
   it('AetherContextPatch rejects unknown fields', () => {
@@ -106,5 +108,27 @@ describe('McpServerSchema (loose stored shape)', () => {
       id: 'h', name: 'remote', transport: 'http', url: 'https://api.example.com/mcp',
       status: 'offline',
     }).success).toBe(true);
+  });
+});
+
+describe('AetherContextSchema skills', () => {
+  it('accepts structured skills with enabled', () => {
+    const parsed = AetherContextSchema.parse({
+      systemInstruction: 's',
+      skills: [{ name: 'web-search', enabled: false }],
+      tools: [],
+      mcpServers: [],
+    });
+    expect(parsed.skills).toEqual([{ name: 'web-search', enabled: false }]);
+  });
+
+  it('normalizes legacy plain-string skills to enabled:true', () => {
+    const parsed = AetherContextSchema.parse({
+      systemInstruction: 's',
+      skills: ['legacy-skill'],
+      tools: [],
+      mcpServers: [],
+    });
+    expect(parsed.skills).toEqual([{ name: 'legacy-skill', enabled: true }]);
   });
 });

@@ -32,9 +32,14 @@ export interface McpServerConfig {
   status: McpConnectionState;
 }
 
+export interface Skill {
+  name: string;
+  enabled: boolean;
+}
+
 export interface AetherContext {
   systemInstruction: string;
-  skills: string[];
+  skills: Skill[];
   tools: Tool[];
   mcpServers: McpServerConfig[];
 }

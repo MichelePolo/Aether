@@ -34,7 +34,7 @@ describe('SQLite stores — cross-store integration', () => {
       status: 'offline',
     });
     const ctx = await context.read();
-    expect(ctx.skills).toContain('typescript');
+    expect(ctx.skills).toContainEqual({ name: 'typescript', enabled: true });
     expect(ctx.tools.map((t) => t.id)).toContain(tool.id);
     expect(ctx.mcpServers.map((s) => s.id)).toContain(srv.id);
 
@@ -44,7 +44,7 @@ describe('SQLite stores — cross-store integration', () => {
       thinkingEnabled: true,
     });
     const readProfile = await profiles.read(profile.id);
-    expect(readProfile!.context.skills).toContain('typescript');
+    expect(readProfile!.context.skills).toContainEqual({ name: 'typescript', enabled: true });
     expect(readProfile!.context.tools.map((t) => t.id)).toContain(tool.id);
 
     const designer = await subagents.create({
@@ -96,6 +96,6 @@ describe('SQLite stores — cross-store integration', () => {
     expect(await history.listSessions()).toEqual([]);
     expect((await profiles.listProfiles())[0].id).toBe(profile.id);
     expect((await subagents.list())[0].id).toBe(designer.id);
-    expect((await context.read()).skills).toContain('typescript');
+    expect((await context.read()).skills).toContainEqual({ name: 'typescript', enabled: true });
   });
 });

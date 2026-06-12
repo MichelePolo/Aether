@@ -37,7 +37,7 @@ describe('ContextStore', () => {
 
   it('addSkill appends to skills', async () => {
     await store.addSkill('AnalysisV2');
-    expect((await store.read()).skills).toContain('AnalysisV2');
+    expect((await store.read()).skills).toContainEqual({ name: 'AnalysisV2', enabled: true });
   });
 
   it('addSkill rejects empty string', async () => {
@@ -49,13 +49,17 @@ describe('ContextStore', () => {
   });
 
   it('updateSkillAt replaces by index', async () => {
-    await store.patch({ skills: ['a', 'b', 'c'] });
+    await store.patch({ skills: [{ name: 'a', enabled: true }, { name: 'b', enabled: true }, { name: 'c', enabled: true }] });
     await store.updateSkillAt(1, 'B');
-    expect((await store.read()).skills).toEqual(['a', 'B', 'c']);
+    expect((await store.read()).skills).toEqual([
+      { name: 'a', enabled: true },
+      { name: 'B', enabled: true },
+      { name: 'c', enabled: true },
+    ]);
   });
 
   it('updateSkillAt throws on out-of-bounds', async () => {
-    await store.patch({ skills: ['a'] });
+    await store.patch({ skills: [{ name: 'a', enabled: true }] });
     await expect(store.updateSkillAt(5, 'x')).rejects.toThrow();
   });
 
@@ -64,19 +68,22 @@ describe('ContextStore', () => {
   });
 
   it('removeSkillAt removes by index', async () => {
-    await store.patch({ skills: ['a', 'b', 'c'] });
+    await store.patch({ skills: [{ name: 'a', enabled: true }, { name: 'b', enabled: true }, { name: 'c', enabled: true }] });
     await store.removeSkillAt(1);
-    expect((await store.read()).skills).toEqual(['a', 'c']);
+    expect((await store.read()).skills).toEqual([
+      { name: 'a', enabled: true },
+      { name: 'c', enabled: true },
+    ]);
   });
 
   it('removeSkillAt throws on out-of-bounds index', async () => {
-    await store.patch({ skills: ['a'] });
+    await store.patch({ skills: [{ name: 'a', enabled: true }] });
     await expect(store.removeSkillAt(5)).rejects.toThrow();
     await expect(store.removeSkillAt(-1)).rejects.toThrow();
   });
 
   it('updateSkillAt rejects empty value', async () => {
-    await store.patch({ skills: ['a'] });
+    await store.patch({ skills: [{ name: 'a', enabled: true }] });
     await expect(store.updateSkillAt(0, '   ')).rejects.toThrow();
   });
 
@@ -87,7 +94,10 @@ describe('ContextStore', () => {
     await store.updateSkillAt(1, 'TWO');
     await store.removeSkillAt(0);
     const ctx = await store.read();
-    expect(ctx.skills).toEqual(['TWO', 'three']);
+    expect(ctx.skills).toEqual([
+      { name: 'TWO', enabled: true },
+      { name: 'three', enabled: true },
+    ]);
   });
 
   it('updateTool throws on unknown id', async () => {
@@ -241,24 +251,27 @@ describe('ContextStore', () => {
   it('bulkOverwrite validates and replaces all fields', async () => {
     const next = {
       systemInstruction: 'Hi',
-      skills: ['s1'],
+      skills: [{ name: 's1', enabled: true }],
       tools: [{ id: 't1', name: 'T', version: '1.0', status: 'online' as const }],
       mcpServers: [],
     };
     await store.bulkOverwrite(next);
-    expect(await store.read()).toEqual(next);
+    const ctx = await store.read();
+    expect(ctx.systemInstruction).toBe('Hi');
+    expect(ctx.skills).toEqual([{ name: 's1', enabled: true }]);
+    expect(ctx.tools).toEqual(next.tools);
   });
 
   it('bulkOverwrite() replaces everything atomically', async () => {
     await store.bulkOverwrite({
       systemInstruction: 'new',
-      skills: ['a', 'b'],
+      skills: [{ name: 'a', enabled: true }, { name: 'b', enabled: true }],
       tools: [{ id: 't1', name: 'X', version: '1.0', status: 'online' }],
       mcpServers: [],
     });
     const ctx = await store.read();
     expect(ctx.systemInstruction).toBe('new');
-    expect(ctx.skills).toEqual(['a', 'b']);
+    expect(ctx.skills).toEqual([{ name: 'a', enabled: true }, { name: 'b', enabled: true }]);
     expect(ctx.tools).toEqual([{ id: 't1', name: 'X', version: '1.0', status: 'online' }]);
   });
 
@@ -266,11 +279,15 @@ describe('ContextStore', () => {
     await expect(store.bulkOverwrite({ systemInstruction: 1 } as never)).rejects.toThrow();
   });
 
+  it('patch rejects an invalid partial instead of writing it raw', async () => {
+    await expect(store.patch({ systemInstruction: 1 } as never)).rejects.toThrow();
+  });
+
   it('bulkOverwrite() rejects invalid payloads', async () => {
     await expect(
       store.bulkOverwrite({
         systemInstruction: 'x',
-        skills: ['a'],
+        skills: [{ name: 'a', enabled: true }],
         tools: [{ id: 't1', name: 'X', version: '1', status: 'busy' as 'online' }],
         mcpServers: [],
       }),
@@ -280,6 +297,24 @@ describe('ContextStore', () => {
   it('persists across instances', async () => {
     await store.addSkill('persisted');
     const fresh = new ContextStore(db);
-    expect((await fresh.read()).skills).toContain('persisted');
+    expect((await fresh.read()).skills).toContainEqual({ name: 'persisted', enabled: true });
+  });
+});
+
+describe('ContextStore skill enabled flag', () => {
+  it('adds skills enabled by default and toggles them', async () => {
+    const store = new ContextStore(makeTestDb());
+    await store.addSkill('web-search');
+    let ctx = await store.read();
+    expect(ctx.skills).toEqual([{ name: 'web-search', enabled: true }]);
+
+    await store.setSkillEnabledAt(0, false);
+    ctx = await store.read();
+    expect(ctx.skills[0]).toEqual({ name: 'web-search', enabled: false });
+  });
+
+  it('throws for an out-of-range toggle index', async () => {
+    const store = new ContextStore(makeTestDb());
+    await expect(store.setSkillEnabledAt(5, true)).rejects.toThrow();
   });
 });

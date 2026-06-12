@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ValidationError, NotFoundError } from '@/server/lib/errors';
 import {
   AetherContextSchema,
+  AetherContextPatchSchema,
   ToolSchema,
   McpServerSchema,
 } from './context.schema';
@@ -46,7 +47,9 @@ export class ContextStore {
   }
 
   async patch(partial: Partial<AetherContext>): Promise<AetherContext> {
-    return this.writeAll({ ...this.readSync(), ...partial });
+    const parsed = AetherContextPatchSchema.safeParse(partial);
+    if (!parsed.success) throw new ValidationError('Invalid context patch', parsed.error);
+    return this.writeAll({ ...this.readSync(), ...parsed.data });
   }
 
   async bulkOverwrite(next: AetherContext): Promise<AetherContext> {
@@ -59,7 +62,7 @@ export class ContextStore {
     const trimmed = name.trim();
     if (!trimmed) throw new ValidationError('Skill name cannot be empty');
     const cur = this.readSync();
-    this.writeAll({ ...cur, skills: [...cur.skills, trimmed] });
+    this.writeAll({ ...cur, skills: [...cur.skills, { name: trimmed, enabled: true }] });
   }
 
   async updateSkillAt(index: number, value: string): Promise<void> {
@@ -70,7 +73,17 @@ export class ContextStore {
       throw new NotFoundError(`skill index ${index}`);
     }
     const skills = [...cur.skills];
-    skills[index] = trimmed;
+    skills[index] = { ...skills[index], name: trimmed };
+    this.writeAll({ ...cur, skills });
+  }
+
+  async setSkillEnabledAt(index: number, enabled: boolean): Promise<void> {
+    const cur = this.readSync();
+    if (index < 0 || index >= cur.skills.length) {
+      throw new NotFoundError(`skill index ${index}`);
+    }
+    const skills = [...cur.skills];
+    skills[index] = { ...skills[index], enabled };
     this.writeAll({ ...cur, skills });
   }
 
@@ -134,9 +147,9 @@ export class ContextStore {
 
     const skills = (
       this.db
-        .prepare('SELECT name FROM context_skills ORDER BY position')
-        .all() as { name: string }[]
-    ).map((r) => r.name);
+        .prepare('SELECT name, enabled FROM context_skills ORDER BY position')
+        .all() as { name: string; enabled: number }[]
+    ).map((r) => ({ name: r.name, enabled: r.enabled === 1 }));
 
     const tools = (
       this.db
@@ -191,9 +204,9 @@ export class ContextStore {
 
       this.db.prepare('DELETE FROM context_skills').run();
       const insertSkill = this.db.prepare(
-        'INSERT INTO context_skills (position, name) VALUES (?, ?)',
+        'INSERT INTO context_skills (position, name, enabled) VALUES (?, ?, ?)',
       );
-      next.skills.forEach((s, i) => insertSkill.run(i, s));
+      next.skills.forEach((s, i) => insertSkill.run(i, s.name, s.enabled ? 1 : 0));
 
       this.db.prepare('DELETE FROM context_tools').run();
       const insertTool = this.db.prepare(
