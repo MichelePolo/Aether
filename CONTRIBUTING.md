@@ -49,9 +49,31 @@ Per il lavoro a slice si usa `feat/slice-N-<nome>` (vedi `docs/superpowers/roadm
 - La PR deve passare i controlli richiesti (lint/test) prima del merge.
 - Risolvi tutte le conversazioni di review prima del merge.
 
+## Versioning & release (automatico)
+
+Il versioning è gestito da **release-please** (`.github/workflows/release-please.yml`): legge i
+Conventional Commits arrivati su `main`, mantiene una **"release PR"** che aggiorna
+`package.json` + `CHANGELOG.md`, e al merge crea il **tag** e la **GitHub Release**. Non si
+bumpano versioni a mano.
+
+- `feat:` → bump **minor**, `fix:` → bump **patch**, `feat!:`/`BREAKING CHANGE:` → bump major
+  (pre-1.0: minor). `docs/chore/refactor/test` non rilasciano.
+- **Importante**: poiché si mergia in **squash**, è il **titolo della PR** a diventare il
+  messaggio di commit su `main` — quindi il titolo della PR **deve** essere un Conventional
+  Commit valido (es. `feat(context): ...`), altrimenti release-please lo ignora.
+
+## Migrations
+
+Le migrations SQLite sono **append-only** e numerate `NNN_nome.sql`. Il numero è una risorsa
+sequenziale condivisa: branch paralleli possono scegliere lo stesso numero e collidere. Un test
+(`server/db/migrate.naming.test.ts`) fallisce in CI su duplicati/gap. Se due branch finiscono con
+lo stesso `NNN`, la **seconda** PR che entra deve rinumerare la propria migration al numero libero
+successivo.
+
 ## Checklist prima di aprire la PR
 
 - [ ] `npm run lint` pulito
 - [ ] `npm run test:run` verde
 - [ ] Branch aggiornato con `main` (no conflitti)
+- [ ] Titolo PR in **Conventional Commits** (guida il versioning automatico)
 - [ ] Descrizione PR con cosa/perché + come testare
