@@ -1,14 +1,16 @@
+import type { Skill } from '@/server/domain/context/context.types';
 import { addSkillFlow } from '@/src/lib/context/addFlows';
 import { useContextStore } from '@/src/stores/context.store';
 import { useDialog } from '@/src/hooks/useDialog';
 
-const EMPTY_SKILLS: string[] = [];
+const EMPTY_SKILLS: Skill[] = [];
 
 export function SkillsSection() {
   const context = useContextStore((s) => s.context);
   const skills = context?.skills ?? EMPTY_SKILLS;
   const addSkill = useContextStore((s) => s.addSkill);
   const updateSkillAt = useContextStore((s) => s.updateSkillAt);
+  const toggleSkillAt = useContextStore((s) => s.toggleSkillAt);
   const removeSkillAt = useContextStore((s) => s.removeSkillAt);
   const dialog = useDialog();
 
@@ -37,26 +39,43 @@ export function SkillsSection() {
     <section>
       <div className="flex items-center justify-between mb-2">
         <div className="mono-label">Active Skills</div>
-        <span className="text-[10px] text-zinc-600">[{skills.length}]</span>
+        <span className="text-[10px] text-zinc-600">
+          [{skills.filter((s) => s.enabled).length}/{skills.length}]
+        </span>
       </div>
       <div className="space-y-1">
         {skills.map((skill, i) => (
           <div
-            key={`${i}-${skill}`}
-            className="group flex items-center justify-between p-1.5 rounded bg-zinc-900 border border-border-subtle text-[10px] font-mono text-zinc-400"
+            key={`${i}-${skill.name}`}
+            data-skill-row
+            role="button"
+            tabIndex={0}
+            onClick={() => toggleSkillAt(i).catch(() => {})}
+            aria-pressed={skill.enabled}
+            className={`group flex items-center justify-between p-1.5 rounded bg-zinc-900 border border-border-subtle text-[10px] font-mono cursor-pointer ${
+              skill.enabled
+                ? 'text-zinc-400 hover:border-manipulation/40'
+                : 'text-zinc-600 line-through opacity-60'
+            }`}
           >
-            <span className="truncate">{skill}</span>
+            <span className="truncate">{skill.name}</span>
             <div className="hidden group-hover:flex gap-1">
               <button
-                onClick={() => handleEdit(i, skill)}
-                aria-label={`Edit ${skill}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEdit(i, skill.name);
+                }}
+                aria-label={`Edit ${skill.name}`}
                 className="hover:text-white"
               >
                 ✎
               </button>
               <button
-                onClick={() => handleRemove(i, skill)}
-                aria-label={`Remove ${skill}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRemove(i, skill.name);
+                }}
+                aria-label={`Remove ${skill.name}`}
                 className="hover:text-status-error"
               >
                 ×

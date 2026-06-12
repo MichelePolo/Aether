@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SkillsSection } from './SkillsSection';
@@ -9,22 +9,33 @@ import { _resetDialogStore } from '@/src/hooks/useDialog';
 beforeEach(() => {
   _resetDialogStore();
   useContextStore.setState({
-    context: { systemInstruction: '', skills: ['Alpha', 'Beta'], tools: [], mcpServers: [] },
+    context: {
+      systemInstruction: '',
+      skills: [
+        { name: 'Alpha', enabled: true },
+        { name: 'Beta', enabled: true },
+      ],
+      tools: [],
+      mcpServers: [],
+    },
     isLoading: false,
     error: null,
     addSkill: async (name: string) => {
       useContextStore.setState((s) => ({
-        context: s.context ? { ...s.context, skills: [...s.context.skills, name] } : null,
+        context: s.context
+          ? { ...s.context, skills: [...s.context.skills, { name, enabled: true }] }
+          : null,
       }));
     },
     updateSkillAt: async (i: number, v: string) => {
       useContextStore.setState((s) => {
         if (!s.context) return s;
         const skills = [...s.context.skills];
-        skills[i] = v;
+        skills[i] = { ...skills[i], name: v };
         return { context: { ...s.context, skills } };
       });
     },
+    toggleSkillAt: async (_i: number) => {},
     removeSkillAt: async (i: number) => {
       useContextStore.setState((s) => ({
         context: s.context
@@ -32,7 +43,7 @@ beforeEach(() => {
           : null,
       }));
     },
-  });
+  } as never);
 });
 
 describe('SkillsSection', () => {
@@ -42,9 +53,9 @@ describe('SkillsSection', () => {
     expect(screen.getByText('Beta')).toBeInTheDocument();
   });
 
-  it('shows count badge', () => {
+  it('shows count badge as active/total', () => {
     render(<><DialogHost /><SkillsSection /></>);
-    expect(screen.getByText('[2]')).toBeInTheDocument();
+    expect(screen.getByText('[2/2]')).toBeInTheDocument();
   });
 
   it('clicking add opens prompt dialog and adds new skill', async () => {
@@ -54,7 +65,7 @@ describe('SkillsSection', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     await user.type(screen.getByRole('textbox'), 'Gamma');
     await user.click(screen.getByRole('button', { name: /^(confirm|ok)$/i }));
-    expect(useContextStore.getState().context?.skills).toContain('Gamma');
+    expect(useContextStore.getState().context?.skills.map((s) => s.name)).toContain('Gamma');
   });
 
   it('removing a skill confirms then removes', async () => {
@@ -63,7 +74,7 @@ describe('SkillsSection', () => {
     await user.click(screen.getByRole('button', { name: /remove alpha/i }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /^(confirm|ok)$/i }));
-    expect(useContextStore.getState().context?.skills).toEqual(['Beta']);
+    expect(useContextStore.getState().context?.skills.map((s) => s.name)).toEqual(['Beta']);
   });
 
   it('cancel remove does not delete skill', async () => {
@@ -71,7 +82,7 @@ describe('SkillsSection', () => {
     render(<><DialogHost /><SkillsSection /></>);
     await user.click(screen.getByRole('button', { name: /remove alpha/i }));
     await user.click(screen.getByRole('button', { name: /cancel/i }));
-    expect(useContextStore.getState().context?.skills).toEqual(['Alpha', 'Beta']);
+    expect(useContextStore.getState().context?.skills.map((s) => s.name)).toEqual(['Alpha', 'Beta']);
   });
 
   it('editing a skill prompts with default value and updates', async () => {
@@ -83,6 +94,25 @@ describe('SkillsSection', () => {
     await user.clear(input);
     await user.type(input, 'AlphaV2');
     await user.click(screen.getByRole('button', { name: /^(confirm|ok)$/i }));
-    expect(useContextStore.getState().context?.skills[0]).toBe('AlphaV2');
+    expect(useContextStore.getState().context?.skills[0].name).toBe('AlphaV2');
+  });
+
+  it('clicking a skill row toggles it and dims a disabled skill', async () => {
+    const toggle = vi.fn().mockResolvedValue(undefined);
+    useContextStore.setState({
+      context: {
+        systemInstruction: '',
+        skills: [{ name: 'web-search', enabled: false }],
+        tools: [],
+        mcpServers: [],
+      },
+      toggleSkillAt: toggle,
+    } as never);
+
+    render(<SkillsSection />);
+    const row = screen.getByText('web-search').closest('[data-skill-row]') as HTMLElement;
+    expect(row.className).toMatch(/line-through|opacity/);
+    await userEvent.click(row);
+    expect(toggle).toHaveBeenCalledWith(0);
   });
 });
