@@ -15,7 +15,7 @@ export function TopBar({ title, sidebarOpen, onToggleSidebar }: TopBarProps) {
   const openPalette = useUiStore((s) => s.openPalette);
   const mainView = useUiStore((s) => s.mainView);
   const toggleMainView = useUiStore((s) => s.toggleMainView);
-  const historyActive = mainView === 'history';
+  const historyActive = mainView === 'git';
   return (
     <header className="h-12 border-b border-border-subtle flex items-center gap-2 px-4 bg-surface-2 sticky top-0 z-10 glass">
       <IconButton

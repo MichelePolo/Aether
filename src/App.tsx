@@ -22,7 +22,7 @@ import { ProviderAuthSection } from '@/src/components/sidebar/ProviderAuthSectio
 import { ConnectionFooter } from '@/src/components/sidebar/ConnectionFooter';
 import { ChatView } from '@/src/components/chat/ChatView';
 import { ToolCallBanner } from '@/src/components/chat/ToolCallBanner';
-import { GitSwimlanesView } from '@/src/components/git/GitSwimlanesView';
+import { GitView } from '@/src/components/git/GitView';
 import { ReasoningDrawer } from '@/src/components/reasoning/ReasoningDrawer';
 import { ProfilesModal } from '@/src/components/profiles/ProfilesModal';
 import { KeyVaultModal } from '@/src/components/profiles/KeyVaultModal';
@@ -114,8 +114,8 @@ export default function App() {
           sidebarOpen={sidebarOpen}
           onToggleSidebar={toggleSidebar}
         />
-        {mainView === 'history' ? (
-          <GitSwimlanesView />
+        {mainView === 'git' ? (
+          <GitView />
         ) : (
           <>
             <ChatView />
