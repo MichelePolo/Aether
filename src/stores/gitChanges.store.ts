@@ -21,6 +21,7 @@ interface GitChangesState {
   discard(paths: string[]): Promise<void>;
   commit(): Promise<void>;
   commitAndPush(): Promise<void>;
+  push(): Promise<void>;
   reset(): void;
 }
 
@@ -97,6 +98,8 @@ export const useGitChangesStore = create<GitChangesState>((set, get) => ({
       set({ message: '' });
       await gitApi.push(id);
     }),
+
+  push: () => mutate(set, get, () => gitApi.push(get().activeWorkspaceId!)),
 
   reset: () => set(initial()),
 }));

@@ -17,6 +17,7 @@ export function ChangesView() {
 
   const changes = useGitChangesStore((s) => s.changes);
   const selectedPath = useGitChangesStore((s) => s.selectedPath);
+  const selectedStaged = useGitChangesStore((s) => s.selectedStaged);
   const selectedDiff = useGitChangesStore((s) => s.selectedDiff);
   const message = useGitChangesStore((s) => s.message);
   const busy = useGitChangesStore((s) => s.busy);
@@ -30,6 +31,7 @@ export function ChangesView() {
   const discard = useGitChangesStore((s) => s.discard);
   const commit = useGitChangesStore((s) => s.commit);
   const commitAndPush = useGitChangesStore((s) => s.commitAndPush);
+  const push = useGitChangesStore((s) => s.push);
 
   useEffect(() => {
     if (workspaceId) load(workspaceId);
@@ -39,6 +41,8 @@ export function ChangesView() {
 
   const hasStaged = (changes?.staged.length ?? 0) > 0;
   const canCommit = hasStaged && message.trim().length > 0 && !busy;
+  const ahead = changes?.ahead ?? 0;
+  const canPush = ahead > 0 && !busy;
 
   const onDiscard = async (paths: string[]) => {
     const ok = await dialog.confirm({
@@ -49,12 +53,12 @@ export function ChangesView() {
     if (ok) void discard(paths);
   };
 
-  const Row = ({ file, staged }: { file: WorkingFile; staged: boolean }) => (
+  const Row = ({ file, staged, untracked = false }: { file: WorkingFile; staged: boolean; untracked?: boolean }) => (
     <div className="group flex items-center gap-1.5 px-2 py-1 hover:bg-surface-3">
       <button
         type="button"
         onClick={() => void select(file.path, staged)}
-        className={`min-w-0 flex-1 truncate text-left font-mono text-[11px] ${selectedPath === file.path ? 'text-disclosure' : 'text-zinc-300'}`}
+        className={`min-w-0 flex-1 truncate text-left font-mono text-[11px] ${selectedPath === file.path && selectedStaged === staged ? 'text-disclosure' : 'text-zinc-300'}`}
       >
         {file.oldPath ? `${file.oldPath} → ${file.path}` : file.path}
         <span className="ml-2 text-[9px] uppercase text-zinc-600">{file.status}</span>
@@ -65,9 +69,11 @@ export function ChangesView() {
         </button>
       ) : (
         <>
-          <button type="button" aria-label={t('gitChanges.discardFile', { path: file.path })} onClick={() => void onDiscard([file.path])} className="icon-btn opacity-0 group-hover:opacity-100">
-            <RotateCcw size={13} aria-hidden="true" />
-          </button>
+          {!untracked && (
+            <button type="button" aria-label={t('gitChanges.discardFile', { path: file.path })} onClick={() => void onDiscard([file.path])} className="icon-btn opacity-0 group-hover:opacity-100">
+              <RotateCcw size={13} aria-hidden="true" />
+            </button>
+          )}
           <button type="button" aria-label={t('gitChanges.stageFile', { path: file.path })} onClick={() => void stage([file.path])} className="icon-btn opacity-0 group-hover:opacity-100">
             <Plus size={13} aria-hidden="true" />
           </button>
@@ -76,11 +82,11 @@ export function ChangesView() {
     </div>
   );
 
-  const Section = ({ title, files, staged }: { title: string; files: WorkingFile[]; staged: boolean }) =>
+  const Section = ({ title, files, staged, untracked = false }: { title: string; files: WorkingFile[]; staged: boolean; untracked?: boolean }) =>
     files.length === 0 ? null : (
       <div className="mb-2">
         <div className="mono-label px-2 py-1">{title} ({files.length})</div>
-        {files.map((f) => <Row key={(staged ? 'S:' : 'U:') + f.path} file={f} staged={staged} />)}
+        {files.map((f) => <Row key={(staged ? 'S:' : 'U:') + f.path} file={f} staged={staged} untracked={untracked} />)}
       </div>
     );
 
@@ -90,15 +96,25 @@ export function ChangesView() {
       <div className="flex w-80 shrink-0 flex-col border-r border-border-subtle">
         <div className="flex items-center justify-between px-2 py-1.5 border-b border-border-subtle">
           <span className="mono-label">{changes?.branch ?? '—'}</span>
-          <button type="button" aria-label={t('gitChanges.refresh')} onClick={() => void refresh()} className="icon-btn">
-            <RefreshCw size={13} className={busy ? 'animate-spin' : undefined} aria-hidden="true" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={!canPush}
+              onClick={() => void push()}
+              className="rounded border border-border-subtle px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-zinc-300 disabled:opacity-40 hover:bg-surface-3"
+            >
+              {t('gitChanges.push')}{ahead > 0 ? ` ↑${ahead}` : ''}
+            </button>
+            <button type="button" aria-label={t('gitChanges.refresh')} onClick={() => void refresh()} className="icon-btn">
+              <RefreshCw size={13} className={busy ? 'animate-spin' : undefined} aria-hidden="true" />
+            </button>
+          </div>
         </div>
         {error && <div className="px-2 py-1.5 text-[11px] text-status-error">{error}</div>}
         <div className="min-h-0 flex-1 overflow-y-auto">
           <Section title={t('gitChanges.sectionStaged')} files={changes?.staged ?? []} staged={true} />
           <Section title={t('gitChanges.sectionChanges')} files={changes?.unstaged ?? []} staged={false} />
-          <Section title={t('gitChanges.sectionUntracked')} files={changes?.untracked ?? []} staged={false} />
+          <Section title={t('gitChanges.sectionUntracked')} files={changes?.untracked ?? []} staged={false} untracked={true} />
           {(changes?.conflicted.length ?? 0) > 0 && (
             <div className="mb-2">
               <div className="mono-label px-2 py-1 text-status-error">{t('gitChanges.sectionConflicts')} ({changes!.conflicted.length})</div>

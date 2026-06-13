@@ -120,6 +120,7 @@ export const messages = {
     commitMessage: 'Commit message',
     commit: 'Commit',
     commitAndPush: 'Commit & Push',
+    push: 'Push',
     selectFile: 'Select a file to view its diff',
     refresh: 'Refresh',
     stageFile: 'Stage {path}',

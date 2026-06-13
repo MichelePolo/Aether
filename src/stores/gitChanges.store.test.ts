@@ -46,6 +46,14 @@ describe('useGitChangesStore', () => {
     expect(useGitChangesStore.getState().message).toBe('');
   });
 
+  it('push calls api then refreshes', async () => {
+    vi.mocked(gitApi.changes).mockResolvedValue(EMPTY);
+    await useGitChangesStore.getState().load('ws1');
+    await useGitChangesStore.getState().push();
+    expect(gitApi.push).toHaveBeenCalledWith('ws1');
+    expect(gitApi.changes).toHaveBeenCalledTimes(2); // load + refresh
+  });
+
   it('surfaces errors', async () => {
     vi.mocked(gitApi.changes).mockRejectedValue(new Error('boom'));
     await useGitChangesStore.getState().load('ws1');
