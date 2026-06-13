@@ -42,6 +42,12 @@ export const messages = {
     heading: 'Breakpoints',
     helpText:
       'Tools are auto-classified by name. "Safe" runs without prompts; "Dangerous" (file writes, shell exec, git push/rebase/reset) and "External" (override-only, for API calls) gate via the approval modal.',
+    sessionApprovals: {
+      heading: 'Session approvals',
+      empty: 'No session approvals.',
+      clearAll: 'Clear all',
+      help: 'Tools you auto-approved for this session only. Cleared on reload.',
+    },
   },
   approvalGate: {
     countdown: 'Auto-rejecting in {seconds}s…',

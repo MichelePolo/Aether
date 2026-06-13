@@ -1,4 +1,5 @@
 import { useBreakpointsStore } from '@/src/stores/breakpoints.store';
+import { useChatStore } from '@/src/stores/chat.store';
 import type { ToolCategory, CategoryMode } from '@/src/types/breakpoints.types';
 import { Tooltip } from '@/src/components/ui/Tooltip';
 import { cn } from '@/src/lib/cn';
@@ -15,6 +16,10 @@ const MODES: CategoryMode[] = ['auto', 'gate'];
 export function BreakpointsSection() {
   const policy = useBreakpointsStore((s) => s.policy);
   const setCategoryMode = useBreakpointsStore((s) => s.setCategoryMode);
+  const stickyApprovals = useChatStore((s) => s.stickyApprovals);
+  const removeStickyApproval = useChatStore((s) => s.removeStickyApproval);
+  const clearStickyApprovals = useChatStore((s) => s.clearStickyApprovals);
+  const stickyNames = [...stickyApprovals].sort();
 
   return (
     <section>
@@ -66,6 +71,54 @@ export function BreakpointsSection() {
             </div>
           );
         })}
+      </div>
+      <div className="mt-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="mono-label">{t('breakpoints.sessionApprovals.heading')}</span>
+          <span className="text-[10px] text-zinc-600">[{stickyNames.length}]</span>
+          <Tooltip label={t('breakpoints.sessionApprovals.help')}>
+            <button
+              type="button"
+              aria-label="What are session approvals?"
+              className="text-zinc-600 hover:text-zinc-300 text-[10px]"
+            >
+              ?
+            </button>
+          </Tooltip>
+        </div>
+        {stickyNames.length === 0 ? (
+          <div className="text-[10px] text-zinc-600 font-mono italic">
+            {t('breakpoints.sessionApprovals.empty')}
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {stickyNames.map((name) => (
+              <div
+                key={name}
+                data-testid="session-approval-row"
+                className="flex items-center gap-2 p-1.5 bg-zinc-900 border border-border-subtle rounded text-[10px] font-mono"
+              >
+                <span className="text-zinc-300 flex-1 truncate">{name}</span>
+                <button
+                  type="button"
+                  aria-label={`Revoke ${name}`}
+                  onClick={() => removeStickyApproval(name)}
+                  className="text-zinc-500 hover:text-status-error"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              aria-label="Clear all session approvals"
+              onClick={clearStickyApprovals}
+              className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors mt-2"
+            >
+              {t('breakpoints.sessionApprovals.clearAll')}
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );

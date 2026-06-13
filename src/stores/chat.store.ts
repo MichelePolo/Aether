@@ -80,6 +80,7 @@ interface ChatState {
   removeQueuedAttachment: (id: string) => void;
   clearQueuedAttachments: () => void;
   addStickyApproval: (qualifiedName: string) => void;
+  removeStickyApproval: (qualifiedName: string) => void;
   clearStickyApprovals: () => void;
 }
 
@@ -106,6 +107,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   reset: () => set(freshState()),
   addStickyApproval: (qualifiedName) =>
     set((s) => ({ stickyApprovals: new Set(s.stickyApprovals).add(qualifiedName) })),
+  removeStickyApproval: (qualifiedName) =>
+    set((s) => {
+      const next = new Set(s.stickyApprovals);
+      next.delete(qualifiedName);
+      return { stickyApprovals: next };
+    }),
   clearStickyApprovals: () => set({ stickyApprovals: new Set<string>() }),
 
   hydrate: (messages) => set({ messages, hydrated: true }),
