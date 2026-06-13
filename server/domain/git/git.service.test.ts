@@ -163,3 +163,44 @@ describe('GitService.diff', () => {
     });
   });
 });
+
+describe('GitService — working tree (changes pane)', () => {
+  // Reuses the module-scoped `service` (maps 'ws1' → repoDir) and the `git()`
+  // helper. These tests mutate repoDir's working tree, so they run after the
+  // read-only describes above.
+  it('changes() reports staged, unstaged, and untracked files', async () => {
+    writeFileSync(join(repoDir, 'a.txt'), 'CHANGED\n'); // tracked, modified, unstaged
+    writeFileSync(join(repoDir, 'new.txt'), 'N\n'); // untracked
+    git(['add', 'a.txt'], repoDir); // now staged
+    writeFileSync(join(repoDir, 'a.txt'), 'CHANGED AGAIN\n'); // staged + further modified
+    const c = await service.changes('ws1');
+    expect(c.staged.some((f) => f.path === 'a.txt')).toBe(true);
+    expect(c.unstaged.some((f) => f.path === 'a.txt')).toBe(true);
+    expect(c.untracked.some((f) => f.path === 'new.txt')).toBe(true);
+  });
+
+  it('stage → workingDiff(staged) → commit produces a clean tree', async () => {
+    writeFileSync(join(repoDir, 'b.txt'), 'B\n');
+    await service.stage('ws1', { paths: ['b.txt'] });
+    const d = await service.workingDiff('ws1', { path: 'b.txt', staged: true });
+    expect(d.unified).toMatch(/b\.txt/);
+    const { head } = await service.commit('ws1', { message: 'add b' });
+    expect(head).toMatch(/^[0-9a-f]{7,}$/);
+    const c = await service.changes('ws1');
+    expect(c.staged).toEqual([]);
+  });
+
+  it('unstage moves a staged file back; discard reverts a tracked change', async () => {
+    writeFileSync(join(repoDir, 'a.txt'), 'X\n');
+    await service.stage('ws1', { paths: ['a.txt'] });
+    await service.unstage('ws1', { paths: ['a.txt'] });
+    expect((await service.changes('ws1')).staged).toEqual([]);
+    await service.discard('ws1', { paths: ['a.txt'] });
+    expect((await service.changes('ws1')).unstaged).toEqual([]);
+  });
+
+  it('commit rejects an empty message; rejects a path starting with dash', async () => {
+    await expect(service.commit('ws1', { message: '   ' })).rejects.toThrow();
+    await expect(service.stage('ws1', { paths: ['-rf'] })).rejects.toThrow();
+  });
+});
