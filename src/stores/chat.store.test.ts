@@ -224,4 +224,13 @@ describe('useChatStore stickyApprovals', () => {
     useChatStore.getState().reset();
     expect(useChatStore.getState().stickyApprovals.size).toBe(0);
   });
+
+  it('removeStickyApproval removes only the named tool', () => {
+    useChatStore.getState().addStickyApproval('fs.write_file');
+    useChatStore.getState().addStickyApproval('git.git_commit');
+    useChatStore.getState().removeStickyApproval('fs.write_file');
+    const sticky = useChatStore.getState().stickyApprovals;
+    expect(sticky.has('fs.write_file')).toBe(false);
+    expect(sticky.has('git.git_commit')).toBe(true);
+  });
 });
