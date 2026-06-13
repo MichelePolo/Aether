@@ -127,3 +127,38 @@ describe('GET /api/git/diff', () => {
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 });
+
+describe('git routes — changes pane', () => {
+  // Reuses the existing `app` (createApp with a real GitService over repoDir
+  // exposed as workspace 'ws1').
+  it('GET /api/git/changes returns structured working changes', async () => {
+    writeFileSync(join(repoDir, 'a.txt'), 'CHANGED\n');
+    const res = await request(app).get('/api/git/changes').query({ workspaceId: 'ws1' });
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.unstaged)).toBe(true);
+  });
+
+  it('POST /api/git/stage then /commit works; missing fields → 400', async () => {
+    writeFileSync(join(repoDir, 'b.txt'), 'B\n');
+    const stage = await request(app)
+      .post('/api/git/stage')
+      .send({ workspaceId: 'ws1', paths: ['b.txt'] });
+    expect(stage.status).toBe(204);
+    const commit = await request(app)
+      .post('/api/git/commit')
+      .send({ workspaceId: 'ws1', message: 'b' });
+    expect(commit.status).toBe(200);
+    expect(commit.body.head).toMatch(/^[0-9a-f]{7,}$/);
+    const bad = await request(app).post('/api/git/stage').send({ workspaceId: 'ws1' });
+    expect(bad.status).toBe(400);
+  });
+
+  it('GET /api/git/working-diff returns text/plain', async () => {
+    writeFileSync(join(repoDir, 'a.txt'), 'CHANGED2\n');
+    const res = await request(app)
+      .get('/api/git/working-diff')
+      .query({ workspaceId: 'ws1', path: 'a.txt' });
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/plain/);
+  });
+});
