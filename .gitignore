@@ -19,3 +19,6 @@ data/*
 
 # superpowers brainstorm visual companion
 .superpowers/
+
+# Local preview/integration data dirs (never commit DBs)
+data-preview/
