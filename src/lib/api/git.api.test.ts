@@ -91,3 +91,26 @@ describe('gitApi', () => {
     });
   });
 });
+
+describe('gitApi — changes pane', () => {
+  it('changes() GETs /api/git/changes', async () => {
+    const fetchMock = vi.fn(async (_url: string) => new Response(JSON.stringify({ staged: [], unstaged: [], untracked: [], conflicted: [] }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const r = await gitApi.changes('ws1');
+    expect(r.staged).toEqual([]);
+    expect(fetchMock.mock.calls[0][0]).toContain('/api/git/changes?workspaceId=ws1');
+    vi.unstubAllGlobals();
+  });
+
+  it('stage() POSTs paths; commit() returns head', async () => {
+    const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+      if (String(url).endsWith('/stage')) return new Response(null, { status: 204 });
+      return new Response(JSON.stringify({ head: 'abc1234' }), { status: 200 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await gitApi.stage('ws1', ['a.txt']);
+    const c = await gitApi.commit('ws1', 'msg');
+    expect(c.head).toBe('abc1234');
+    vi.unstubAllGlobals();
+  });
+});
