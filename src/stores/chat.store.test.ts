@@ -233,4 +233,11 @@ describe('useChatStore stickyApprovals', () => {
     expect(sticky.has('fs.write_file')).toBe(false);
     expect(sticky.has('git.git_commit')).toBe(true);
   });
+
+  it('clearStickyApprovals empties the set', () => {
+    useChatStore.getState().addStickyApproval('fs.write_file');
+    useChatStore.getState().addStickyApproval('git.git_commit');
+    useChatStore.getState().clearStickyApprovals();
+    expect(useChatStore.getState().stickyApprovals.size).toBe(0);
+  });
 });

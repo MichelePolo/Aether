@@ -111,7 +111,8 @@ export function BreakpointsSection() {
             ))}
             <button
               type="button"
-              onClick={() => clearStickyApprovals()}
+              aria-label="Clear all session approvals"
+              onClick={clearStickyApprovals}
               className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors mt-2"
             >
               {t('breakpoints.sessionApprovals.clearAll')}

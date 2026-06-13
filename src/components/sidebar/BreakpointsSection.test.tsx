@@ -63,7 +63,7 @@ describe('BreakpointsSection', () => {
     useChatStore.getState().addStickyApproval('git.git_commit');
     render(<BreakpointsSection />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all session approvals' }));
     expect(screen.getByText('No session approvals.')).toBeInTheDocument();
   });
 });
