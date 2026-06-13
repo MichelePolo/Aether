@@ -1,11 +1,12 @@
 import { useUiStore } from '@/src/stores/ui.store';
 import { cn } from '@/src/lib/cn';
+import { t } from '@/src/i18n/t';
 import { GitSwimlanesView } from './GitSwimlanesView';
 import { ChangesView } from './ChangesView';
 
 const TABS: { id: 'history' | 'changes'; label: string }[] = [
-  { id: 'history', label: 'History' },
-  { id: 'changes', label: 'Changes' },
+  { id: 'history', label: t('gitChanges.tabHistory') },
+  { id: 'changes', label: t('gitChanges.tabChanges') },
 ];
 
 export function GitView() {

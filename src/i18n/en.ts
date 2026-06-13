@@ -110,6 +110,25 @@ export const messages = {
       close: 'Close diff',
     },
   },
+  gitChanges: {
+    tabHistory: 'History',
+    tabChanges: 'Changes',
+    sectionStaged: 'Staged',
+    sectionChanges: 'Changes',
+    sectionUntracked: 'Untracked',
+    sectionConflicts: 'Conflicts',
+    commitMessage: 'Commit message',
+    commit: 'Commit',
+    commitAndPush: 'Commit & Push',
+    selectFile: 'Select a file to view its diff',
+    refresh: 'Refresh',
+    stageFile: 'Stage {path}',
+    unstageFile: 'Unstage {path}',
+    discardFile: 'Discard {path}',
+    discardTitle: 'Discard changes',
+    discardMessage: 'Discard changes in {n} file(s)? This cannot be undone.',
+    discardConfirm: 'Discard',
+  },
 } as const;
 
 export type MessageMap = typeof messages;
