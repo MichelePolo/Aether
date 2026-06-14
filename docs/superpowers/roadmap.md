@@ -40,6 +40,7 @@ Forward-looking slice plan. Each entry is a stub — when we pick one up, the fu
 | 28 | Git write actions (Tier 2): agent-initiated add/commit/checkout/restore via a builtin `aether-git` MCP, gated through the slice-22 breakpoint machinery with an in-process git diff preview | `feat/slice-28-git-write` | ✅ |
 | 29 | Git remote actions (Tier 3): agent-initiated fetch/push/pull(ff-only)/merge(ff-only) on the `aether-git` MCP; ambient host auth (GIT_TERMINAL_PROMPT=0), configured-remote-only targets, commitList gate preview | `feat/slice-29-git-remote` | ✅ |
 | 30 | Git Changes pane: human-driven working-tree source control (status/stage/unstage/discard/commit/commit&push) as a sub-tab of the git view; reuses GitService + runner, server-parsed porcelain v2, per-file diff; ungated (human consent) | `feat/git-changes-pane` | ✅ |
+| 31 | Scheduled / Background Agents: cron+interval autonomous runs (prompt or swarm) via an in-process poller (croner, persisted `nextRunAt`, advance-before-fire, no-overlap); per-schedule autonomy (`safe` default rejects gated tool + swarm-step approvals via Proxy registries / `trusted` auto-approves all); headless per-run DispatchService built by the runner (no change to DispatchService/runSwarm); migration 014, SchedulesSection + ScheduleEditModal | `feat/scheduled-agents` | ✅ |
 
 ## Planned
 
@@ -111,8 +112,9 @@ layer, and a retrieval step wired into `prompt-assembler`.
 
 - **Cost & usage analytics + budgets** — aggregate the per-message token usage already
   captured into per-session/provider dashboards, with configurable spend caps.
-- **Scheduled / background agents** — cron-driven autonomous runs on top of the slice 24
-  daemon (e.g. nightly swarm, watch-and-react jobs).
+- ~~**Scheduled / background agents**~~ — ✅ **shipped as slice 31.** Cron+interval
+  autonomous runs (prompt or swarm) via an in-process poller on the long-lived server,
+  with per-schedule autonomy (`safe`/`trusted`) and results persisted to history.
 - **Sub-agent / swarm eval harness** — golden-input regression tests for prompts and
   swarms, so prompt edits can be scored before shipping.
 
