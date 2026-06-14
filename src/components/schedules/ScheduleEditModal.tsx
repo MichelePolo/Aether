@@ -20,13 +20,14 @@ export function ScheduleEditModal({ id, onClose }: { id: string | 'new'; onClose
   const [prompt, setPrompt] = useState(existing?.target.kind === 'prompt' ? existing.target.prompt : '');
   const [subAgent, setSubAgent] = useState(existing?.target.kind === 'prompt' ? (existing.target.subAgent ?? '') : '');
   const [swarmId, setSwarmId] = useState(existing?.target.kind === 'swarm' ? existing.target.swarmId : (swarms[0]?.id ?? ''));
+  const [swarmInput, setSwarmInput] = useState(existing?.target.kind === 'swarm' ? (existing.target.input ?? '') : '');
   const [autonomy, setAutonomy] = useState<'safe' | 'trusted'>(existing?.autonomy ?? 'safe');
   const [enabled, setEnabled] = useState(existing?.enabled ?? true);
 
   const cadence: Cadence = cadenceKind === 'cron' ? { kind: 'cron', expr: cronExpr } : { kind: 'interval', everyMs: everyMin * 60_000 };
   const target: Target = targetKind === 'prompt'
     ? { kind: 'prompt', prompt, ...(subAgent ? { subAgent } : {}) }
-    : { kind: 'swarm', swarmId };
+    : { kind: 'swarm', swarmId, ...(swarmInput.trim() ? { input: swarmInput } : {}) };
   const valid = name.trim() && (targetKind === 'prompt' ? prompt.trim() : swarmId);
 
   const save = async () => {
@@ -60,6 +61,9 @@ export function ScheduleEditModal({ id, onClose }: { id: string | 'new'; onClose
         </div>
         {targetKind === 'prompt' && (
           <input value={subAgent} onChange={(e) => setSubAgent(e.target.value)} aria-label={t('schedules.modal.subAgentLabel')} placeholder={t('schedules.modal.subAgent')} className="w-full rounded border border-border-subtle bg-surface-0 p-2" />
+        )}
+        {targetKind === 'swarm' && (
+          <input value={swarmInput} onChange={(e) => setSwarmInput(e.target.value)} aria-label={t('schedules.modal.swarmInputLabel')} placeholder={t('schedules.modal.swarmInput')} className="w-full rounded border border-border-subtle bg-surface-0 p-2" />
         )}
         <label className="flex items-center gap-2 text-[12px]">
           <input type="checkbox" checked={autonomy === 'trusted'} onChange={(e) => setAutonomy(e.target.checked ? 'trusted' : 'safe')} aria-label={t('schedules.modal.trustedWarning')} />

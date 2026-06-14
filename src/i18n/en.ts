@@ -147,6 +147,8 @@ export const messages = {
       subAgent: '@subagent (optional)',
       subAgentLabel: 'Sub-agent (optional)',
       swarm: 'Swarm',
+      swarmInput: 'Initial input (optional)',
+      swarmInputLabel: 'Swarm initial input (optional)',
       trustedWarning:
         'Trusted (auto-approve ALL tool calls — incl. dangerous). Default safe rejects gated tools.',
       enabled: 'Enabled',

@@ -8,14 +8,14 @@ import type { SubAgentsStore } from '@/server/domain/subagents/subagents.store';
 import type { McpRegistry } from '@/server/domain/mcp/registry';
 import type { BreakpointService } from '@/server/domain/mcp/breakpoints/breakpoints.service';
 import type { SwarmStore } from '@/server/domain/swarms/swarm.store';
-import type { SwarmApprovalRegistry } from '@/server/domain/swarms/swarm.approval';
+import type { SwarmApprovalRegistry, SwarmDecision } from '@/server/domain/swarms/swarm.approval';
 import type { Schedule, Autonomy, RunStatus } from './schedules.types';
 
 const MAX_RUN_MS = 30 * 60_000; // 30 min hard ceiling per run
 
 /** A Proxy over the real registry that immediately rejects any gated tool call
  *  (so an unattended `safe` run never stalls 60s waiting for a human). */
-function autoRejectGatedRegistry(registry: McpRegistry): McpRegistry {
+export function autoRejectGatedRegistry(registry: McpRegistry): McpRegistry {
   return new Proxy(registry, {
     get(target, prop, receiver) {
       if (prop === 'awaitDecision') return async () => 'reject' as const;
@@ -25,7 +25,21 @@ function autoRejectGatedRegistry(registry: McpRegistry): McpRegistry {
   }) as McpRegistry;
 }
 
-const AUTO_GATE = { resolveDecision: async () => 'auto' as const } as unknown as BreakpointService;
+/** A Proxy over the swarm-approval registry that auto-decides every paused step
+ *  without waiting — `trusted` approves, `safe` rejects. Without this an unattended
+ *  swarm with a `pauseAfter` step would block on `awaitDecision` until the approval
+ *  timeout (default 5 min) and then reject, defeating both autonomy modes. */
+export function autoDecideApprovals(registry: SwarmApprovalRegistry, decision: SwarmDecision): SwarmApprovalRegistry {
+  return new Proxy(registry, {
+    get(target, prop, receiver) {
+      if (prop === 'awaitDecision') return async () => decision;
+      const v = Reflect.get(target, prop, receiver);
+      return typeof v === 'function' ? (v as (...a: unknown[]) => unknown).bind(target) : v;
+    },
+  }) as SwarmApprovalRegistry;
+}
+
+export const AUTO_GATE = { resolveDecision: async () => 'auto' as const } as unknown as BreakpointService;
 
 interface RecordedSse { sse: SseEmitter; events: Array<{ name: string; data: unknown }> }
 function recordingSse(): RecordedSse {
@@ -59,9 +73,6 @@ export interface ScheduleRunnerDeps {
   breakpointService?: BreakpointService;
   swarmStore?: SwarmStore;
   swarmApprovals?: SwarmApprovalRegistry;
-  /** Test-only injection slot for swarm deps; the production path uses the granular
-   *  `swarmStore`/`swarmApprovals`/`subAgentsStore` fields above. */
-  swarmDeps?: unknown;
   /** Overridable for tests; defaults to building a real per-run DispatchService. */
   buildDispatcher?: (autonomy: Autonomy) => { handle: DispatchService['handle'] };
   /** Overridable for tests. */
@@ -114,13 +125,19 @@ export class ScheduleRunner {
         };
         const swarmId = schedule.target.swarmId;
         const input = schedule.target.input ?? '';
+        // Mirror the MCP gate override on the swarm-approval gate: an unattended
+        // `pauseAfter` step must not block on a human — trusted approves, safe rejects.
+        const approvals = autoDecideApprovals(
+          this.deps.swarmApprovals!,
+          schedule.autonomy === 'trusted' ? 'approve' : 'reject',
+        );
         await (this.deps.runSwarm ?? realRunSwarm)(
           {
             store: this.deps.swarmStore!,
             subAgentsStore: this.deps.subAgentsStore!,
             dispatcher,
             createSession,
-            approvals: this.deps.swarmApprovals!,
+            approvals,
           },
           { swarmId, input },
           rec.sse, ctrl.signal,
