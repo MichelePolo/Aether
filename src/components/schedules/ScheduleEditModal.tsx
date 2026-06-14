@@ -3,6 +3,7 @@ import { Modal } from '@/src/components/ui/Modal';
 import { Button } from '@/src/components/ui/Button';
 import { useSchedulesStore } from '@/src/stores/schedules.store';
 import { useSwarmsStore } from '@/src/stores/swarms.store';
+import { t } from '@/src/i18n/t';
 import type { Cadence, Target } from '@/src/lib/api/schedules.api';
 
 export function ScheduleEditModal({ id, onClose }: { id: string | 'new'; onClose: () => void }) {
@@ -36,41 +37,41 @@ export function ScheduleEditModal({ id, onClose }: { id: string | 'new'; onClose
 
   return (
     <Modal open onClose={onClose} className="max-w-md">
-      <h2 className="mono-label mb-3">{id === 'new' ? 'New schedule' : 'Edit schedule'}</h2>
+      <h2 className="mono-label mb-3">{id === 'new' ? t('schedules.modal.newTitle') : t('schedules.modal.editTitle')}</h2>
       <div className="space-y-3 text-sm">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" aria-label="Name" className="w-full rounded border border-border-subtle bg-surface-0 p-2" />
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('schedules.modal.name')} aria-label={t('schedules.modal.name')} className="w-full rounded border border-border-subtle bg-surface-0 p-2" />
         <div className="flex gap-2">
           <select value={cadenceKind} onChange={(e) => setCadenceKind(e.target.value as Cadence['kind'])} aria-label="Cadence kind" className="rounded border border-border-subtle bg-surface-0 p-2">
             <option value="cron">cron</option><option value="interval">interval</option>
           </select>
           {cadenceKind === 'cron'
-            ? <input value={cronExpr} onChange={(e) => setCronExpr(e.target.value)} aria-label="Cron expression" placeholder="0 3 * * *" className="flex-1 rounded border border-border-subtle bg-surface-0 p-2 font-mono" />
-            : <input type="number" min={1} value={everyMin} onChange={(e) => setEveryMin(Number(e.target.value))} aria-label="Every minutes" className="flex-1 rounded border border-border-subtle bg-surface-0 p-2" />}
+            ? <input value={cronExpr} onChange={(e) => setCronExpr(e.target.value)} aria-label={t('schedules.modal.cronExpression')} placeholder="0 3 * * *" className="flex-1 rounded border border-border-subtle bg-surface-0 p-2 font-mono" />
+            : <input type="number" min={1} value={everyMin} onChange={(e) => setEveryMin(Number(e.target.value))} aria-label={t('schedules.modal.everyMinutes')} className="flex-1 rounded border border-border-subtle bg-surface-0 p-2" />}
         </div>
         <div className="flex gap-2">
           <select value={targetKind} onChange={(e) => setTargetKind(e.target.value as Target['kind'])} aria-label="Target kind" className="rounded border border-border-subtle bg-surface-0 p-2">
             <option value="prompt">prompt</option><option value="swarm">swarm</option>
           </select>
           {targetKind === 'prompt'
-            ? <input value={prompt} onChange={(e) => setPrompt(e.target.value)} aria-label="Prompt" placeholder="Prompt" className="flex-1 rounded border border-border-subtle bg-surface-0 p-2" />
-            : <select value={swarmId} onChange={(e) => setSwarmId(e.target.value)} aria-label="Swarm" className="flex-1 rounded border border-border-subtle bg-surface-0 p-2">
+            ? <input value={prompt} onChange={(e) => setPrompt(e.target.value)} aria-label={t('schedules.modal.prompt')} placeholder={t('schedules.modal.prompt')} className="flex-1 rounded border border-border-subtle bg-surface-0 p-2" />
+            : <select value={swarmId} onChange={(e) => setSwarmId(e.target.value)} aria-label={t('schedules.modal.swarm')} className="flex-1 rounded border border-border-subtle bg-surface-0 p-2">
                 {swarms.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>}
         </div>
         {targetKind === 'prompt' && (
-          <input value={subAgent} onChange={(e) => setSubAgent(e.target.value)} aria-label="Sub-agent (optional)" placeholder="@subagent (optional)" className="w-full rounded border border-border-subtle bg-surface-0 p-2" />
+          <input value={subAgent} onChange={(e) => setSubAgent(e.target.value)} aria-label={t('schedules.modal.subAgentLabel')} placeholder={t('schedules.modal.subAgent')} className="w-full rounded border border-border-subtle bg-surface-0 p-2" />
         )}
         <label className="flex items-center gap-2 text-[12px]">
-          <input type="checkbox" checked={autonomy === 'trusted'} onChange={(e) => setAutonomy(e.target.checked ? 'trusted' : 'safe')} aria-label="Trusted" />
-          Trusted (auto-approve ALL tool calls — incl. dangerous). Default safe rejects gated tools.
+          <input type="checkbox" checked={autonomy === 'trusted'} onChange={(e) => setAutonomy(e.target.checked ? 'trusted' : 'safe')} aria-label={t('schedules.modal.trustedWarning')} />
+          {t('schedules.modal.trustedWarning')}
         </label>
         <label className="flex items-center gap-2 text-[12px]">
-          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} aria-label="Enabled" /> Enabled
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} aria-label={t('schedules.modal.enabled')} /> {t('schedules.modal.enabled')}
         </label>
       </div>
       <div className="flex justify-end gap-2 mt-4">
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button variant="primary" disabled={!valid} onClick={() => void save()}>Save</Button>
+        <Button variant="ghost" onClick={onClose}>{t('schedules.modal.cancel')}</Button>
+        <Button variant="primary" disabled={!valid} onClick={() => void save()}>{t('schedules.modal.save')}</Button>
       </div>
     </Modal>
   );

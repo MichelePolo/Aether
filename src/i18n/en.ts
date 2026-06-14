@@ -130,6 +130,30 @@ export const messages = {
     discardMessage: 'Discard changes in {n} file(s)? This cannot be undone.',
     discardConfirm: 'Discard',
   },
+  schedules: {
+    title: 'Schedules',
+    newButton: '+ New',
+    runNow: 'Run {name} now',
+    edit: 'Edit {name}',
+    delete: 'Delete {name}',
+    cadenceSummary: 'every {n}m',
+    modal: {
+      newTitle: 'New schedule',
+      editTitle: 'Edit schedule',
+      name: 'Name',
+      cronExpression: 'Cron expression',
+      everyMinutes: 'Every minutes',
+      prompt: 'Prompt',
+      subAgent: '@subagent (optional)',
+      subAgentLabel: 'Sub-agent (optional)',
+      swarm: 'Swarm',
+      trustedWarning:
+        'Trusted (auto-approve ALL tool calls — incl. dangerous). Default safe rejects gated tools.',
+      enabled: 'Enabled',
+      cancel: 'Cancel',
+      save: 'Save',
+    },
+  },
 } as const;
 
 export type MessageMap = typeof messages;

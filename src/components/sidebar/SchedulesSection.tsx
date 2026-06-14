@@ -2,10 +2,13 @@ import { useState } from 'react';
 import { Play, Pencil, Trash2 } from 'lucide-react';
 import { useSchedulesStore } from '@/src/stores/schedules.store';
 import { ScheduleEditModal } from '@/src/components/schedules/ScheduleEditModal';
+import { t } from '@/src/i18n/t';
 import type { Cadence } from '@/src/lib/api/schedules.api';
 
 function cadenceSummary(c: Cadence): string {
-  return c.kind === 'cron' ? c.expr : `every ${Math.round(c.everyMs / 60_000)}m`;
+  return c.kind === 'cron'
+    ? c.expr
+    : t('schedules.cadenceSummary', { n: Math.round(c.everyMs / 60_000) });
 }
 
 export function SchedulesSection() {
@@ -17,9 +20,9 @@ export function SchedulesSection() {
   return (
     <section>
       <div className="flex items-center justify-between mb-2">
-        <div className="mono-label">Schedules</div>
+        <div className="mono-label">{t('schedules.title')}</div>
         <button type="button" className="text-[10px] text-manipulation hover:underline" onClick={() => setEditing('new')}>
-          + New
+          {t('schedules.newButton')}
         </button>
       </div>
       <div className="space-y-1">
@@ -29,9 +32,9 @@ export function SchedulesSection() {
             <span className="min-w-0 flex-1 truncate text-zinc-300">
               {s.name} <span className="text-zinc-600">({cadenceSummary(s.cadence)})</span>
             </span>
-            <button type="button" aria-label={`Run ${s.name} now`} onClick={() => void runNow(s.id)} className="icon-btn"><Play size={12} aria-hidden="true" /></button>
-            <button type="button" aria-label={`Edit ${s.name}`} onClick={() => setEditing(s.id)} className="icon-btn"><Pencil size={12} aria-hidden="true" /></button>
-            <button type="button" aria-label={`Delete ${s.name}`} onClick={() => void remove(s.id)} className="icon-btn hover:text-status-error"><Trash2 size={12} aria-hidden="true" /></button>
+            <button type="button" aria-label={t('schedules.runNow', { name: s.name })} onClick={() => void runNow(s.id)} className="icon-btn"><Play size={12} aria-hidden="true" /></button>
+            <button type="button" aria-label={t('schedules.edit', { name: s.name })} onClick={() => setEditing(s.id)} className="icon-btn"><Pencil size={12} aria-hidden="true" /></button>
+            <button type="button" aria-label={t('schedules.delete', { name: s.name })} onClick={() => void remove(s.id)} className="icon-btn hover:text-status-error"><Trash2 size={12} aria-hidden="true" /></button>
           </div>
         ))}
       </div>
