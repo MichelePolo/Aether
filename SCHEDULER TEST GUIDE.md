@@ -257,7 +257,60 @@ sqlite3 data/aether.sqlite \
 
 ---
 
-## 13. Note / limiti noti
+## 13. Riferimento cron (cadenza `cron`)
+
+Cron è **a calendario**: descrive istanti ricorrenti, non un ritardo relativo ("tra X
+minuti" non è esprimibile — per quello usa `interval` o **▶ Run now**). Orari nel
+**fuso del server**.
+
+### I 5 campi
+
+```
+┌──────────── minuto        (0–59)
+│ ┌────────── ora           (0–23)
+│ │ ┌──────── giorno-mese   (1–31)
+│ │ │ ┌────── mese          (1–12)
+│ │ │ │ ┌──── giorno-sett.  (0–6, 0 = domenica)
+│ │ │ │ │
+* * * * *
+```
+
+### Operatori (validi in ogni campo)
+
+| Simbolo | Significato | Esempio | Legge |
+|---|---|---|---|
+| `*` | ogni valore | `* * * * *` | ogni minuto |
+| `*/n` | a passi di n | `*/15 * * * *` | ogni 15 minuti (:00 :15 :30 :45) |
+| `a-b` | intervallo | `0 9-17 * * *` | ogni ora dalle 9 alle 17 |
+| `a,b` | lista | `0 8,13,18 * * *` | alle 8, 13 e 18 |
+
+### Espressioni pronte
+
+| Espressione | Quando parte |
+|---|---|
+| `* * * * *` | ogni minuto |
+| `*/5 * * * *` | ogni 5 minuti |
+| `*/15 * * * *` | ogni 15 minuti |
+| `*/30 * * * *` | ogni 30 minuti |
+| `0 * * * *` | ogni ora (al minuto 0) |
+| `0 15 * * *` | ogni giorno alle 15:00 |
+| `0 3 * * *` | ogni giorno alle 03:00 |
+| `30 8,18 * * *` | ogni giorno alle 08:30 e 18:30 |
+| `0 9 * * 1` | ogni lunedì alle 09:00 |
+| `0 9 * * 1-5` | ogni giorno feriale alle 09:00 |
+| `0 0 1 * *` | il 1° di ogni mese a mezzanotte |
+
+> **cron vs interval:** `*/15 * * * *` si aggancia ai quarti d'ora dell'orologio
+> (:00/:15/:30/:45); per "esattamente ogni 15 min **a partire da adesso**" usa invece
+> la cadenza **interval** = 15 (min).
+>
+> **Granularità:** il poller controlla ogni 30 s, quindi sotto al minuto la precisione
+> è ~±30 s. Il parser (croner) accetta anche un 6° campo iniziale per i **secondi**
+> (es. `*/30 * * * * *`), ma l'interval da UI ha comunque minimo **1 minuto**.
+
+---
+
+## 14. Note / limiti noti
 
 - L'autonomia **safe** rifiuta ciò che *richiede* il gate. Se hai pre-approvato
   globalmente un tool (policy breakpoint) quel tool **non** gate-a e quindi parte:

@@ -41,13 +41,26 @@ export function ScheduleEditModal({ id, onClose }: { id: string | 'new'; onClose
       <h2 className="mono-label mb-3">{id === 'new' ? t('schedules.modal.newTitle') : t('schedules.modal.editTitle')}</h2>
       <div className="space-y-3 text-sm">
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('schedules.modal.name')} aria-label={t('schedules.modal.name')} className="w-full rounded border border-border-subtle bg-surface-0 p-2" />
-        <div className="flex gap-2">
-          <select value={cadenceKind} onChange={(e) => setCadenceKind(e.target.value as Cadence['kind'])} aria-label="Cadence kind" className="rounded border border-border-subtle bg-surface-0 p-2">
-            <option value="cron">cron</option><option value="interval">interval</option>
-          </select>
-          {cadenceKind === 'cron'
-            ? <input value={cronExpr} onChange={(e) => setCronExpr(e.target.value)} aria-label={t('schedules.modal.cronExpression')} placeholder="0 3 * * *" className="flex-1 rounded border border-border-subtle bg-surface-0 p-2 font-mono" />
-            : <input type="number" min={1} value={everyMin} onChange={(e) => setEveryMin(Number(e.target.value))} aria-label={t('schedules.modal.everyMinutes')} className="flex-1 rounded border border-border-subtle bg-surface-0 p-2" />}
+        <div>
+          <div className="flex gap-2">
+            <select value={cadenceKind} onChange={(e) => setCadenceKind(e.target.value as Cadence['kind'])} aria-label="Cadence kind" className="rounded border border-border-subtle bg-surface-0 p-2">
+              <option value="cron">cron</option><option value="interval">interval</option>
+            </select>
+            {cadenceKind === 'cron'
+              ? <input value={cronExpr} onChange={(e) => setCronExpr(e.target.value)} aria-label={t('schedules.modal.cronExpression')} placeholder="0 3 * * *" className="flex-1 rounded border border-border-subtle bg-surface-0 p-2 font-mono" />
+              : <div className="flex-1 flex items-center gap-2">
+                  <input type="number" min={1} value={everyMin} onChange={(e) => setEveryMin(Number(e.target.value))} aria-label={t('schedules.modal.everyMinutes')} className="flex-1 rounded border border-border-subtle bg-surface-0 p-2" />
+                  <span className="text-[11px] text-zinc-500 shrink-0">{t('schedules.modal.intervalUnit')}</span>
+                </div>}
+          </div>
+          {cadenceKind === 'cron' ? (
+            <div className="mt-1 font-mono text-[10px] leading-snug text-zinc-500">
+              <div>{t('schedules.modal.cronLegend')}</div>
+              <div className="text-zinc-600">{t('schedules.modal.cronHint')}</div>
+            </div>
+          ) : (
+            <p className="mt-1 text-[10px] leading-snug text-zinc-500">{t('schedules.modal.intervalHint')}</p>
+          )}
         </div>
         <div className="flex gap-2">
           <select value={targetKind} onChange={(e) => setTargetKind(e.target.value as Target['kind'])} aria-label="Target kind" className="rounded border border-border-subtle bg-surface-0 p-2">
