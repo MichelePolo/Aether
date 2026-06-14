@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { ReasoningStepCard } from './ReasoningStepCard';
 import type { ReasoningStep } from '@/src/types/reasoning.types';
+
+/** Expand the card body (tool_call cards start collapsed). */
+function expandCard() {
+  fireEvent.click(screen.getByRole('button', { expanded: false }));
+}
 
 const baseStep: ReasoningStep = {
   id: '1', type: 'context_fetch', title: 'Read context', content: 'loaded', timestamp: 1,
@@ -83,7 +88,36 @@ describe('ReasoningStepCard', () => {
       />,
     );
     expect(screen.getByText('Tool: mock.echo')).toBeInTheDocument();
+    expandCard();
     expect(screen.getAllByText(/"message":\s*"hi"/)[0]).toBeInTheDocument();
+  });
+
+  it('collapses tool_call cards by default (body hidden until expanded)', () => {
+    render(
+      <ReasoningStepCard
+        step={{
+          id: '1',
+          type: 'tool_call',
+          title: 'Tool: mock.echo',
+          content: 'executed mock.echo',
+          toolCall: { id: 'C1', qualifiedName: 'mock.echo', args: { message: 'hi' }, result: { message: 'hi' }, durationMs: 12 },
+          timestamp: 0,
+        }}
+      />,
+    );
+    // Header (title) is visible; body (content + args/result) is not.
+    expect(screen.getByText('Tool: mock.echo')).toBeInTheDocument();
+    expect(screen.queryByText('executed mock.echo')).not.toBeInTheDocument();
+    expect(screen.queryByText(/"message":\s*"hi"/)).not.toBeInTheDocument();
+    expandCard();
+    expect(screen.getByText('executed mock.echo')).toBeInTheDocument();
+  });
+
+  it('keeps thinking/context steps expanded by default', () => {
+    render(<ReasoningStepCard step={baseStep} />);
+    // context_fetch body is visible without any interaction.
+    expect(screen.getByText('loaded')).toBeInTheDocument();
+    expect(screen.getByRole('button')).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('renders progressNote when present on a tool_call step', () => {
@@ -106,6 +140,7 @@ describe('ReasoningStepCard', () => {
         }}
       />,
     );
+    expandCard();
     expect(screen.getByText(/2\/2 — done/)).toBeInTheDocument();
   });
 
@@ -128,6 +163,9 @@ describe('ReasoningStepCard', () => {
         }}
       />,
     );
+    // Collapsed errored tool shows a red indicator in the header; expand for the message.
+    expect(screen.getByLabelText('tool error')).toBeInTheDocument();
+    expandCard();
     expect(screen.getAllByText(/nope/)[0]).toBeInTheDocument();
   });
 });

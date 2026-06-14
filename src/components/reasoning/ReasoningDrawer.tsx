@@ -47,7 +47,7 @@ export function ReasoningDrawer() {
           ×
         </button>
       </header>
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-2">
         {liveThinking && <LiveThinkingBlock text={liveThinking} />}
         {steps.map((s) => (
           <ReasoningStepCard key={s.id} step={s} />

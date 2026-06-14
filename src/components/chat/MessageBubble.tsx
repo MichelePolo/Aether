@@ -6,6 +6,7 @@ import { useChatStore } from '@/src/stores/chat.store';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useStreamingDispatch } from '@/src/hooks/useStreamingDispatch';
 import { StreamingIndicator } from './StreamingIndicator';
+import { ToolOutputBlock } from './ToolOutputBlock';
 import { isImageMime } from '@/src/types/attachment.types';
 import { cn } from '@/src/lib/cn';
 import { t } from '@/src/i18n/t';
@@ -136,18 +137,15 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
           (message.reasoningSteps ?? []).some(
             (s) => s.toolCall && !s.toolCall.error && s.toolCall.result !== undefined,
           ) && (
-            <div className="mt-2 space-y-2">
+            <div className="mt-2 space-y-1.5">
               {(message.reasoningSteps ?? [])
                 .filter((s) => s.toolCall && !s.toolCall.error && s.toolCall.result !== undefined)
                 .map((s) => (
-                  <div key={s.id}>
-                    <div className="font-mono text-[9px] uppercase tracking-widest text-cli/60 mb-1">
-                      {s.toolCall!.qualifiedName}
-                    </div>
-                    <pre className="m-0 max-h-60 overflow-auto rounded-lg border border-border-subtle bg-surface-0 px-3 py-2 font-mono text-[11px] leading-relaxed text-cli whitespace-pre-wrap">
-                      {toolOutputText(s.toolCall!.result)}
-                    </pre>
-                  </div>
+                  <ToolOutputBlock
+                    key={s.id}
+                    name={s.toolCall!.qualifiedName}
+                    text={toolOutputText(s.toolCall!.result)}
+                  />
                 ))}
             </div>
           )}
