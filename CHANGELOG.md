@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.1](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.0...aether-core-v0.1.1) (2026-06-14)
+
+
+### Features
+
+* git Changes pane (working-tree source control) ([#62](https://github.com/MichelePolo/Aether/issues/62)) ([f9f146f](https://github.com/MichelePolo/Aether/commit/f9f146f87aa98f01aeb10def4e7d4d5b5d9ddf73))
+* **ui:** view & revoke session approvals ([#58](https://github.com/MichelePolo/Aether/issues/58)) ([3d005b7](https://github.com/MichelePolo/Aether/commit/3d005b796b172a2062636a943a627c4335fb4ab8))
+
+
+### Bug Fixes
+
+* **ui:** scrollable reasoning drawer + collapsible tool calls ([#61](https://github.com/MichelePolo/Aether/issues/61)) ([f678902](https://github.com/MichelePolo/Aether/commit/f678902c42bea95df3016f8aa83956ecd3ee31fc))
+
 ## 0.1.0 (2026-06-12)
 
 
