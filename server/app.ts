@@ -34,6 +34,7 @@ import { createBreakpointsRoutes } from './routes/breakpoints.routes';
 import type { OllamaEndpointStore } from '@/server/domain/providers/ollama-endpoints.store';
 import { createSwarmRoutes } from './routes/swarms.routes';
 import { createTddRoutes } from './routes/tdd.routes';
+import { createScheduleRoutes } from './routes/schedules.routes';
 
 export interface AppDeps {
   contextStore?: ContextStore;
@@ -59,6 +60,8 @@ export interface AppDeps {
   swarmApprovals?: import('./domain/swarms/swarm.approval').SwarmApprovalRegistry;
   swarmOrchestratorDeps?: import('./domain/swarms/swarm.orchestrator').SwarmOrchestratorDeps;
   tddRunnerDeps?: import('./domain/tdd/tdd.types').TddRunnerDeps;
+  scheduleStore?: import('./domain/schedules/schedules.store').ScheduleStore;
+  scheduleRunner?: { run(s: import('./domain/schedules/schedules.types').Schedule): Promise<void> };
 }
 
 // In Express l'error middleware DEVE essere registrato dopo le route per
@@ -176,6 +179,10 @@ export function createApp(
 
   if (deps.tddRunnerDeps) {
     app.use('/api/tdd', createTddRoutes(deps.tddRunnerDeps));
+  }
+
+  if (deps.scheduleStore && deps.scheduleRunner) {
+    app.use('/api/schedules', createScheduleRoutes(deps.scheduleStore, deps.scheduleRunner));
   }
 
   extraRoutes?.(app);

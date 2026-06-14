@@ -37,6 +37,9 @@ import { KeyResolver } from './domain/providers/key-resolver';
 import { OllamaEndpointStore } from './domain/providers/ollama-endpoints.store';
 import { SwarmStore } from './domain/swarms/swarm.store';
 import { SwarmApprovalRegistry } from './domain/swarms/swarm.approval';
+import { ScheduleStore } from './domain/schedules/schedules.store';
+import { ScheduleRunner } from './domain/schedules/schedule-runner';
+import { SchedulerService } from './domain/schedules/scheduler.service';
 import { createRunCommand } from './domain/tdd/tdd.run-command';
 import { executeCommand } from './mcp/builtin/aether-shell.handler';
 
@@ -209,6 +212,15 @@ async function bootstrap() {
     createSession: async () => (await historyStore.createEmpty()).id,
   };
 
+  const scheduleStore = new ScheduleStore(db);
+  const scheduleRunner = new ScheduleRunner({
+    store: scheduleStore,
+    historyStore, contextStore, providers, subAgentsStore,
+    mcpRegistry, breakpointService,
+    swarmStore, swarmApprovals,
+  });
+  const scheduler = new SchedulerService({ store: scheduleStore, runner: scheduleRunner, now: () => Date.now() });
+
   const app = createApp({
     contextStore,
     historyStore,
@@ -233,6 +245,8 @@ async function bootstrap() {
     swarmApprovals,
     swarmOrchestratorDeps,
     tddRunnerDeps,
+    scheduleStore,
+    scheduleRunner,
   });
 
   if (process.env.NODE_ENV !== 'production') {
@@ -263,6 +277,10 @@ async function bootstrap() {
       });
     }
   });
+
+  if (process.env.AETHER_SCHEDULER !== '0') scheduler.start();
+  process.on('SIGTERM', () => scheduler.stop());
+  process.on('SIGINT', () => scheduler.stop());
 
   if (isDaemon) {
     const cleanup = () => {
