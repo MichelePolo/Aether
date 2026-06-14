@@ -6,13 +6,16 @@ import type { PreviewResult } from '@/src/types/breakpoints.types';
 const THINKING_KEY = 'aether.thinkingEnabled';
 const SIDEBAR_KEY = 'aether.sidebarOpen';
 const MAINVIEW_KEY = 'aether.mainView';
+const GITTAB_KEY = 'aether.gitTab';
 
-export type MainView = 'chat' | 'history';
+export type MainView = 'chat' | 'git';
+export type GitTab = 'history' | 'changes';
 
 interface UiState {
   reasoningDrawerOpen: boolean;
   thinkingEnabled: boolean;
   mainView: MainView;
+  gitTab: GitTab;
   focusedMessageId: string | null;
   profilesModalOpen: boolean;
   paletteOpen: boolean;
@@ -68,6 +71,7 @@ interface UiState {
   toggleSidebar: () => void;
   setMainView: (v: MainView) => void;
   toggleMainView: () => void;
+  setGitTab: (v: GitTab) => void;
   initFromStorage: () => void;
   _reset: () => void;
 }
@@ -76,6 +80,7 @@ const initial = {
   reasoningDrawerOpen: false,
   thinkingEnabled: false,
   mainView: 'chat' as MainView,
+  gitTab: 'history' as GitTab,
   focusedMessageId: null as string | null,
   profilesModalOpen: false,
   paletteOpen: false,
@@ -194,7 +199,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     set({ mainView: v });
   },
   toggleMainView: () => {
-    const next: MainView = get().mainView === 'history' ? 'chat' : 'history';
+    const next: MainView = get().mainView === 'git' ? 'chat' : 'git';
     try {
       localStorage.setItem(MAINVIEW_KEY, next);
     } catch {
@@ -202,18 +207,28 @@ export const useUiStore = create<UiState>((set, get) => ({
     }
     set({ mainView: next });
   },
+  setGitTab: (v) => {
+    try { localStorage.setItem(GITTAB_KEY, v); } catch { /* ignore */ }
+    set({ gitTab: v });
+  },
 
   initFromStorage: () =>
     set({
       thinkingEnabled: readBool(THINKING_KEY, false),
       sidebarOpen: readBool(SIDEBAR_KEY, true),
       mainView: readMainView(),
+      gitTab: (() => {
+        try { return localStorage.getItem(GITTAB_KEY) === 'changes' ? 'changes' : 'history'; }
+        catch { return 'history'; }
+      })(),
     }),
 }));
 
 function readMainView(): MainView {
   try {
-    return localStorage.getItem(MAINVIEW_KEY) === 'history' ? 'history' : 'chat';
+    const v = localStorage.getItem(MAINVIEW_KEY);
+    // Legacy value 'history' migrates to the unified 'git' view.
+    return v === 'git' || v === 'history' ? 'git' : 'chat';
   } catch {
     return 'chat';
   }

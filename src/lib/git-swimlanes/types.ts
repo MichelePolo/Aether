@@ -45,3 +45,23 @@ export interface SwimlanesOptions {
   detectPullRequests?: boolean;
   multiExpand?: boolean;
 }
+
+export type WorkingFileStatus =
+  | 'modified' | 'added' | 'deleted' | 'renamed' | 'copied' | 'typechange'
+  | 'untracked' | 'conflicted';
+
+export interface WorkingFile {
+  path: string;
+  oldPath?: string;
+  status: WorkingFileStatus;
+}
+
+export interface WorkingChanges {
+  staged: WorkingFile[];
+  unstaged: WorkingFile[];
+  untracked: WorkingFile[];
+  conflicted: WorkingFile[];
+  branch?: string;
+  ahead?: number;
+  behind?: number;
+}

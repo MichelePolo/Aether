@@ -275,40 +275,25 @@ describe('useUiStore.mainView', () => {
     expect(useUiStore.getState().mainView).toBe('chat');
   });
 
-  it('setMainView updates and persists', () => {
-    useUiStore.getState().setMainView('history');
-    expect(useUiStore.getState().mainView).toBe('history');
-    expect(localStorage.getItem('aether.mainView')).toBe('history');
-    useUiStore.getState().setMainView('chat');
-    expect(localStorage.getItem('aether.mainView')).toBe('chat');
-  });
-
-  it('toggleMainView flips between chat and history and persists', () => {
+  it('toggleMainView flips chat <-> git and persists', () => {
     useUiStore.getState().toggleMainView();
-    expect(useUiStore.getState().mainView).toBe('history');
-    expect(localStorage.getItem('aether.mainView')).toBe('history');
+    expect(useUiStore.getState().mainView).toBe('git');
+    expect(localStorage.getItem('aether.mainView')).toBe('git');
     useUiStore.getState().toggleMainView();
     expect(useUiStore.getState().mainView).toBe('chat');
   });
 
-  it('initFromStorage hydrates history; falls back to chat on missing/garbage', () => {
+  it('initFromStorage migrates a legacy "history" value to "git"', () => {
     localStorage.setItem('aether.mainView', 'history');
     useUiStore.getState().initFromStorage();
-    expect(useUiStore.getState().mainView).toBe('history');
-
-    localStorage.setItem('aether.mainView', 'garbage');
-    useUiStore.getState().initFromStorage();
-    expect(useUiStore.getState().mainView).toBe('chat');
-
-    localStorage.removeItem('aether.mainView');
-    useUiStore.getState().initFromStorage();
-    expect(useUiStore.getState().mainView).toBe('chat');
+    expect(useUiStore.getState().mainView).toBe('git');
   });
 
-  it('_reset returns mainView to chat', () => {
-    useUiStore.getState().setMainView('history');
-    useUiStore.getState()._reset();
-    expect(useUiStore.getState().mainView).toBe('chat');
+  it('gitTab defaults to history; setGitTab persists', () => {
+    expect(useUiStore.getState().gitTab).toBe('history');
+    useUiStore.getState().setGitTab('changes');
+    expect(useUiStore.getState().gitTab).toBe('changes');
+    expect(localStorage.getItem('aether.gitTab')).toBe('changes');
   });
 });
 

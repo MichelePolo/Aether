@@ -39,6 +39,7 @@ Forward-looking slice plan. Each entry is a stub — when we pick one up, the fu
 | 27 | Git Swimlanes (read-only history viz: deterministic per-branch colors, first-parent swimlanes, inferred PRs, on-demand diff; dedicated git domain + History view) | `feat/slice-27-git-swimlanes` | ✅ |
 | 28 | Git write actions (Tier 2): agent-initiated add/commit/checkout/restore via a builtin `aether-git` MCP, gated through the slice-22 breakpoint machinery with an in-process git diff preview | `feat/slice-28-git-write` | ✅ |
 | 29 | Git remote actions (Tier 3): agent-initiated fetch/push/pull(ff-only)/merge(ff-only) on the `aether-git` MCP; ambient host auth (GIT_TERMINAL_PROMPT=0), configured-remote-only targets, commitList gate preview | `feat/slice-29-git-remote` | ✅ |
+| 30 | Git Changes pane: human-driven working-tree source control (status/stage/unstage/discard/commit/commit&push) as a sub-tab of the git view; reuses GitService + runner, server-parsed porcelain v2, per-file diff; ungated (human consent) | `feat/git-changes-pane` | ✅ |
 
 ## Planned
 
@@ -66,9 +67,10 @@ Tiers:
 - **Tier 1 (read-only, MVP):** ✅ **shipped as slice 27 (Git Swimlanes).** `status`, `log`
   (`--all` → deterministic swimlanes), per-commit per-file `diff` (`git show`, on-demand).
   Delivered as a dedicated `server/domain/git/` (allowlisted, no-shell runner) + a dedicated
-  **History view**. Note: the working-tree-vs-HEAD "Changes" pane (`diff`/`diff --staged`)
-  was **not** part of slice 27 — slice 27 visualizes committed history; the uncommitted-
-  changes pane is a follow-up.
+  **History view**. The working-tree "Changes" pane (uncommitted diff/stage/commit) was
+  **not** part of slice 27 — slice 27 visualizes committed history — and shipped separately
+  as the **Git Changes pane** (a sub-tab of the git view): human-driven stage/unstage/discard/
+  commit/commit&push, server-parsed `git status --porcelain=v2`, ungated (human consent).
 - **Tier 2 (write):** ✅ **shipped as slice 28 (Git write actions).** `add` (selective
   staging), `commit` (message draftable by the agent), `checkout`/`checkout -b`, `restore`
   (discard). Delivered as **agent-initiated** tools on a builtin `aether-git` MCP server

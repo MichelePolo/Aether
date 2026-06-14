@@ -1,8 +1,11 @@
-import { parseLog } from '@/src/lib/git-swimlanes';
+import { parseLog, parseStatusPorcelain } from '@/src/lib/git-swimlanes';
 import { NotFoundError, ValidationError } from '@/server/lib/errors';
 import type { WorkspacesStore } from '@/server/domain/workspaces/workspaces.store';
 import { runGit } from '@/server/domain/git/git.runner';
+import { badRef, configuredRemotes } from '@/server/domain/git/remote-guard';
+import { GIT_REMOTE_DEFAULTS } from '@/server/domain/git/git.types';
 import type { CommitNode, DiffResult, GitStatus } from '@/server/domain/git/git.types';
+import type { WorkingChanges } from '@/src/lib/git-swimlanes';
 
 const HASH_RE = /^[0-9a-f]{7,40}$/;
 
@@ -76,5 +79,83 @@ export class GitService {
 
     const { stdout } = await runGit(args, cwd);
     return { unified: stdout };
+  }
+
+  private assertPaths(paths: unknown): asserts paths is string[] {
+    if (!Array.isArray(paths) || paths.length === 0) throw new ValidationError('paths required');
+    for (const p of paths) {
+      if (typeof p !== 'string' || p.length === 0 || p.startsWith('-')) {
+        throw new ValidationError('invalid path');
+      }
+    }
+  }
+
+  async changes(workspaceId: string): Promise<WorkingChanges> {
+    const cwd = this.resolveCwd(workspaceId);
+    const { stdout } = await runGit(['status', '--porcelain=v2', '--branch'], cwd);
+    return parseStatusPorcelain(stdout);
+  }
+
+  async workingDiff(
+    workspaceId: string,
+    req: { path: string; staged?: boolean },
+  ): Promise<DiffResult> {
+    const cwd = this.resolveCwd(workspaceId);
+    if (typeof req.path !== 'string' || req.path.length === 0 || req.path.startsWith('-')) {
+      throw new ValidationError('invalid path');
+    }
+    const args = ['diff', ...(req.staged ? ['--cached'] : []), '--', req.path];
+    const { stdout } = await runGit(args, cwd);
+    return { unified: stdout };
+  }
+
+  async stage(workspaceId: string, req: { paths: unknown }): Promise<void> {
+    const cwd = this.resolveCwd(workspaceId);
+    this.assertPaths(req.paths);
+    await runGit(['add', '--', ...req.paths], cwd);
+  }
+
+  async unstage(workspaceId: string, req: { paths: unknown }): Promise<void> {
+    const cwd = this.resolveCwd(workspaceId);
+    this.assertPaths(req.paths);
+    await runGit(['restore', '--staged', '--', ...req.paths], cwd);
+  }
+
+  async discard(workspaceId: string, req: { paths: unknown }): Promise<void> {
+    const cwd = this.resolveCwd(workspaceId);
+    this.assertPaths(req.paths);
+    await runGit(['restore', '--', ...req.paths], cwd);
+  }
+
+  async commit(workspaceId: string, req: { message: unknown }): Promise<{ head: string }> {
+    const cwd = this.resolveCwd(workspaceId);
+    if (typeof req.message !== 'string' || req.message.trim().length === 0) {
+      throw new ValidationError('commit message required');
+    }
+    const r = await runGit(['commit', '-m', req.message], cwd);
+    if (r.code !== 0) {
+      throw new ValidationError(r.stderr.trim() || r.stdout.trim() || 'commit failed');
+    }
+    const head = await runGit(['rev-parse', '--short', 'HEAD'], cwd);
+    return { head: head.stdout.trim() };
+  }
+
+  async push(
+    workspaceId: string,
+    req: { remote?: string; branch?: string },
+  ): Promise<{ stdout: string }> {
+    const cwd = this.resolveCwd(workspaceId);
+    const remote = req.remote ?? 'origin';
+    if (badRef(remote)) throw new ValidationError('invalid remote');
+    if (req.branch !== undefined && badRef(req.branch)) throw new ValidationError('invalid branch');
+    const remotes = await configuredRemotes(cwd);
+    if (!remotes.has(remote)) throw new ValidationError(`unknown remote: ${remote}`);
+    const r = await runGit(['push', remote, req.branch ?? 'HEAD'], cwd, {
+      timeoutMs: GIT_REMOTE_DEFAULTS.timeoutMs,
+      maxTimeoutMs: GIT_REMOTE_DEFAULTS.maxTimeoutMs,
+      env: { GIT_TERMINAL_PROMPT: '0' },
+    });
+    if (r.code !== 0) throw new ValidationError(r.stderr.trim() || r.stdout.trim() || 'push failed');
+    return { stdout: [r.stdout.trim(), r.stderr.trim()].filter(Boolean).join('\n') };
   }
 }

@@ -1,5 +1,6 @@
 import { runGit } from '@/server/domain/git/git.runner';
 import { GIT_REMOTE_DEFAULTS } from '@/server/domain/git/git.types';
+import { badRef, configuredRemotes } from '@/server/domain/git/remote-guard';
 
 export interface GitToolResult {
   isError: boolean;
@@ -17,11 +18,6 @@ function err(message: string): GitToolResult {
 
 function badPath(p: unknown): boolean {
   return typeof p !== 'string' || p.length === 0 || p.startsWith('-');
-}
-
-/** Validates a remote/branch/ref name. The charset excludes ':' so URLs are rejected. */
-function badRef(s: unknown): boolean {
-  return typeof s !== 'string' || s.length === 0 || !/^[\w./-]+$/.test(s);
 }
 
 const REMOTE_ENV: NodeJS.ProcessEnv = { GIT_TERMINAL_PROMPT: '0' };
@@ -45,16 +41,6 @@ function runRemote(args: string[], cwd: string): Promise<GitToolResult> {
     maxTimeoutMs: GIT_REMOTE_DEFAULTS.maxTimeoutMs,
     env: REMOTE_ENV,
   });
-}
-
-/** Lists the names of remotes configured in the repo (e.g. `origin`). */
-async function configuredRemotes(cwd: string): Promise<Set<string>> {
-  try {
-    const r = await runGit(['remote'], cwd);
-    return new Set(r.stdout.split('\n').map((s) => s.trim()).filter(Boolean));
-  } catch {
-    return new Set();
-  }
 }
 
 export function gitStatus(cwd: string): Promise<GitToolResult> {
