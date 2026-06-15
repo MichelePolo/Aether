@@ -28,6 +28,7 @@ export interface SkillStateRow {
 export interface SkillsList {
   skills: MaterialSkill[];
   drafts: DraftSkill[];
+  paths: { skillsDir: string; draftsDir: string };
 }
 
 /** What DispatchService hands to the prompt assembler for an enabled material skill. */

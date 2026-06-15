@@ -56,6 +56,12 @@ describe('SkillsService.list', () => {
     makeSkill(path.join(skillsDir, '.drafts'), 'wip', 'Work');
     expect(service.list().drafts).toEqual([{ name: 'wip', description: 'Work', invalid: undefined }]);
   });
+
+  it('returns absolute skills and drafts paths', () => {
+    const { paths } = service.list();
+    expect(paths.skillsDir).toBe(path.join(dataDir, 'skills'));
+    expect(paths.draftsDir).toBe(path.join(dataDir, 'skills', '.drafts'));
+  });
 });
 
 describe('SkillsService.getActiveForPrompt', () => {

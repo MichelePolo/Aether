@@ -2,18 +2,20 @@ import { existsSync, readFileSync, renameSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { ValidationError, NotFoundError } from '@/server/lib/errors';
 import { discoverMaterialDirs, discoverDraftDirs } from './discovery';
-import { skillsDirFor } from './skills.paths';
+import { skillsDirFor, draftsDirFor } from './skills.paths';
 import type { SkillStateStore } from './skill-state.store';
 import type { MaterialSkill, DraftSkill, SkillsList, PromptMaterialSkill } from './skills.types';
 
 export class SkillsService {
   private readonly skillsDir: string;
+  private readonly draftsDir: string;
 
   constructor(
     private readonly state: SkillStateStore,
     dataDir: string,
   ) {
     this.skillsDir = skillsDirFor(dataDir);
+    this.draftsDir = draftsDirFor(dataDir);
   }
 
   list(): SkillsList {
@@ -30,7 +32,7 @@ export class SkillsService {
       };
     });
     const drafts: DraftSkill[] = discoverDraftDirs(this.skillsDir);
-    return { skills, drafts };
+    return { skills, drafts, paths: { skillsDir: this.skillsDir, draftsDir: this.draftsDir } };
   }
 
   setEnabled(slug: string, enabled: boolean): void {
