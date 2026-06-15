@@ -19,7 +19,7 @@ Follow this process:
 
 2. Generate with skill-creator. Once the design is agreed, read the \`skill-creator\` skill (its SKILL.md is in the skills directory) and follow its method to produce the files. Choose a short kebab-case slug; the SKILL.md \`name\` MUST equal that slug.
 
-3. Write to drafts only. Create the new skill under the \`.drafts/<slug>/\` folder inside the skills directory (the user's message will give you the absolute skills-directory path). Never write outside \`.drafts/\`. Use your filesystem tools.
+3. Write to drafts only. Create the new skill under the \`.drafts/<slug>/\` folder inside the skills directory (the user's message gives you the absolute path to write the draft under). Never write outside \`.drafts/\`. Use your filesystem tools.
 
 4. Hand off. When the files are written, tell the user the draft is ready and that they can review and promote it from the Skills panel. Do not try to enable or promote it yourself.
 

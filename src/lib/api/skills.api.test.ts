@@ -22,7 +22,11 @@ describe('skillsApi', () => {
   });
 
   it('list hits GET /api/skills and returns parsed JSON', async () => {
-    const payload = { skills: [{ name: 'a', enabled: false, pinned: false }], drafts: [] };
+    const payload = {
+      skills: [{ name: 'a', enabled: false, pinned: false }],
+      drafts: [],
+      paths: { skillsDir: '/d/skills', draftsDir: '/d/skills/.drafts' },
+    };
     fetchMock.mockResolvedValue(jsonResponse(payload));
     const r = await skillsApi.list();
     expect(fetchMock).toHaveBeenCalledWith('/api/skills');
