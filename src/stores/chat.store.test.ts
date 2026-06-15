@@ -207,6 +207,17 @@ describe('chat.store.queuedAttachments', () => {
   });
 });
 
+describe('chat store pendingComposerText', () => {
+  it('defaults to null and can be set and cleared', () => {
+    useChatStore.setState({ pendingComposerText: null });
+    expect(useChatStore.getState().pendingComposerText).toBeNull();
+    useChatStore.getState().setPendingComposerText('@skill-smith hi');
+    expect(useChatStore.getState().pendingComposerText).toBe('@skill-smith hi');
+    useChatStore.getState().setPendingComposerText(null);
+    expect(useChatStore.getState().pendingComposerText).toBeNull();
+  });
+});
+
 describe('useChatStore stickyApprovals', () => {
   beforeEach(() => useChatStore.getState()._reset());
 
