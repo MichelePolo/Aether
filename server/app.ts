@@ -28,6 +28,7 @@ import { createSessionsRoutes } from './routes/sessions.routes';
 import { createAttachmentsRoutes } from './routes/attachments.routes';
 import type { BuiltinMcpStore } from '@/server/domain/mcp/builtin/builtin.store';
 import { createBuiltinMcpRoutes } from './routes/builtin-mcp.routes';
+import { createSkillsRoutes } from './routes/skills.routes';
 import type { BreakpointPolicyStore } from '@/server/domain/mcp/breakpoints/policy.store';
 import type { PreviewService } from '@/server/domain/mcp/breakpoints/preview.service';
 import { createBreakpointsRoutes } from './routes/breakpoints.routes';
@@ -61,6 +62,7 @@ export interface AppDeps {
   swarmOrchestratorDeps?: import('./domain/swarms/swarm.orchestrator').SwarmOrchestratorDeps;
   tddRunnerDeps?: import('./domain/tdd/tdd.types').TddRunnerDeps;
   scheduleStore?: import('./domain/schedules/schedules.store').ScheduleStore;
+  skillsService?: import('./domain/skills/skills.service').SkillsService;
   scheduleRunner?: { run(s: import('./domain/schedules/schedules.types').Schedule): Promise<void> };
 }
 
@@ -117,6 +119,10 @@ export function createApp(
 
   if (deps.mcpRegistry) {
     app.use('/api/mcp', createMcpRoutes(deps.mcpRegistry, deps.dispatcher));
+  }
+
+  if (deps.skillsService) {
+    app.use('/api/skills', createSkillsRoutes(deps.skillsService));
   }
 
   if (deps.providers) {
