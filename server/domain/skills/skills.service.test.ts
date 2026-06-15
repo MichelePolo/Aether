@@ -96,6 +96,10 @@ describe('SkillsService.promote', () => {
     mkdirSync(path.join(skillsDir, '.drafts', 'bad'), { recursive: true });
     expect(() => service.promote('bad')).toThrow(/invalid/i);
   });
+
+  it('throws NotFoundError when the draft slug does not exist', () => {
+    expect(() => service.promote('ghost')).toThrow(/not found/i);
+  });
 });
 
 describe('SkillsService.remove', () => {
@@ -104,5 +108,20 @@ describe('SkillsService.remove', () => {
     service.setEnabled('alpha', true);
     service.remove('alpha');
     expect(service.list().skills).toEqual([]);
+  });
+
+  it('throws NotFoundError when the skill dir does not exist', () => {
+    expect(() => service.remove('ghost')).toThrow(/not found/i);
+  });
+});
+
+describe('SkillsService toggle guards', () => {
+  it('setEnabled throws NotFoundError for an unknown slug', () => {
+    expect(() => service.setEnabled('ghost', true)).toThrow(/not found/i);
+  });
+
+  it('setPinned throws ValidationError for an invalid skill', () => {
+    mkdirSync(path.join(skillsDir, 'broken'));
+    expect(() => service.setPinned('broken', true)).toThrow(/invalid/i);
   });
 });
