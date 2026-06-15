@@ -60,4 +60,46 @@ describe('useSkillsStore', () => {
     expect(skillsApi.promote).toHaveBeenCalledWith('wip');
     expect(useSkillsStore.getState().skills.map((s) => s.name)).toContain('wip');
   });
+
+  it('init records the error and clears loading on API failure', async () => {
+    (skillsApi.list as any).mockRejectedValue(new Error('offline'));
+    await useSkillsStore.getState().init();
+    const s = useSkillsStore.getState();
+    expect(s.isLoading).toBe(false);
+    expect(s.error).toBe('offline');
+  });
+
+  it('togglePinned rolls back on API error', async () => {
+    useSkillsStore.setState({ skills: [m({ pinned: false })] });
+    (skillsApi.setPinned as any).mockRejectedValue(new Error('boom'));
+    await expect(useSkillsStore.getState().togglePinned('alpha')).rejects.toThrow();
+    expect(useSkillsStore.getState().skills[0].pinned).toBe(false);
+  });
+
+  it('toggleEnabled is a no-op for an unknown slug', async () => {
+    useSkillsStore.setState({ skills: [m({ name: 'alpha' })] });
+    await useSkillsStore.getState().toggleEnabled('ghost');
+    expect(skillsApi.setEnabled).not.toHaveBeenCalled();
+  });
+
+  it('promote records the error on API failure', async () => {
+    (skillsApi.promote as any).mockRejectedValue(new Error('exists'));
+    await expect(useSkillsStore.getState().promote('wip')).rejects.toThrow();
+    expect(useSkillsStore.getState().error).toBe('exists');
+  });
+
+  it('remove optimistically drops the skill then calls API', async () => {
+    useSkillsStore.setState({ skills: [m({ name: 'alpha' }), m({ name: 'beta' })] });
+    (skillsApi.remove as any).mockResolvedValue(undefined);
+    await useSkillsStore.getState().remove('alpha');
+    expect(useSkillsStore.getState().skills.map((s) => s.name)).toEqual(['beta']);
+    expect(skillsApi.remove).toHaveBeenCalledWith('alpha');
+  });
+
+  it('remove rolls back on API error', async () => {
+    useSkillsStore.setState({ skills: [m({ name: 'alpha' })] });
+    (skillsApi.remove as any).mockRejectedValue(new Error('boom'));
+    await expect(useSkillsStore.getState().remove('alpha')).rejects.toThrow();
+    expect(useSkillsStore.getState().skills.map((s) => s.name)).toEqual(['alpha']);
+  });
 });
