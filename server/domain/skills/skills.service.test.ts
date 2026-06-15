@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { SkillsService } from './skills.service';
@@ -112,6 +112,18 @@ describe('SkillsService.remove', () => {
 
   it('throws NotFoundError when the skill dir does not exist', () => {
     expect(() => service.remove('ghost')).toThrow(/not found/i);
+  });
+
+  it('rejects a path-traversal slug instead of deleting outside the skills dir', () => {
+    // A sibling dir of dataDir that must NOT be touched.
+    const victim = path.join(dataDir, '..', `victim-${path.basename(dataDir)}`);
+    mkdirSync(victim, { recursive: true });
+    writeFileSync(path.join(victim, 'keep.txt'), 'precious');
+    // skillsDir is `${dataDir}/skills`; this slug resolves to the victim dir.
+    const traversal = path.join('..', '..', `victim-${path.basename(dataDir)}`);
+    expect(() => service.remove(traversal)).toThrow(/invalid skill slug/i);
+    expect(existsSync(path.join(victim, 'keep.txt'))).toBe(true);
+    rmSync(victim, { recursive: true, force: true });
   });
 });
 

@@ -167,7 +167,6 @@ export const messages = {
     invalidBadge: 'invalid',
     enable: 'Enable',
     pin: 'Pin (inline full instructions)',
-    pinned: 'Pinned',
     remove: 'Remove skill',
     removeConfirm: 'Remove "{name}"? This deletes its directory on disk.',
     drafts: 'Drafts',

@@ -59,6 +59,7 @@ export class SkillsService {
   }
 
   promote(slug: string): void {
+    this.assertContainedSlug(slug);
     const draft = discoverDraftDirs(this.skillsDir).find((d) => d.name === slug);
     if (!draft) throw new NotFoundError(`draft ${slug}`);
     if (draft.invalid) throw new ValidationError(`Draft "${slug}" is invalid: ${draft.invalid}`);
@@ -68,6 +69,7 @@ export class SkillsService {
   }
 
   remove(slug: string): void {
+    this.assertContainedSlug(slug);
     const dir = path.join(this.skillsDir, slug);
     if (!existsSync(dir)) throw new NotFoundError(`skill ${slug}`);
     rmSync(dir, { recursive: true, force: true });
@@ -78,5 +80,19 @@ export class SkillsService {
     const found = this.list().skills.find((s) => s.name === slug);
     if (!found) throw new NotFoundError(`skill ${slug}`);
     if (found.invalid) throw new ValidationError(`Skill "${slug}" is invalid: ${found.invalid}`);
+  }
+
+  /**
+   * Reject slugs that would escape the skills dir. The `:slug` route param is
+   * user-controlled and Express decodes `%2F`, so without this a slug like
+   * `../../etc/foo` would let `remove`/`promote` touch paths outside the skills
+   * dir (CWE-22). A valid skill slug is always a single on-disk directory name,
+   * i.e. a direct child of the skills dir.
+   */
+  private assertContainedSlug(slug: string): void {
+    const resolved = path.resolve(this.skillsDir, slug);
+    if (path.dirname(resolved) !== path.resolve(this.skillsDir)) {
+      throw new ValidationError(`Invalid skill slug "${slug}"`);
+    }
   }
 }
