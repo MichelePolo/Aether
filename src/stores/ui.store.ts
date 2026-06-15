@@ -48,6 +48,10 @@ interface UiState {
   openLightbox(id: string): void;
   closeLightbox(): void;
 
+  creatingSkill: boolean;
+  openCreatingSkill(): void;
+  closeCreatingSkill(): void;
+
   approvalGateState: { event: ToolCallRequestEvent; preview: PreviewResult } | null;
   openApprovalGate(payload: { event: ToolCallRequestEvent; preview: PreviewResult }): void;
   closeApprovalGate(): void;
@@ -94,6 +98,7 @@ const initial = {
   keyVaultFocusTransport: null as 'anthropic' | 'openai' | 'gemini' | null,
   ollamaEndpointsOpen: false,
   lightboxAttachmentId: null as string | null,
+  creatingSkill: false,
   approvalGateState: null as { event: ToolCallRequestEvent; preview: PreviewResult } | null,
   workspaceBrowserOpen: false,
 };
@@ -156,6 +161,9 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   openWorkspaceBrowser: () => set({ workspaceBrowserOpen: true }),
   closeWorkspaceBrowser: () => set({ workspaceBrowserOpen: false }),
+
+  openCreatingSkill: () => set({ creatingSkill: true }),
+  closeCreatingSkill: () => set({ creatingSkill: false }),
 
   openLightbox: (id) => set({ lightboxAttachmentId: id }),
   closeLightbox: () => set({ lightboxAttachmentId: null }),

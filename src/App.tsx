@@ -29,6 +29,7 @@ import { ProfilesModal } from '@/src/components/profiles/ProfilesModal';
 import { KeyVaultModal } from '@/src/components/profiles/KeyVaultModal';
 import { OllamaEndpointsModal } from '@/src/components/providers/OllamaEndpointsModal';
 import { SubAgentEditModal } from '@/src/components/subagents/SubAgentEditModal';
+import { CreateSkillModal } from '@/src/components/skills/CreateSkillModal';
 import { TddRunModal } from '@/src/components/tdd/TddRunModal';
 import { CommandPalette } from '@/src/components/palette/CommandPalette';
 import { MessageContextMenu } from '@/src/components/chat/MessageContextMenu';
@@ -136,6 +137,7 @@ export default function App() {
       <KeyVaultModal />
       <OllamaEndpointsModal />
       <SubAgentEditModal />
+      <CreateSkillModal />
       <TddRunModal />
       <CommandPalette />
       <MessageContextMenu />
