@@ -42,6 +42,7 @@ import { useSchedulesStore } from '@/src/stores/schedules.store';
 import { useProvidersStore } from '@/src/stores/providers.store';
 import { useProviderAuthStore } from '@/src/stores/providerAuth.store';
 import { useWorkspacesStore } from '@/src/stores/workspaces.store';
+import { useSkillsStore } from '@/src/stores/skills.store';
 import { useGlobalShortcuts } from '@/src/hooks/useGlobalShortcuts';
 import { useToolCallDecisions } from '@/src/hooks/useToolCallDecisions';
 
@@ -61,6 +62,7 @@ export default function App() {
   const initBuiltinMcp = useBuiltinMcpStore((s) => s.init);
   const initBreakpoints = useBreakpointsStore((s) => s.init);
   const initWorkspaces = useWorkspacesStore((s) => s.init);
+  const initSkills = useSkillsStore((s) => s.init);
 
   useEffect(() => {
     initContext();
@@ -75,7 +77,8 @@ export default function App() {
     initBuiltinMcp();
     initBreakpoints();
     initWorkspaces();
-  }, [initContext, initSessions, initUi, initProfiles, initSubAgents, initSwarms, initSchedules, initProviders, initProviderAuth, initBuiltinMcp, initBreakpoints, initWorkspaces]);
+    initSkills();
+  }, [initContext, initSessions, initUi, initProfiles, initSubAgents, initSwarms, initSchedules, initProviders, initProviderAuth, initBuiltinMcp, initBreakpoints, initWorkspaces, initSkills]);
 
   useGlobalShortcuts();
   useToolCallDecisions();
