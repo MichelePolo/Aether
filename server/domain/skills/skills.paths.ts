@@ -1,4 +1,8 @@
 import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** Root of material skills: ${dataDir}/skills */
 export function skillsDirFor(dataDir: string): string {
@@ -22,5 +26,5 @@ export function defaultsDir(): string {
   const devPath = path.resolve(__dirname, '..', '..', 'skills', 'defaults');
   // prod: dist/ + skills/defaults
   const prodPath = path.resolve(__dirname, 'skills', 'defaults');
-  return require('node:fs').existsSync(devPath) ? devPath : prodPath;
+  return fs.existsSync(devPath) ? devPath : prodPath;
 }
