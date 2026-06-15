@@ -87,6 +87,7 @@ export interface DispatchServiceDeps {
   subAgentsStore?: SubAgentsStore;
   mcpRegistry?: McpRegistry;
   breakpointService?: BreakpointService;
+  skillsService?: { getActiveForPrompt(): import('@/server/domain/skills/skills.types').PromptMaterialSkill[] };
 }
 
 interface RunDispatchLoopOpts {
@@ -461,7 +462,8 @@ export class DispatchService {
 
     // Inline text attachments as fenced code blocks into the user message.
     const effectiveStripped = inlineTextAttachments(mention.stripped, textAtts);
-    const assembled = assemble(context, matchedSubAgent, effectiveStripped, mention.name, mcpToolDecls);
+    const materialSkills = this.deps.skillsService?.getActiveForPrompt() ?? [];
+    const assembled = assemble(context, matchedSubAgent, effectiveStripped, mention.name, mcpToolDecls, materialSkills);
 
     // Build attachment list for the provider (images only, stripped for non-vision providers).
     const providerAttachments = provider.capabilities.vision ? imageAtts : [];

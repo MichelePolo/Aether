@@ -373,6 +373,26 @@ describe('DispatchService', () => {
     expect((done.data as { tokensIn?: number }).tokensIn).toBe(80);
     expect((done.data as { tokensOut?: number }).tokensOut).toBe(40);
   });
+
+  it('active material skill reaches the assembled system instruction', async () => {
+    const provider = new FakeProvider({ chunks: ['pong'], model: 'fake-1' });
+    const db = makeTestDb();
+    const historyStore = new HistoryStore(db);
+    const contextStore = new ContextStore(db);
+    const providers = await buildSingleProviderRegistry(provider);
+    const skillsService = {
+      getActiveForPrompt: () => [
+        { name: 'pdf', description: 'Work with PDFs', pinned: false, dir: '/d/pdf', body: undefined },
+      ],
+    };
+    const service = new DispatchService({ providers, historyStore, contextStore, skillsService });
+    const session = await historyStore.createEmpty();
+
+    const { emitter } = createCollectorEmitter();
+    await service.handle({ sessionId: session.id, message: 'hello' }, emitter, new AbortController().signal);
+
+    expect(provider.lastRequest?.systemInstruction).toContain('- pdf: Work with PDFs');
+  });
 });
 
 describe('DispatchService — attachments', () => {
