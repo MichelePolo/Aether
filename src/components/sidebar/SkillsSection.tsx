@@ -84,7 +84,7 @@ export function SkillsSection() {
       {needsFsWarning && (
         <div
           role="alert"
-          className="mb-2 p-1.5 rounded border border-status-warn/40 text-[10px] text-status-warn"
+          className="mb-2 p-1.5 rounded border border-status-connecting/40 text-[10px] text-status-connecting"
         >
           {t('skills.fsMcpOffWarning')}
         </div>
