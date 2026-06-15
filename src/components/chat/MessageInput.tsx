@@ -42,6 +42,8 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
 
   const queuedAttachments = useChatStore((s) => s.queuedAttachments);
   const queueAttachments = useChatStore((s) => s.queueAttachments);
+  const pendingComposerText = useChatStore((s) => s.pendingComposerText);
+  const setPendingComposerText = useChatStore((s) => s.setPendingComposerText);
 
   const activeProviderName = activeId
     ? ((sessions.find((s) => s.id === activeId) as { providerName?: string } | undefined)?.providerName ?? defaultProvider)
@@ -59,6 +61,19 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   useEffect(() => {
     if (textareaRef.current) autoGrow(textareaRef.current);
   }, [value]);
+
+  useEffect(() => {
+    if (pendingComposerText === null) return;
+    setValue(pendingComposerText);
+    setPendingComposerText(null);
+    const el = textareaRef.current;
+    if (el) {
+      el.focus();
+      const end = pendingComposerText.length;
+      requestAnimationFrame(() => el.setSelectionRange(end, end));
+      autoGrow(el);
+    }
+  }, [pendingComposerText, setPendingComposerText]);
 
   const submit = () => {
     const trimmed = value.trim();
