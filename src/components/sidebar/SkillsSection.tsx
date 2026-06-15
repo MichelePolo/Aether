@@ -3,6 +3,7 @@ import { addSkillFlow } from '@/src/lib/context/addFlows';
 import { useContextStore } from '@/src/stores/context.store';
 import { useSkillsStore } from '@/src/stores/skills.store';
 import { useBuiltinMcpStore } from '@/src/stores/builtinMcp.store';
+import { useUiStore } from '@/src/stores/ui.store';
 import { useDialog } from '@/src/hooks/useDialog';
 import { t } from '@/src/i18n/t';
 
@@ -22,6 +23,7 @@ export function SkillsSection() {
   const togglePinned = useSkillsStore((s) => s.togglePinned);
   const promote = useSkillsStore((s) => s.promote);
   const removeMaterial = useSkillsStore((s) => s.remove);
+  const openCreateWithAi = useUiStore((s) => s.openCreatingSkill);
 
   const builtins = useBuiltinMcpStore((s) => s.builtins);
   const fsMcpEnabled = builtins.find((b) => b.transport === 'filesystem')?.enabled ?? true;
@@ -195,6 +197,13 @@ export function SkillsSection() {
           className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors mt-2"
         >
           + Deploy New Skill
+        </button>
+        <button
+          onClick={() => openCreateWithAi()}
+          aria-label={t('skills.createWithAi')}
+          className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-zinc-600 hover:text-manipulation transition-colors mt-1"
+        >
+          ✨ {t('skills.createWithAi')}
         </button>
       </div>
 
