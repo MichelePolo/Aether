@@ -45,6 +45,7 @@ import { executeCommand } from './mcp/builtin/aether-shell.handler';
 import { SkillStateStore } from './domain/skills/skill-state.store';
 import { SkillsService } from './domain/skills/skills.service';
 import { seedDefaultSkills } from './domain/skills/seed';
+import { seedSkillSmith } from './domain/subagents/skill-smith';
 import { defaultsDir, skillsDirFor } from './domain/skills/skills.paths';
 
 dotenv.config();
@@ -64,6 +65,7 @@ async function bootstrap() {
   const historyStore = new HistoryStore(db);
   const profilesStore = new ProfilesStore(db);
   const subAgentsStore = new SubAgentsStore(db);
+  await seedSkillSmith(subAgentsStore);
   const searchService = new SearchService(db);
 
   const builtinStore = new BuiltinMcpStore(db);
