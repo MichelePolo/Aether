@@ -3,6 +3,7 @@ import { assemble } from './prompt-assembler';
 import type { AetherContext } from '@/server/domain/context/context.types';
 import type { SubAgentRecord } from '@/server/domain/subagents/subagents.types';
 import type { ProviderToolDecl } from './providers/provider.types';
+import type { PromptMaterialSkill } from '@/server/domain/skills/skills.types';
 
 const ctx: AetherContext = {
   systemInstruction: 'Base.',
@@ -110,5 +111,48 @@ describe('assemble active skills block', () => {
     const out = assemble(ctxWith([{ name: 'x', enabled: false }]), null, 'hi', null, []);
     expect(out.systemInstruction).not.toContain('# Active Skills');
     expect(out.skills).toEqual([]);
+  });
+});
+
+const baseCtx: AetherContext = {
+  systemInstruction: 'You are Aether.',
+  skills: [{ name: 'legacy-a', enabled: true }, { name: 'legacy-off', enabled: false }],
+  tools: [],
+  mcpServers: [],
+};
+
+describe('assemble — hybrid skills', () => {
+  it('renders only enabled label skills when no material skills (unchanged behavior)', () => {
+    const out = assemble(baseCtx, null, 'hi', null);
+    expect(out.systemInstruction).toContain('# Active Skills');
+    expect(out.systemInstruction).toContain('- legacy-a');
+    expect(out.systemInstruction).not.toContain('legacy-off');
+  });
+
+  it('renders a non-pinned material skill as name: description plus a read-from-disk note', () => {
+    const material: PromptMaterialSkill[] = [
+      { name: 'pdf', description: 'Work with PDFs', pinned: false, dir: '/data/skills/pdf', body: undefined },
+    ];
+    const out = assemble(baseCtx, null, 'hi', null, [], material);
+    expect(out.systemInstruction).toContain('- pdf: Work with PDFs');
+    expect(out.systemInstruction).toContain('/data/skills/pdf/SKILL.md');
+    expect(out.systemInstruction).not.toContain('## Skill: pdf');
+  });
+
+  it('inlines the full SKILL.md body for a pinned material skill', () => {
+    const material: PromptMaterialSkill[] = [
+      { name: 'pdf', description: 'Work with PDFs', pinned: true, dir: '/data/skills/pdf', body: '# PDF\nUse pdfplumber.' },
+    ];
+    const out = assemble(baseCtx, null, 'hi', null, [], material);
+    expect(out.systemInstruction).toContain('## Skill: pdf');
+    expect(out.systemInstruction).toContain('Use pdfplumber.');
+  });
+
+  it('includes material skill names in the returned skills array', () => {
+    const material: PromptMaterialSkill[] = [
+      { name: 'pdf', description: 'd', pinned: false, dir: '/d/pdf', body: undefined },
+    ];
+    const out = assemble(baseCtx, null, 'hi', null, [], material);
+    expect(out.skills).toEqual(['legacy-a', 'pdf']);
   });
 });
