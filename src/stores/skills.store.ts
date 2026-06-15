@@ -9,6 +9,7 @@ function errMsg(e: unknown): string {
 interface SkillsState {
   skills: MaterialSkill[];
   drafts: DraftSkill[];
+  paths: { skillsDir: string; draftsDir: string } | null;
   isLoading: boolean;
   error: string | null;
   init: () => Promise<void>;
@@ -22,22 +23,23 @@ interface SkillsState {
 export const useSkillsStore = create<SkillsState>((set, get) => ({
   skills: [],
   drafts: [],
+  paths: null,
   isLoading: false,
   error: null,
 
   init: async () => {
     set({ isLoading: true, error: null });
     try {
-      const { skills, drafts } = await skillsApi.list();
-      set({ skills, drafts, isLoading: false });
+      const { skills, drafts, paths } = await skillsApi.list();
+      set({ skills, drafts, paths, isLoading: false });
     } catch (e) {
       set({ isLoading: false, error: errMsg(e) });
     }
   },
 
   refresh: async () => {
-    const { skills, drafts } = await skillsApi.list();
-    set({ skills, drafts });
+    const { skills, drafts, paths } = await skillsApi.list();
+    set({ skills, drafts, paths });
   },
 
   toggleEnabled: async (slug) => {

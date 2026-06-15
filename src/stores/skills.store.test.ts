@@ -19,13 +19,13 @@ const m = (over: Partial<MaterialSkill>): MaterialSkill => ({
 });
 
 beforeEach(() => {
-  useSkillsStore.setState({ skills: [], drafts: [], isLoading: false, error: null });
+  useSkillsStore.setState({ skills: [], drafts: [], paths: null, isLoading: false, error: null });
   vi.clearAllMocks();
 });
 
 describe('useSkillsStore', () => {
   it('init loads skills + drafts', async () => {
-    (skillsApi.list as any).mockResolvedValue({ skills: [m({})], drafts: [] });
+    (skillsApi.list as any).mockResolvedValue({ skills: [m({})], drafts: [], paths: { skillsDir: '/d/skills', draftsDir: '/d/skills/.drafts' } });
     await useSkillsStore.getState().init();
     expect(useSkillsStore.getState().skills).toHaveLength(1);
   });
@@ -55,7 +55,7 @@ describe('useSkillsStore', () => {
   it('promote calls API then refreshes', async () => {
     useSkillsStore.setState({ drafts: [{ name: 'wip', description: 'w', invalid: undefined }] });
     (skillsApi.promote as any).mockResolvedValue(undefined);
-    (skillsApi.list as any).mockResolvedValue({ skills: [m({ name: 'wip' })], drafts: [] });
+    (skillsApi.list as any).mockResolvedValue({ skills: [m({ name: 'wip' })], drafts: [], paths: { skillsDir: '/d/skills', draftsDir: '/d/skills/.drafts' } });
     await useSkillsStore.getState().promote('wip');
     expect(skillsApi.promote).toHaveBeenCalledWith('wip');
     expect(useSkillsStore.getState().skills.map((s) => s.name)).toContain('wip');
