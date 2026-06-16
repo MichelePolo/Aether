@@ -29,6 +29,7 @@ import { ProfilesModal } from '@/src/components/profiles/ProfilesModal';
 import { KeyVaultModal } from '@/src/components/profiles/KeyVaultModal';
 import { OllamaEndpointsModal } from '@/src/components/providers/OllamaEndpointsModal';
 import { SubAgentEditModal } from '@/src/components/subagents/SubAgentEditModal';
+import { CreateSkillModal } from '@/src/components/skills/CreateSkillModal';
 import { TddRunModal } from '@/src/components/tdd/TddRunModal';
 import { CommandPalette } from '@/src/components/palette/CommandPalette';
 import { MessageContextMenu } from '@/src/components/chat/MessageContextMenu';
@@ -42,6 +43,7 @@ import { useSchedulesStore } from '@/src/stores/schedules.store';
 import { useProvidersStore } from '@/src/stores/providers.store';
 import { useProviderAuthStore } from '@/src/stores/providerAuth.store';
 import { useWorkspacesStore } from '@/src/stores/workspaces.store';
+import { useSkillsStore } from '@/src/stores/skills.store';
 import { useGlobalShortcuts } from '@/src/hooks/useGlobalShortcuts';
 import { useToolCallDecisions } from '@/src/hooks/useToolCallDecisions';
 
@@ -61,6 +63,7 @@ export default function App() {
   const initBuiltinMcp = useBuiltinMcpStore((s) => s.init);
   const initBreakpoints = useBreakpointsStore((s) => s.init);
   const initWorkspaces = useWorkspacesStore((s) => s.init);
+  const initSkills = useSkillsStore((s) => s.init);
 
   useEffect(() => {
     initContext();
@@ -75,7 +78,8 @@ export default function App() {
     initBuiltinMcp();
     initBreakpoints();
     initWorkspaces();
-  }, [initContext, initSessions, initUi, initProfiles, initSubAgents, initSwarms, initSchedules, initProviders, initProviderAuth, initBuiltinMcp, initBreakpoints, initWorkspaces]);
+    initSkills();
+  }, [initContext, initSessions, initUi, initProfiles, initSubAgents, initSwarms, initSchedules, initProviders, initProviderAuth, initBuiltinMcp, initBreakpoints, initWorkspaces, initSkills]);
 
   useGlobalShortcuts();
   useToolCallDecisions();
@@ -133,6 +137,7 @@ export default function App() {
       <KeyVaultModal />
       <OllamaEndpointsModal />
       <SubAgentEditModal />
+      <CreateSkillModal />
       <TddRunModal />
       <CommandPalette />
       <MessageContextMenu />

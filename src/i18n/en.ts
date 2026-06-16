@@ -160,6 +160,28 @@ export const messages = {
       save: 'Save',
     },
   },
+  skills: {
+    heading: 'Skills',
+    materialBadge: 'material',
+    labelBadge: 'label',
+    invalidBadge: 'invalid',
+    enable: 'Enable',
+    pin: 'Pin (inline full instructions)',
+    remove: 'Remove skill',
+    removeConfirm: 'Remove "{name}"? This deletes its directory on disk.',
+    drafts: 'Drafts',
+    promote: 'Review & promote',
+    promoteConfirm: 'Promote "{name}" into your active skills?',
+    fsMcpOffWarning: 'Enable the Filesystem MCP so the model can read skill files.',
+    empty: 'No skills yet. Copy a skill directory into your skills folder.',
+    createWithAi: 'Create with AI',
+    createTitle: 'Create a skill with AI',
+    createModel: 'Model',
+    createIdea: 'Your idea (optional)',
+    createIdeaPlaceholder: 'e.g. a skill for writing conventional commits',
+    createStart: 'Start',
+    createCancel: 'Cancel',
+  },
 } as const;
 
 export type MessageMap = typeof messages;

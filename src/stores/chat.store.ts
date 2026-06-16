@@ -60,6 +60,7 @@ interface ChatState {
   queuedAttachments: QueuedAttachment[];
   error: string | null;
   stickyApprovals: Set<string>;
+  pendingComposerText: string | null;
 
   hydrate: (messages: Message[]) => void;
   appendUser: (text: string) => { id: string };
@@ -82,6 +83,7 @@ interface ChatState {
   addStickyApproval: (qualifiedName: string) => void;
   removeStickyApproval: (qualifiedName: string) => void;
   clearStickyApprovals: () => void;
+  setPendingComposerText: (text: string | null) => void;
 }
 
 const emptyReasoning: CurrentReasoning = { thinkingText: '', steps: [] };
@@ -95,6 +97,7 @@ const initial = {
   queuedAttachments: [] as QueuedAttachment[],
   error: null as string | null,
   stickyApprovals: new Set<string>(),
+  pendingComposerText: null as string | null,
 };
 
 function freshState() {
@@ -248,6 +251,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     })),
 
   clearQueuedAttachments: () => set({ queuedAttachments: [] }),
+
+  setPendingComposerText: (text) => set({ pendingComposerText: text }),
 }));
 
 export function contextSizeOfActive(state: ChatState): {

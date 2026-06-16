@@ -1,6 +1,7 @@
 import type { AetherContext, Tool } from '@/server/domain/context/context.types';
 import type { SubAgentRecord } from '@/server/domain/subagents/subagents.types';
 import type { ProviderToolDecl } from './providers/provider.types';
+import type { PromptMaterialSkill } from '@/server/domain/skills/skills.types';
 
 export interface AssembledPrompt {
   systemInstruction: string;
@@ -37,9 +38,38 @@ function activeSkillNames(skills: AetherContext['skills']): string[] {
   return skills.filter((s) => s.enabled).map((s) => s.name);
 }
 
-function withSkillsBlock(systemInstruction: string, skillNames: string[]): string {
-  if (skillNames.length === 0) return systemInstruction;
-  const block = ['# Active Skills', ...skillNames.map((n) => `- ${n}`)].join('\n');
+function buildSkillsBlock(labelNames: string[], material: PromptMaterialSkill[]): string {
+  if (labelNames.length === 0 && material.length === 0) return '';
+  const nonPinned = material.filter((m) => !m.pinned);
+  const pinned = material.filter((m) => m.pinned);
+
+  const header: string[] = ['# Active Skills'];
+  for (const n of labelNames) header.push(`- ${n}`);
+  for (const m of nonPinned) header.push(`- ${m.name}: ${m.description}`);
+  const parts: string[] = [header.join('\n')];
+
+  if (nonPinned.length > 0) {
+    const list = nonPinned.map((m) => `- ${m.name}: ${m.dir}/SKILL.md`).join('\n');
+    parts.push(
+      'For the skills above with a description, the full instructions and any referenced ' +
+        'files live on disk. When a skill is relevant, read its SKILL.md (and the files it ' +
+        'points to) via the filesystem before acting:\n' +
+        list,
+    );
+  }
+  for (const m of pinned) {
+    parts.push(`## Skill: ${m.name}\n\n${(m.body ?? '').trim()}`);
+  }
+  return parts.join('\n\n');
+}
+
+function withSkillsBlock(
+  systemInstruction: string,
+  labelNames: string[],
+  material: PromptMaterialSkill[],
+): string {
+  const block = buildSkillsBlock(labelNames, material);
+  if (!block) return systemInstruction;
   return [systemInstruction.trim(), block].filter(Boolean).join('\n\n');
 }
 
@@ -49,12 +79,14 @@ export function assemble(
   parsedMessage: string,
   resolvedName: string | null,
   mcpTools: ProviderToolDecl[] = [],
+  materialSkills: PromptMaterialSkill[] = [],
 ): AssembledPrompt {
+  const materialNames = materialSkills.map((m) => m.name);
   if (!subAgent) {
-    const skills = activeSkillNames(ctx.skills);
+    const labels = activeSkillNames(ctx.skills);
     return {
-      systemInstruction: withSkillsBlock(ctx.systemInstruction, skills),
-      skills,
+      systemInstruction: withSkillsBlock(ctx.systemInstruction, labels, materialSkills),
+      skills: dedupStrings([...labels, ...materialNames]),
       tools: ctx.tools,
       message: parsedMessage,
       subAgent: null,
@@ -68,11 +100,11 @@ export function assemble(
   ]
     .filter(Boolean)
     .join('\n\n');
-  const skills = dedupStrings([...activeSkillNames(ctx.skills), ...subAgent.skills]);
+  const labels = dedupStrings([...activeSkillNames(ctx.skills), ...subAgent.skills]);
   const tools = dedupToolsById([...ctx.tools, ...subAgent.tools]);
   return {
-    systemInstruction: withSkillsBlock(baseSys, skills),
-    skills,
+    systemInstruction: withSkillsBlock(baseSys, labels, materialSkills),
+    skills: dedupStrings([...labels, ...materialNames]),
     tools,
     message: parsedMessage,
     subAgent: resolvedName,

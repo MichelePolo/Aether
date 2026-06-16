@@ -42,6 +42,11 @@ import { ScheduleRunner } from './domain/schedules/schedule-runner';
 import { SchedulerService } from './domain/schedules/scheduler.service';
 import { createRunCommand } from './domain/tdd/tdd.run-command';
 import { executeCommand } from './mcp/builtin/aether-shell.handler';
+import { SkillStateStore } from './domain/skills/skill-state.store';
+import { SkillsService } from './domain/skills/skills.service';
+import { seedDefaultSkills } from './domain/skills/seed';
+import { seedSkillSmith } from './domain/subagents/skill-smith';
+import { defaultsDir, skillsDirFor } from './domain/skills/skills.paths';
 
 dotenv.config();
 
@@ -54,10 +59,13 @@ async function bootstrap() {
     console.log(`[db] applied migrations: ${migrated.applied.join(', ')}`);
   }
 
+  seedDefaultSkills(defaultsDir(), skillsDirFor(cfg.dataDir));
+
   const contextStore = new ContextStore(db);
   const historyStore = new HistoryStore(db);
   const profilesStore = new ProfilesStore(db);
   const subAgentsStore = new SubAgentsStore(db);
+  await seedSkillSmith(subAgentsStore);
   const searchService = new SearchService(db);
 
   const builtinStore = new BuiltinMcpStore(db);
@@ -186,6 +194,9 @@ async function bootstrap() {
     },
   };
 
+  const skillStateStore = new SkillStateStore(db);
+  const skillsService = new SkillsService(skillStateStore, cfg.dataDir);
+
   const dispatcher = new DispatchService({
     providers,
     historyStore,
@@ -193,6 +204,7 @@ async function bootstrap() {
     subAgentsStore,
     mcpRegistry,
     breakpointService,
+    skillsService,
   });
 
   const swarmStore = new SwarmStore(db);
@@ -247,6 +259,7 @@ async function bootstrap() {
     tddRunnerDeps,
     scheduleStore,
     scheduleRunner,
+    skillsService,
   });
 
   if (process.env.NODE_ENV !== 'production') {
