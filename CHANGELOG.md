@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.2](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.1...aether-core-v0.1.2) (2026-06-16)
+
+
+### Features
+
+* Scheduled / Background Agents (slice 31) ([#63](https://github.com/MichelePolo/Aether/issues/63)) ([81c521a](https://github.com/MichelePolo/Aether/commit/81c521a6d7ad1d75603742e59a66c4720c7c865b))
+* **skills:** filesystem-based skills + AI-assisted generation ([#64](https://github.com/MichelePolo/Aether/issues/64)) ([ded2fa1](https://github.com/MichelePolo/Aether/commit/ded2fa125aa49c9bd3db39208b3b2462b24d9d8f))
+
 ## [0.1.1](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.0...aether-core-v0.1.1) (2026-06-14)
 
 
