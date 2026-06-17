@@ -44,6 +44,7 @@ export function createDispatchRoutes(dispatcher: DispatchService): Router {
           sessionId: body.sessionId,
           messageId: body.messageId,
           providerName: typeof body.providerName === 'string' ? body.providerName : undefined,
+          aetherMode: (req.body as { aetherMode?: boolean }).aetherMode === true,
         },
         sse,
         controller.signal,

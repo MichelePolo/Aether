@@ -374,6 +374,33 @@ describe('DispatchService', () => {
     expect((done.data as { tokensOut?: number }).tokensOut).toBe(40);
   });
 
+  it('emits a live-only assembled_prompt step when aetherMode is on', async () => {
+    const { service, historyStore, sessionId } = await makeService({ chunks: ['pong'] });
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle({ sessionId, message: 'ping', aetherMode: true }, emitter, new AbortController().signal);
+    const promptEvents = events.filter(
+      (e) => e.event === 'reasoning_step' && (e.data as { type: string }).type === 'assembled_prompt',
+    );
+    expect(promptEvents).toHaveLength(1);
+    expect((promptEvents[0].data as { content: string }).content).toContain('You are Aether');
+    expect((promptEvents[0].data as { content: string }).content).toContain('Tools declared to the model');
+
+    // Live only: not in the persisted model message.
+    const saved = await historyStore.readRecord(sessionId);
+    const modelMsg = saved!.messages.find((m) => m.role === 'model')!;
+    expect((modelMsg.reasoningSteps ?? []).some((s) => s.type === 'assembled_prompt')).toBe(false);
+  });
+
+  it('does not emit an assembled_prompt step when aetherMode is off', async () => {
+    const { service, sessionId } = await makeService({ chunks: ['pong'] });
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle({ sessionId, message: 'ping' }, emitter, new AbortController().signal);
+    const promptEvents = events.filter(
+      (e) => e.event === 'reasoning_step' && (e.data as { type: string }).type === 'assembled_prompt',
+    );
+    expect(promptEvents).toHaveLength(0);
+  });
+
   it('active material skill reaches the assembled system instruction', async () => {
     const provider = new FakeProvider({ chunks: ['pong'], model: 'fake-1' });
     const db = makeTestDb();
