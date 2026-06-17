@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.5...aether-core-v0.1.6) (2026-06-17)
+
+
+### Bug Fixes
+
+* **chat:** wrap long unbreakable strings inside message bubbles ([#72](https://github.com/MichelePolo/Aether/issues/72)) ([dd19f46](https://github.com/MichelePolo/Aether/commit/dd19f466d66cf8f502c7df4c6d7f54759087dde3))
+
 ## [0.1.5](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.4...aether-core-v0.1.5) (2026-06-17)
 
 
