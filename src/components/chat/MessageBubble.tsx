@@ -95,7 +95,7 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
         onContextMenu={onContextMenu}
         title={tooltip}
         className={cn(
-          'group relative max-w-[68ch] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm shadow-black/20',
+          'group relative max-w-[68ch] min-w-0 rounded-2xl px-4 py-2.5 text-sm shadow-sm shadow-black/20',
           isUser
             ? 'bg-manipulation/10 border border-manipulation/30 text-zinc-100 rounded-tr-sm'
             : 'bg-surface-3 border border-border-subtle text-zinc-200 rounded-tl-sm',
@@ -118,17 +118,17 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
         )}
 
         {isUser ? (
-          <span className="whitespace-pre-wrap">{message.text}</span>
+          <span className="whitespace-pre-wrap break-words">{message.text}</span>
         ) : message.text.length === 0 && !isStreaming ? (
           <span className="italic text-zinc-500">{t('messageBubble.emptyResponse')}</span>
         ) : isStreaming ? (
           // Streaming-perf path: render plain text instead of re-parsing markdown per chunk.
           <>
-            <span className="whitespace-pre-wrap">{message.text}</span>
+            <span className="whitespace-pre-wrap break-words">{message.text}</span>
             <StreamingIndicator />
           </>
         ) : (
-          <div className="prose prose-invert prose-sm max-w-none prose-code:text-cli prose-code:font-mono prose-code:before:content-none prose-code:after:content-none prose-pre:bg-surface-0 prose-pre:border prose-pre:border-border-subtle prose-pre:text-cli prose-table:block prose-table:overflow-x-auto prose-table:w-fit prose-table:max-w-full prose-th:border prose-th:border-border-subtle prose-th:px-2 prose-th:py-1 prose-td:border prose-td:border-border-subtle prose-td:px-2 prose-td:py-1">
+          <div className="prose prose-invert prose-sm max-w-none break-words prose-code:text-cli prose-code:font-mono prose-code:[overflow-wrap:anywhere] prose-code:before:content-none prose-code:after:content-none prose-pre:bg-surface-0 prose-pre:border prose-pre:border-border-subtle prose-pre:text-cli prose-pre:whitespace-pre-wrap prose-pre:break-words prose-table:block prose-table:overflow-x-auto prose-table:w-fit prose-table:max-w-full prose-th:border prose-th:border-border-subtle prose-th:px-2 prose-th:py-1 prose-td:border prose-td:border-border-subtle prose-td:px-2 prose-td:py-1">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.text}</ReactMarkdown>
           </div>
         )}
