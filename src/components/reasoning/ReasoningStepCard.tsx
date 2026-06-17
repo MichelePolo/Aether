@@ -47,8 +47,8 @@ export function ReasoningStepCard({ step }: ReasoningStepCardProps) {
   const knownType = step.type in TYPE_LABELS ? step.type : 'logic';
   const badgeLabel = TYPE_LABELS[knownType as ReasoningStepType] ?? step.type;
   const badgeColor = TYPE_COLORS[knownType as ReasoningStepType] ?? TYPE_COLORS.logic;
-  // Tool calls are noisy → collapsed by default; thinking/context steps stay
-  // expanded by default. Every card is collapsible via its header.
+  // Tool calls and assembled-prompt payloads are bulky → collapsed by default;
+  // thinking/context steps stay expanded. Every card is collapsible via its header.
   const [open, setOpen] = useState(step.type !== 'tool_call' && step.type !== 'assembled_prompt');
   const Chevron = open ? ChevronDown : ChevronRight;
   const hasError = Boolean(step.toolCall?.error);
