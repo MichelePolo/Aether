@@ -305,3 +305,23 @@ describe('useUiStore.workspaceBrowserOpen', () => {
     expect(useUiStore.getState().workspaceBrowserOpen).toBe(false);
   });
 });
+
+describe('ui.store aetherMode', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useUiStore.getState()._reset();
+  });
+
+  it('defaults off and toggles + persists', () => {
+    expect(useUiStore.getState().aetherMode).toBe(false);
+    useUiStore.getState().toggleAetherMode();
+    expect(useUiStore.getState().aetherMode).toBe(true);
+    expect(localStorage.getItem('aether.aetherMode')).toBe('1');
+  });
+
+  it('hydrates from storage via initFromStorage', () => {
+    localStorage.setItem('aether.aetherMode', '1');
+    useUiStore.getState().initFromStorage();
+    expect(useUiStore.getState().aetherMode).toBe(true);
+  });
+});
