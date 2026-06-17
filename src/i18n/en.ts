@@ -181,6 +181,7 @@ export const messages = {
     createIdeaPlaceholder: 'e.g. a skill for writing conventional commits',
     createStart: 'Start',
     createCancel: 'Cancel',
+    dismissError: 'Dismiss error',
   },
 } as const;
 

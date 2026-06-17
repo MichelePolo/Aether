@@ -3,11 +3,13 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SkillsSection } from './SkillsSection';
 import { useContextStore } from '@/src/stores/context.store';
+import { useSkillsStore } from '@/src/stores/skills.store';
 import { DialogHost } from '@/src/components/layout/DialogHost';
 import { _resetDialogStore } from '@/src/hooks/useDialog';
 
 beforeEach(() => {
   _resetDialogStore();
+  useSkillsStore.setState({ skills: [], drafts: [], paths: null, error: null });
   useContextStore.setState({
     context: {
       systemInstruction: '',
@@ -95,6 +97,15 @@ describe('SkillsSection', () => {
     await user.type(input, 'AlphaV2');
     await user.click(screen.getByRole('button', { name: /^(confirm|ok)$/i }));
     expect(useContextStore.getState().context?.skills[0].name).toBe('AlphaV2');
+  });
+
+  it('shows a dismissible error pill when the skills store has an error', async () => {
+    const user = userEvent.setup();
+    useSkillsStore.setState({ error: 'Promote failed: EPERM' });
+    render(<SkillsSection />);
+    expect(screen.getByText(/Promote failed: EPERM/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /dismiss error/i }));
+    expect(useSkillsStore.getState().error).toBeNull();
   });
 
   it('clicking a skill row toggles it and dims a disabled skill', async () => {

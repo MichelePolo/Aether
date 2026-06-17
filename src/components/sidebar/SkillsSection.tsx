@@ -23,6 +23,8 @@ export function SkillsSection() {
   const togglePinned = useSkillsStore((s) => s.togglePinned);
   const promote = useSkillsStore((s) => s.promote);
   const removeMaterial = useSkillsStore((s) => s.remove);
+  const error = useSkillsStore((s) => s.error);
+  const clearError = useSkillsStore((s) => s.clearError);
   const openCreateWithAi = useUiStore((s) => s.openCreatingSkill);
 
   const builtins = useBuiltinMcpStore((s) => s.builtins);
@@ -82,6 +84,18 @@ export function SkillsSection() {
           [{enabledCount}/{total}]
         </span>
       </div>
+
+      {error && (
+        <div
+          role="alert"
+          className="mb-2 p-1.5 rounded bg-status-error/10 border border-status-error/40 text-status-error text-[10px] flex items-center gap-2"
+        >
+          <span className="flex-1">⚠ {error}</span>
+          <button type="button" aria-label={t('skills.dismissError')} onClick={clearError} className="hover:text-white">
+            ×
+          </button>
+        </div>
+      )}
 
       {needsFsWarning && (
         <div

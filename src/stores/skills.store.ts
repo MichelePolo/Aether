@@ -18,6 +18,7 @@ interface SkillsState {
   togglePinned: (slug: string) => Promise<void>;
   promote: (slug: string) => Promise<void>;
   remove: (slug: string) => Promise<void>;
+  clearError: () => void;
 }
 
 export const useSkillsStore = create<SkillsState>((set, get) => ({
@@ -39,7 +40,7 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
 
   refresh: async () => {
     const { skills, drafts, paths } = await skillsApi.list();
-    set({ skills, drafts, paths });
+    set({ skills, drafts, paths, error: null });
   },
 
   toggleEnabled: async (slug) => {
@@ -47,7 +48,7 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
     const target = prev.find((s) => s.name === slug);
     if (!target) return;
     const next = !target.enabled;
-    set({ skills: prev.map((s) => (s.name === slug ? { ...s, enabled: next } : s)) });
+    set({ skills: prev.map((s) => (s.name === slug ? { ...s, enabled: next } : s)), error: null });
     try {
       await skillsApi.setEnabled(slug, next);
     } catch (e) {
@@ -61,7 +62,7 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
     const target = prev.find((s) => s.name === slug);
     if (!target) return;
     const next = !target.pinned;
-    set({ skills: prev.map((s) => (s.name === slug ? { ...s, pinned: next } : s)) });
+    set({ skills: prev.map((s) => (s.name === slug ? { ...s, pinned: next } : s)), error: null });
     try {
       await skillsApi.setPinned(slug, next);
     } catch (e) {
@@ -82,7 +83,7 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
 
   remove: async (slug) => {
     const prev = get().skills;
-    set({ skills: prev.filter((s) => s.name !== slug) });
+    set({ skills: prev.filter((s) => s.name !== slug), error: null });
     try {
       await skillsApi.remove(slug);
     } catch (e) {
@@ -90,4 +91,6 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
       throw e;
     }
   },
+
+  clearError: () => set({ error: null }),
 }));
