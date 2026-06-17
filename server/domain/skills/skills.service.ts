@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, renameSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { ValidationError, NotFoundError } from '@/server/lib/errors';
+import { moveDirSync } from '@/server/lib/move-dir';
 import { discoverMaterialDirs, discoverDraftDirs } from './discovery';
 import { skillsDirFor, draftsDirFor } from './skills.paths';
 import type { SkillStateStore } from './skill-state.store';
@@ -67,14 +68,16 @@ export class SkillsService {
     if (draft.invalid) throw new ValidationError(`Draft "${slug}" is invalid: ${draft.invalid}`);
     const dest = path.join(this.skillsDir, slug);
     if (existsSync(dest)) throw new ValidationError(`A skill named "${slug}" already exists`);
-    renameSync(path.join(this.skillsDir, '.drafts', slug), dest);
+    moveDirSync(path.join(this.skillsDir, '.drafts', slug), dest);
   }
 
   remove(slug: string): void {
     this.assertContainedSlug(slug);
     const dir = path.join(this.skillsDir, slug);
     if (!existsSync(dir)) throw new NotFoundError(`skill ${slug}`);
-    rmSync(dir, { recursive: true, force: true });
+    // maxRetries rides out transient Windows locks (watcher/AV/indexer), same
+    // class of EPERM/EBUSY failure that motivated the robust move in promote().
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     this.state.remove(slug);
   }
 
