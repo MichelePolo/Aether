@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.2...aether-core-v0.1.3) (2026-06-17)
+
+
+### Bug Fixes
+
+* **skills:** Windows-safe promote (rename→copy+remove) + inline error surface ([#66](https://github.com/MichelePolo/Aether/issues/66)) ([6e8e2af](https://github.com/MichelePolo/Aether/commit/6e8e2af2c233bbee9204c910ef9aa41a9418bb4a))
+
 ## [0.1.2](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.1...aether-core-v0.1.2) (2026-06-16)
 
 
