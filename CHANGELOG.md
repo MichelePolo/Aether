@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.3...aether-core-v0.1.4) (2026-06-17)
+
+
+### Features
+
+* **prompt:** official Aether system prompt ([#68](https://github.com/MichelePolo/Aether/issues/68)) ([60186c2](https://github.com/MichelePolo/Aether/commit/60186c25565f774a2c04060c92d0ae9ba6020a04))
+
 ## [0.1.3](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.2...aether-core-v0.1.3) (2026-06-17)
 
 
