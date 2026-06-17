@@ -26,7 +26,7 @@ const TYPE_COLORS: Record<ReasoningStepType, string> = {
   logic: 'bg-zinc-800 text-zinc-400',
   resolve_subagent: 'bg-disclosure/10 text-disclosure',
   tool_call: 'bg-disclosure/10 text-disclosure',
-  assembled_prompt: 'bg-zinc-800 text-zinc-400',
+  assembled_prompt: 'bg-disclosure/10 text-disclosure',
 };
 
 function formatDuration(ms?: number): string {
@@ -49,7 +49,7 @@ export function ReasoningStepCard({ step }: ReasoningStepCardProps) {
   const badgeColor = TYPE_COLORS[knownType as ReasoningStepType] ?? TYPE_COLORS.logic;
   // Tool calls are noisy → collapsed by default; thinking/context steps stay
   // expanded by default. Every card is collapsible via its header.
-  const [open, setOpen] = useState(step.type !== 'tool_call');
+  const [open, setOpen] = useState(step.type !== 'tool_call' && step.type !== 'assembled_prompt');
   const Chevron = open ? ChevronDown : ChevronRight;
   const hasError = Boolean(step.toolCall?.error);
 
@@ -76,7 +76,14 @@ export function ReasoningStepCard({ step }: ReasoningStepCardProps) {
       {open && (
         <div className="px-2 pb-2">
           {step.content && (
-            <div className="text-[11px] text-zinc-400 whitespace-pre-wrap mb-2">{step.content}</div>
+            <div
+              className={cn(
+                'text-[11px] text-zinc-400 whitespace-pre-wrap mb-2',
+                step.type === 'assembled_prompt' && 'max-h-64 overflow-y-auto font-mono bg-zinc-900/60 rounded p-1.5',
+              )}
+            >
+              {step.content}
+            </div>
           )}
           {step.toolCall && (
             <div className="mt-1 space-y-1 text-[10px] font-mono">

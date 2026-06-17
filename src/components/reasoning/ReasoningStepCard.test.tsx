@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ReasoningStepCard } from './ReasoningStepCard';
 import type { ReasoningStep } from '@/src/types/reasoning.types';
 
@@ -142,6 +143,18 @@ describe('ReasoningStepCard', () => {
     );
     expandCard();
     expect(screen.getByText(/2\/2 — done/)).toBeInTheDocument();
+  });
+
+  it('renders assembled_prompt collapsed, revealing verbatim content on expand', async () => {
+    const user = userEvent.setup();
+    const step = {
+      id: '1', type: 'assembled_prompt' as const, title: 'Prompt sent to model',
+      content: 'You are Aether VERBATIM', timestamp: 0,
+    };
+    render(<ReasoningStepCard step={step} />);
+    expect(screen.queryByText('You are Aether VERBATIM')).toBeNull(); // collapsed
+    await user.click(screen.getByRole('button', { name: /Prompt sent to model/ }));
+    expect(screen.getByText('You are Aether VERBATIM')).toBeInTheDocument();
   });
 
   it('renders tool_call error state in red', () => {
