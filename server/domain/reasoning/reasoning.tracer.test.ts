@@ -83,25 +83,6 @@ describe('ReasoningTracer.pushExternal', () => {
   });
 });
 
-describe('ReasoningTracer.emitEphemeral', () => {
-  it('emitEphemeral emits an SSE reasoning_step but does not persist it', () => {
-    const events: Array<{ name: string; data: unknown }> = [];
-    const sse = { event: (name: string, data: unknown) => events.push({ name, data }) } as never;
-    const tracer = new ReasoningTracer(sse);
-
-    tracer.emitEphemeral({
-      type: 'assembled_prompt',
-      title: 'Prompt sent to model',
-      content: 'SYSTEM…',
-    });
-
-    expect(events).toHaveLength(1);
-    expect(events[0].name).toBe('reasoning_step');
-    expect((events[0].data as { type: string }).type).toBe('assembled_prompt');
-    expect(tracer.finalSteps()).toHaveLength(0);
-  });
-});
-
 describe('ReasoningTracer.finalSteps', () => {
   it('returns a shallow copy (mutation does not affect tracer state)', async () => {
     const { emitter } = createCollectorEmitter();

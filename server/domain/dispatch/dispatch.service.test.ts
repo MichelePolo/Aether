@@ -374,7 +374,7 @@ describe('DispatchService', () => {
     expect((done.data as { tokensOut?: number }).tokensOut).toBe(40);
   });
 
-  it('emits a live-only assembled_prompt step when aetherMode is on', async () => {
+  it('emits and persists an assembled_prompt step when aetherMode is on', async () => {
     const { service, historyStore, sessionId } = await makeService({ chunks: ['pong'] });
     const { emitter, events } = createCollectorEmitter();
     await service.handle({ sessionId, message: 'ping', aetherMode: true }, emitter, new AbortController().signal);
@@ -385,10 +385,10 @@ describe('DispatchService', () => {
     expect((promptEvents[0].data as { content: string }).content).toContain('You are Aether');
     expect((promptEvents[0].data as { content: string }).content).toContain('Tools declared to the model');
 
-    // Live only: not in the persisted model message.
+    // Persisted: the step is saved with the model message so it survives reload.
     const saved = await historyStore.readRecord(sessionId);
     const modelMsg = saved!.messages.find((m) => m.role === 'model')!;
-    expect((modelMsg.reasoningSteps ?? []).some((s) => s.type === 'assembled_prompt')).toBe(false);
+    expect((modelMsg.reasoningSteps ?? []).some((s) => s.type === 'assembled_prompt')).toBe(true);
   });
 
   it('does not emit an assembled_prompt step when aetherMode is off', async () => {

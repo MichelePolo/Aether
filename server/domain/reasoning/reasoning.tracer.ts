@@ -50,15 +50,6 @@ export class ReasoningTracer {
     this.sse.event('reasoning_step', step);
   }
 
-  emitEphemeral(partial: Omit<ReasoningStep, 'id' | 'timestamp'>): void {
-    const step: ReasoningStep = {
-      id: randomUUID(),
-      timestamp: Date.now(),
-      ...partial,
-    };
-    this.sse.event('reasoning_step', step);
-  }
-
   finalSteps(): ReasoningStep[] {
     return [...this.steps];
   }

@@ -469,7 +469,7 @@ export class DispatchService {
     const assembled = assemble(context, matchedSubAgent, effectiveStripped, mention.name, mcpToolDecls, materialSkills);
 
     if (aetherMode) {
-      tracer.emitEphemeral({
+      tracer.pushExternal({
         type: 'assembled_prompt',
         title: 'Prompt sent to model',
         content: formatAssembledPromptContent(assembled.systemInstruction, assembled.mcpTools),
@@ -671,7 +671,7 @@ export class DispatchService {
     }));
 
     if (opts.aetherMode) {
-      tracer.emitEphemeral({
+      tracer.pushExternal({
         type: 'assembled_prompt',
         title: 'Prompt sent to model',
         content: formatAssembledPromptContent(context.systemInstruction, mcpToolDecls),

@@ -20,16 +20,14 @@ The fully assembled prompt actually sent to the provider (`assembled.systemInstr
 
 1. **Scope of payload:** system layer + tool declarations (option B). The system layer is `assembled.systemInstruction` verbatim; tools are name + description (not full JSON parameter schema — kept readable). History and user message are excluded (already visible in the central chat).
 2. **Granularity:** a single step (option 1), faithful to what is actually sent — no per-layer reconstruction, no change to `assemble()`.
-3. **Persistence:** live only (option A). The step is emitted via SSE and shown live, but NOT stored in `reasoningSteps` → no DB bloat, no privacy footprint in exported sessions. Reopening an old session does not show it.
+3. **Persistence:** persisted with the model message (REVISED — was originally "live only"). The step is emitted via SSE *and* recorded in the message's `reasoningSteps` (via `tracer.pushExternal`), so it survives reload. Persistence is bounded by the `aetherMode` gate: nothing is stored when the mode is off (default). **Why revised:** the live-only approach made the step vanish the instant the model replied — the frontend finalizes a streamed message by replacing its steps with the backend's authoritative `finalSteps()` list, which (by design) excluded the ephemeral step. Persisting fixes this structurally instead of via a frontend merge, at the cost of ~2-4 KB per model message *only when Aether mode is on*. `reasoningSteps` is already a JSON column, so no migration is needed.
 4. **Gating — "Aether mode":** the step is gated by a user toggle labelled **"Aether mode"**, ON-controllable from the TopBar. The flag rides in the dispatch request body so the backend only emits the step when the mode is on (no wasted SSE payload when off). For now "Aether mode" governs *only* the assembled-prompt reasoning step; it is named and modelled as Aether's broader disclosure/transparency mode so it can govern more of that behaviour in future slices. Default: **off**.
 
 ## Architecture
 
-The crux is separating "emit to the panel" from "persist into history". `ReasoningTracer` currently couples both: `step()` and `pushExternal()` push to `steps[]` (persisted via `finalSteps()`) **and** emit the SSE event.
+The `assembled_prompt` step is emitted through the existing `ReasoningTracer.pushExternal(partial)`, which both pushes the step to `steps[]` (persisted via `finalSteps()` into the model message's `reasoningSteps`) **and** emits the SSE event. The frontend receives it as an ordinary `reasoning_step` event and renders it live; on completion the persisted list still contains it, so it stays visible and survives reload.
 
-Add a new method `emitEphemeral(partial)` that builds a full `ReasoningStep` (with `id` + `timestamp`) and **only** emits the SSE event — it does not push to `steps[]`. This isolates the persist/ephemeral decision to a single call site (which tracer method you call), keeping the tracer the sole authority over what becomes history.
-
-The frontend receives it as an ordinary `reasoning_step` event and renders it; because the backend never persists it, it is absent on session reload — consistent with "live only".
+(An earlier revision added a separate `emitEphemeral` method that emitted without persisting; it was removed when the persistence decision changed, since `pushExternal` already does exactly what is needed.)
 
 ## Components
 
@@ -38,22 +36,9 @@ The frontend receives it as an ordinary `reasoning_step` event and renders it; b
 `server/domain/reasoning/reasoning.types.ts` — add `'assembled_prompt'` to the `ReasoningStepType` union.
 `src/types/reasoning.types.ts` — mirror the same addition on the frontend type.
 
-### 2. Tracer: `emitEphemeral`
+### 2. Tracer
 
-`server/domain/reasoning/reasoning.tracer.ts` — add:
-
-```typescript
-emitEphemeral(partial: Omit<ReasoningStep, 'id' | 'timestamp'>): void {
-  const step: ReasoningStep = {
-    id: randomUUID(),
-    timestamp: Date.now(),
-    ...partial,
-  };
-  this.sse.event('reasoning_step', step);
-}
-```
-
-It mirrors `pushExternal` but omits the `this.steps.push(step)` line. As a result the step never appears in `finalSteps()`.
+No new tracer method is needed — the step uses the existing `pushExternal`, which both records the step in `steps[]` (so it is persisted via `finalSteps()`) and emits the `reasoning_step` SSE event.
 
 ### 3. Payload formatting + emission
 
@@ -99,8 +84,7 @@ Step shape: `{ type: 'assembled_prompt', title: <i18n "Prompt sent to model">, c
 ## Testing
 
 **Backend**
-- `reasoning.tracer.test.ts`: `emitEphemeral` emits a `reasoning_step` SSE event but the step is absent from `finalSteps()`.
-- `dispatch.service.test.ts`: with `aetherMode: true`, a dispatch emits an `assembled_prompt` step whose `content` contains the verbatim system instruction and the tool-declaration header; the step is NOT present in the persisted model message's `reasoningSteps`. With `aetherMode` false/absent, no `assembled_prompt` step is emitted.
+- `dispatch.service.test.ts`: with `aetherMode: true`, a dispatch emits an `assembled_prompt` step whose `content` contains the verbatim system instruction and the tool-declaration header, and the step IS present in the persisted model message's `reasoningSteps` (survives reload). With `aetherMode` false/absent, no `assembled_prompt` step is emitted.
 
 **Frontend**
 - `ReasoningStepCard` test: with `type: 'assembled_prompt'`, the card is collapsed by default and reveals the verbatim content on expand.
@@ -110,5 +94,5 @@ Step shape: `{ type: 'assembled_prompt', title: <i18n "Prompt sent to model">, c
 
 - Per-layer breakdown (separate steps for base prompt / skills / sub-agent / tools) — would require `assemble()` to return the distinct pieces.
 - Showing full JSON parameter schemas for tools.
-- Persisting the payload (or a hash/summary) for historical review.
+- Deduplicating the persisted payload across turns (the system prompt is largely stable; a future optimization could store it once per session instead of per message).
 - Extending "Aether mode" to govern additional disclosure/transparency behaviour beyond the assembled-prompt step (intended future direction, but this slice wires it to that one step only).
