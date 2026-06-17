@@ -1,7 +1,7 @@
 {
   "name": "aether-core",
   "private": true,
-  "version": "0.1.5",
+  "version": "0.1.6",
   "type": "module",
   "bin": {
     "aether": "dist/cli.cjs"
