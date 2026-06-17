@@ -21,6 +21,7 @@ The fully assembled prompt actually sent to the provider (`assembled.systemInstr
 1. **Scope of payload:** system layer + tool declarations (option B). The system layer is `assembled.systemInstruction` verbatim; tools are name + description (not full JSON parameter schema — kept readable). History and user message are excluded (already visible in the central chat).
 2. **Granularity:** a single step (option 1), faithful to what is actually sent — no per-layer reconstruction, no change to `assemble()`.
 3. **Persistence:** live only (option A). The step is emitted via SSE and shown live, but NOT stored in `reasoningSteps` → no DB bloat, no privacy footprint in exported sessions. Reopening an old session does not show it.
+4. **Gating — "Aether mode":** the step is gated by a user toggle labelled **"Aether mode"**, ON-controllable from the TopBar. The flag rides in the dispatch request body so the backend only emits the step when the mode is on (no wasted SSE payload when off). For now "Aether mode" governs *only* the assembled-prompt reasoning step; it is named and modelled as Aether's broader disclosure/transparency mode so it can govern more of that behaviour in future slices. Default: **off**.
 
 ## Architecture
 
@@ -68,7 +69,7 @@ A small pure helper formats the step content faithfully:
 
 When there are no tools, the `--- Tools declared ... (0) ---` line still appears (with no bullets) so the absence is explicit.
 
-Emission points (both paths, for faithful transparency):
+Emission points (both paths, for faithful transparency) — each gated by the `aetherMode` request flag (emit only when true):
 
 - **Normal dispatch:** immediately after `assemble()` (`dispatch.service.ts:466`), before `runDispatchLoop`, using `assembled.systemInstruction` and `assembled.mcpTools`.
 - **`resume()`:** the resume path sends `context.systemInstruction` directly (around `dispatch.service.ts:665`) without `assemble()`. Emit the step there too, using the system instruction and tool declarations actually sent on that path.
@@ -85,18 +86,29 @@ Step shape: `{ type: 'assembled_prompt', title: <i18n "Prompt sent to model">, c
 
 `src/i18n/en.ts` (and `it` if present) — add the title string.
 
+### 5. "Aether mode" toggle + request plumbing
+
+**State** — `src/stores/ui.store.ts`: add `aetherMode: boolean` following the existing `thinkingEnabled` pattern exactly — `AETHER_MODE_KEY = 'aether.aetherMode'`, `readBool`/`writeBool`, `setAetherMode(v)` + `toggleAetherMode()`, default **off**, hydrated in `initFromStorage()`.
+
+**Control** — TopBar component: a labelled toggle **"Aether mode"** bound to `aetherMode` / `toggleAetherMode`, placed near the existing controls (provider selector / thinking toggle). Matches existing TopBar control styling.
+
+**Request flag** — `src/lib/api/dispatch.api.ts`: add optional `aetherMode?: boolean` to both `DispatchRequestBody` and `ResumeRequestBody`. `src/hooks/useStreamingDispatch.ts`: read `useUiStore.getState().aetherMode` and include it in the dispatch and resume bodies, mirroring how `thinking` is read and passed today (`useStreamingDispatch.ts:64,94`).
+
+**Backend wiring** — the dispatch and resume route request schemas accept `aetherMode?: boolean` (default false); `DispatchService.handle()` / `resume()` receive it and pass it to the emission helper as the gate. When false (or absent), the `assembled_prompt` step is not emitted at all.
+
 ## Testing
 
 **Backend**
 - `reasoning.tracer.test.ts`: `emitEphemeral` emits a `reasoning_step` SSE event but the step is absent from `finalSteps()`.
-- `dispatch.service.test.ts`: a dispatch emits an `assembled_prompt` step whose `content` contains the verbatim system instruction and the tool-declaration header; and that this step is NOT present in the persisted model message's `reasoningSteps`.
+- `dispatch.service.test.ts`: with `aetherMode: true`, a dispatch emits an `assembled_prompt` step whose `content` contains the verbatim system instruction and the tool-declaration header; the step is NOT present in the persisted model message's `reasoningSteps`. With `aetherMode` false/absent, no `assembled_prompt` step is emitted.
 
 **Frontend**
 - `ReasoningStepCard` test: with `type: 'assembled_prompt'`, the card is collapsed by default and reveals the verbatim content on expand.
+- `ui.store` test: `toggleAetherMode`/`setAetherMode` persist to `localStorage` and `initFromStorage` hydrates the flag (mirrors the existing `thinkingEnabled` tests).
 
 ## Out of scope (future slices)
 
 - Per-layer breakdown (separate steps for base prompt / skills / sub-agent / tools) — would require `assemble()` to return the distinct pieces.
 - Showing full JSON parameter schemas for tools.
-- A user setting to toggle this step on/off.
 - Persisting the payload (or a hash/summary) for historical review.
+- Extending "Aether mode" to govern additional disclosure/transparency behaviour beyond the assembled-prompt step (intended future direction, but this slice wires it to that one step only).
