@@ -33,4 +33,13 @@ describe('TopBar', () => {
     render(<TopBar title="X" sidebarOpen onToggleSidebar={() => {}} />);
     expect(screen.getByRole('button', { name: /open profiles manager/i })).toBeInTheDocument();
   });
+
+  it('renders an Aether mode toggle that flips the store flag', async () => {
+    const user = userEvent.setup();
+    render(<TopBar title="t" sidebarOpen onToggleSidebar={() => {}} />);
+    const btn = screen.getByRole('button', { name: 'Aether mode' });
+    expect(useUiStore.getState().aetherMode).toBe(false);
+    await user.click(btn);
+    expect(useUiStore.getState().aetherMode).toBe(true);
+  });
 });
