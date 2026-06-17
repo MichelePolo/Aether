@@ -62,6 +62,7 @@ export function useStreamingDispatch() {
     }
 
     const thinking = useUiStore.getState().thinkingEnabled;
+    const aetherMode = useUiStore.getState().aetherMode;
 
     const sessions = useSessionsStore.getState().sessions;
     const defaultProvider = useProvidersStore.getState().defaultProvider;
@@ -92,6 +93,7 @@ export function useStreamingDispatch() {
           sessionId: activeId,
           message: trimmed,
           thinking,
+          aetherMode,
           ...(activeName ? { providerName: activeName } : {}),
           ...(attachments ? { attachments } : {}),
         },
@@ -196,8 +198,9 @@ export function useStreamingDispatch() {
     let firstThinkingSeen = false;
 
     try {
+      const aetherMode = useUiStore.getState().aetherMode;
       for await (const ev of createResumingDispatch(
-        { sessionId: activeId, messageId, ...(activeName ? { providerName: activeName } : {}) },
+        { sessionId: activeId, messageId, aetherMode, ...(activeName ? { providerName: activeName } : {}) },
         controller.signal,
       )) {
         if (ev.event === 'text') {
