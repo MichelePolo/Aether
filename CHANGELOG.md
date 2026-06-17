@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.4...aether-core-v0.1.5) (2026-06-17)
+
+
+### Features
+
+* transparent LLM dialogue in the thinking panel ("Aether mode") ([#70](https://github.com/MichelePolo/Aether/issues/70)) ([8dbccff](https://github.com/MichelePolo/Aether/commit/8dbccff99ccc7150346d6f34adfbbcafd3ced024))
+
 ## [0.1.4](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.3...aether-core-v0.1.4) (2026-06-17)
 
 
