@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ContextStore, defaultContext } from './context.store';
+import { ContextStore, defaultContext, DEFAULT_SYSTEM_INSTRUCTION } from './context.store';
 import { makeTestDb } from '@/server/test/test-db';
 import type { DatabaseHandle } from '@/server/db/database';
 
@@ -19,6 +19,17 @@ describe('ContextStore', () => {
   it('read() returns the default context on a fresh DB', async () => {
     const ctx = await store.read();
     expect(ctx).toEqual(defaultContext);
+  });
+
+  it('default system instruction is the official Aether prompt', async () => {
+    const ctx = await store.read();
+    expect(ctx.systemInstruction).toBe(DEFAULT_SYSTEM_INSTRUCTION);
+    // Provider-agnostic: never names a vendor.
+    expect(DEFAULT_SYSTEM_INSTRUCTION).not.toMatch(/claude|anthropic|openai|gemini|ollama/i);
+    // Key section markers from the approved design.
+    for (const marker of ['You are Aether', '# Voice', '# Transparency', '# Tools, agents, and skills', '# Safety']) {
+      expect(DEFAULT_SYSTEM_INSTRUCTION).toContain(marker);
+    }
   });
 
   it('applies a patch (partial update)', async () => {
