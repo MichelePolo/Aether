@@ -6,7 +6,8 @@ export type ReasoningStepType =
   | 'validation'
   | 'logic'
   | 'resolve_subagent'
-  | 'tool_call';
+  | 'tool_call'
+  | 'assembled_prompt';
 
 export interface ToolCallTrace {
   id: string;

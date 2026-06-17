@@ -14,6 +14,7 @@ const TYPE_LABELS: Record<ReasoningStepType, string> = {
   logic: 'logic',
   resolve_subagent: 'subagent',
   tool_call: 'tool',
+  assembled_prompt: 'prompt',
 };
 
 const TYPE_COLORS: Record<ReasoningStepType, string> = {
@@ -25,6 +26,7 @@ const TYPE_COLORS: Record<ReasoningStepType, string> = {
   logic: 'bg-zinc-800 text-zinc-400',
   resolve_subagent: 'bg-disclosure/10 text-disclosure',
   tool_call: 'bg-disclosure/10 text-disclosure',
+  assembled_prompt: 'bg-zinc-800 text-zinc-400',
 };
 
 function formatDuration(ms?: number): string {
