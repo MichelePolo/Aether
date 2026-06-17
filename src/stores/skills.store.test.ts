@@ -102,4 +102,17 @@ describe('useSkillsStore', () => {
     await expect(useSkillsStore.getState().remove('alpha')).rejects.toThrow();
     expect(useSkillsStore.getState().skills.map((s) => s.name)).toEqual(['alpha']);
   });
+
+  it('clearError resets the error', () => {
+    useSkillsStore.setState({ error: 'boom' });
+    useSkillsStore.getState().clearError();
+    expect(useSkillsStore.getState().error).toBeNull();
+  });
+
+  it('a successful action clears a prior error', async () => {
+    useSkillsStore.setState({ skills: [m({ name: 'alpha', enabled: false })], error: 'stale' });
+    (skillsApi.setEnabled as any).mockResolvedValue(undefined);
+    await useSkillsStore.getState().toggleEnabled('alpha');
+    expect(useSkillsStore.getState().error).toBeNull();
+  });
 });
