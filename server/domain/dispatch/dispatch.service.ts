@@ -16,6 +16,7 @@ import type { SubAgentsStore } from '@/server/domain/subagents/subagents.store';
 import type { SubAgentRecord } from '@/server/domain/subagents/subagents.types';
 import { parseLeadingMention } from './subagent-parser';
 import { assemble } from './prompt-assembler';
+import { formatAssembledPromptContent } from './assembled-prompt-step';
 import type { McpRegistry } from '@/server/domain/mcp/registry';
 import type { McpToolResult } from '@/server/domain/mcp/mcp.types';
 import type { BreakpointService } from '@/server/domain/mcp/breakpoints/breakpoints.service';
@@ -34,6 +35,7 @@ export const DispatchRequestSchema = z.object({
   sessionId: z.string().min(1),
   message: z.string().min(1),
   thinking: z.boolean().optional(),
+  aetherMode: z.boolean().optional(),
   providerName: z.string().optional(),
   attachments: z.array(DispatchAttachmentSchema).max(MAX_ATTACHMENTS).optional(),
 });
@@ -43,6 +45,7 @@ export const ResumeRequestSchema = z.object({
   sessionId: z.string().min(1),
   messageId: z.string().min(1),
   providerName: z.string().optional(),
+  aetherMode: z.boolean().optional(),
 });
 export type ResumeRequest = z.infer<typeof ResumeRequestSchema>;
 
@@ -350,7 +353,7 @@ export class DispatchService {
       sse.error('Invalid request body', false);
       return;
     }
-    const { sessionId, message, thinking } = parsed.data;
+    const { sessionId, message, thinking, aetherMode } = parsed.data;
     const { historyStore, contextStore } = this.deps;
 
     const sessionRecord = await this.deps.historyStore.readRecord(sessionId);
@@ -465,6 +468,14 @@ export class DispatchService {
     const materialSkills = this.deps.skillsService?.getActiveForPrompt() ?? [];
     const assembled = assemble(context, matchedSubAgent, effectiveStripped, mention.name, mcpToolDecls, materialSkills);
 
+    if (aetherMode) {
+      tracer.pushExternal({
+        type: 'assembled_prompt',
+        title: 'Prompt sent to model',
+        content: formatAssembledPromptContent(assembled.systemInstruction, assembled.mcpTools),
+      });
+    }
+
     // Build attachment list for the provider (images only, stripped for non-vision providers).
     const providerAttachments = provider.capabilities.vision ? imageAtts : [];
 
@@ -574,7 +585,7 @@ export class DispatchService {
   }
 
   async resume(
-    opts: { sessionId: string; messageId: string; providerName?: string },
+    opts: { sessionId: string; messageId: string; providerName?: string; aetherMode?: boolean },
     sse: SseEmitter,
     signal: AbortSignal,
   ): Promise<void> {
@@ -658,6 +669,14 @@ export class DispatchService {
       description: t.tool.description,
       schema: t.tool.inputSchema,
     }));
+
+    if (opts.aetherMode) {
+      tracer.pushExternal({
+        type: 'assembled_prompt',
+        title: 'Prompt sent to model',
+        content: formatAssembledPromptContent(context.systemInstruction, mcpToolDecls),
+      });
+    }
 
     const loopResult = await this.runDispatchLoop(
       {

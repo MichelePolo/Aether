@@ -1,4 +1,4 @@
-import { GitBranch, MessageSquare } from 'lucide-react';
+import { GitBranch, MessageSquare, Eye } from 'lucide-react';
 import { IconButton } from '@/src/components/ui/IconButton';
 import { ProfilesButton } from '@/src/components/profiles/ProfilesButton';
 import { TokenChip } from './TokenChip';
@@ -15,6 +15,8 @@ export function TopBar({ title, sidebarOpen, onToggleSidebar }: TopBarProps) {
   const openPalette = useUiStore((s) => s.openPalette);
   const mainView = useUiStore((s) => s.mainView);
   const toggleMainView = useUiStore((s) => s.toggleMainView);
+  const aetherMode = useUiStore((s) => s.aetherMode);
+  const toggleAetherMode = useUiStore((s) => s.toggleAetherMode);
   const historyActive = mainView === 'git';
   return (
     <header className="h-12 border-b border-border-subtle flex items-center gap-2 px-4 bg-surface-2 sticky top-0 z-10 glass">
@@ -39,6 +41,13 @@ export function TopBar({ title, sidebarOpen, onToggleSidebar }: TopBarProps) {
         <kbd className="font-mono text-[9px]">⌘K</kbd>
       </button>
       <div className="ml-auto flex items-center gap-2">
+        <IconButton
+          label="Aether mode"
+          onClick={toggleAetherMode}
+          variant={aetherMode ? 'active' : 'default'}
+        >
+          <Eye size={14} aria-hidden="true" />
+        </IconButton>
         <IconButton
           label={historyActive ? 'Back to chat' : 'Open git history'}
           aria-pressed={historyActive}

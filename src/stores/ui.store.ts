@@ -7,6 +7,7 @@ const THINKING_KEY = 'aether.thinkingEnabled';
 const SIDEBAR_KEY = 'aether.sidebarOpen';
 const MAINVIEW_KEY = 'aether.mainView';
 const GITTAB_KEY = 'aether.gitTab';
+const AETHER_MODE_KEY = 'aether.aetherMode';
 
 export type MainView = 'chat' | 'git';
 export type GitTab = 'history' | 'changes';
@@ -14,6 +15,7 @@ export type GitTab = 'history' | 'changes';
 interface UiState {
   reasoningDrawerOpen: boolean;
   thinkingEnabled: boolean;
+  aetherMode: boolean;
   mainView: MainView;
   gitTab: GitTab;
   focusedMessageId: string | null;
@@ -61,6 +63,8 @@ interface UiState {
   closeReasoningDrawer: () => void;
   setThinkingEnabled: (v: boolean) => void;
   toggleThinking: () => void;
+  setAetherMode: (v: boolean) => void;
+  toggleAetherMode: () => void;
   setFocusedMessageId: (id: string | null) => void;
   openProfilesModal: () => void;
   closeProfilesModal: () => void;
@@ -83,6 +87,7 @@ interface UiState {
 const initial = {
   reasoningDrawerOpen: false,
   thinkingEnabled: false,
+  aetherMode: false,
   mainView: 'chat' as MainView,
   gitTab: 'history' as GitTab,
   focusedMessageId: null as string | null,
@@ -140,6 +145,16 @@ export const useUiStore = create<UiState>((set, get) => ({
     const next = !get().thinkingEnabled;
     writeBool(THINKING_KEY, next);
     set({ thinkingEnabled: next });
+  },
+
+  setAetherMode: (v) => {
+    writeBool(AETHER_MODE_KEY, v);
+    set({ aetherMode: v });
+  },
+  toggleAetherMode: () => {
+    const next = !get().aetherMode;
+    writeBool(AETHER_MODE_KEY, next);
+    set({ aetherMode: next });
   },
 
   setFocusedMessageId: (id) => set({ focusedMessageId: id }),
@@ -223,6 +238,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   initFromStorage: () =>
     set({
       thinkingEnabled: readBool(THINKING_KEY, false),
+      aetherMode: readBool(AETHER_MODE_KEY, false),
       sidebarOpen: readBool(SIDEBAR_KEY, true),
       mainView: readMainView(),
       gitTab: (() => {

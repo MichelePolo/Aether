@@ -4,6 +4,7 @@ export interface DispatchRequestBody {
   sessionId: string;
   message: string;
   thinking?: boolean;
+  aetherMode?: boolean;
   providerName?: string;
   attachments?: Array<{
     name: string;
@@ -35,6 +36,7 @@ export interface ResumeRequestBody {
   sessionId: string;
   messageId: string;
   providerName?: string;
+  aetherMode?: boolean;
 }
 
 export async function* createResumingDispatch(
