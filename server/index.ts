@@ -205,6 +205,13 @@ async function bootstrap() {
     mcpRegistry,
     breakpointService,
     skillsService,
+    projectRootFor: (workspaceId) => {
+      if (workspaceId) {
+        const ws = workspacesStore.get(workspaceId);
+        if (ws) return ws.rootPath;
+      }
+      return builtinStore.read().find((r) => r.transport === 'filesystem')?.fsRoot ?? null;
+    },
   });
 
   const swarmStore = new SwarmStore(db);
