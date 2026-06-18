@@ -673,6 +673,20 @@ describe('HistoryStore.forkSession — clones attachments', () => {
     const origBytes = await store.getAttachmentBytes(origAttId);
     expect(origBytes).not.toBeNull();
   });
+
+  it('readRecord returns the session workspaceId', async () => {
+    db.prepare('INSERT INTO workspaces (id, name, root_path, added_at) VALUES (?, ?, ?, ?)')
+      .run('ws-42', 'proj', '/tmp/proj', Date.now());
+    const meta = await store.createEmpty({ workspaceId: 'ws-42' });
+    const rec = await store.readRecord(meta.id);
+    expect(rec?.workspaceId).toBe('ws-42');
+  });
+
+  it('readRecord leaves workspaceId undefined when unset', async () => {
+    const meta = await store.createEmpty();
+    const rec = await store.readRecord(meta.id);
+    expect(rec?.workspaceId).toBeUndefined();
+  });
 });
 
 describe('HistoryStore — workspaces (slice 23)', () => {

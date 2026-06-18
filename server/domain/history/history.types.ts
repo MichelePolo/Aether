@@ -27,6 +27,7 @@ export interface SessionRecord {
   title: string;
   createdAt: number;
   providerName?: string;
+  workspaceId?: string;
   messages: Message[];
 }
 

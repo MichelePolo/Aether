@@ -113,6 +113,7 @@ export class HistoryStore {
       title: row.title,
       createdAt: row.created_at,
       providerName: row.provider_name ?? undefined,
+      workspaceId: row.workspace_id ?? undefined,
       messages,
     };
   }
