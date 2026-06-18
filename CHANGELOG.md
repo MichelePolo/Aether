@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.7...aether-core-v0.1.8) (2026-06-18)
+
+
+### Bug Fixes
+
+* **dispatch:** preserve MCP tool arg types so array/number args aren't rejected ([#76](https://github.com/MichelePolo/Aether/issues/76)) ([3b8f53e](https://github.com/MichelePolo/Aether/commit/3b8f53ebe9e00d5fe932d2a13d3f5bd711021a45))
+
 ## [0.1.7](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.6...aether-core-v0.1.7) (2026-06-18)
 
 
