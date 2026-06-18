@@ -73,6 +73,27 @@ function withSkillsBlock(
   return [systemInstruction.trim(), block].filter(Boolean).join('\n\n');
 }
 
+const RUNTIME_HEADER = '# Runtime';
+const PROJECT_MEMORY_HEADER = '# Project memory (ETERE.md)';
+
+/**
+ * Append a `# Runtime` facts block and/or a `# Project memory (ETERE.md)` block
+ * to a system instruction. Each block is omitted when its string is empty/absent.
+ * Pure string composition — the caller supplies already-read/built content.
+ */
+export function withRuntimeContext(
+  systemInstruction: string,
+  runtimeFacts?: string,
+  projectMemory?: string,
+): string {
+  const parts = [systemInstruction.trim()];
+  if (runtimeFacts && runtimeFacts.trim()) parts.push(`${RUNTIME_HEADER}\n${runtimeFacts.trim()}`);
+  if (projectMemory && projectMemory.trim()) {
+    parts.push(`${PROJECT_MEMORY_HEADER}\n${projectMemory.trim()}`);
+  }
+  return parts.filter(Boolean).join('\n\n');
+}
+
 export function assemble(
   ctx: AetherContext,
   subAgent: SubAgentRecord | null,
@@ -80,12 +101,18 @@ export function assemble(
   resolvedName: string | null,
   mcpTools: ProviderToolDecl[] = [],
   materialSkills: PromptMaterialSkill[] = [],
+  runtimeFacts?: string,
+  projectMemory?: string,
 ): AssembledPrompt {
   const materialNames = materialSkills.map((m) => m.name);
   if (!subAgent) {
     const labels = activeSkillNames(ctx.skills);
     return {
-      systemInstruction: withSkillsBlock(ctx.systemInstruction, labels, materialSkills),
+      systemInstruction: withSkillsBlock(
+        withRuntimeContext(ctx.systemInstruction, runtimeFacts, projectMemory),
+        labels,
+        materialSkills,
+      ),
       skills: dedupStrings([...labels, ...materialNames]),
       tools: ctx.tools,
       message: parsedMessage,
@@ -103,7 +130,11 @@ export function assemble(
   const labels = dedupStrings([...activeSkillNames(ctx.skills), ...subAgent.skills]);
   const tools = dedupToolsById([...ctx.tools, ...subAgent.tools]);
   return {
-    systemInstruction: withSkillsBlock(baseSys, labels, materialSkills),
+    systemInstruction: withSkillsBlock(
+      withRuntimeContext(baseSys, runtimeFacts, projectMemory),
+      labels,
+      materialSkills,
+    ),
     skills: dedupStrings([...labels, ...materialNames]),
     tools,
     message: parsedMessage,

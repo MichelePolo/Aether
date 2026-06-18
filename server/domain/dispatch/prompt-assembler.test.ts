@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { assemble } from './prompt-assembler';
+import { assemble, withRuntimeContext } from './prompt-assembler';
 import type { AetherContext } from '@/server/domain/context/context.types';
 import type { SubAgentRecord } from '@/server/domain/subagents/subagents.types';
 import type { ProviderToolDecl } from './providers/provider.types';
@@ -120,6 +120,48 @@ const baseCtx: AetherContext = {
   tools: [],
   mcpServers: [],
 };
+
+describe('assemble — runtime context injection', () => {
+  it('injects runtime facts and project memory before Active Skills', () => {
+    const out = assemble(
+      ctx, null, 'hi', null, [], [],
+      'Current time (UTC): 2026-06-18T00:00:00Z\nActive model: fake:fake-1',
+      '# ETERE.md — demo\nNotes.',
+    );
+    const s = out.systemInstruction;
+    expect(s).toContain('# Runtime');
+    expect(s).toContain('Active model: fake:fake-1');
+    expect(s).toContain('# Project memory (ETERE.md)');
+    expect(s).toContain('Notes.');
+    // ordering: base < runtime < project memory < skills
+    expect(s.indexOf('Base.')).toBeLessThan(s.indexOf('# Runtime'));
+    expect(s.indexOf('# Runtime')).toBeLessThan(s.indexOf('# Project memory (ETERE.md)'));
+    expect(s.indexOf('# Project memory (ETERE.md)')).toBeLessThan(s.indexOf('# Active Skills'));
+  });
+
+  it('omits runtime/project-memory sections when not provided', () => {
+    const out = assemble(ctx, null, 'hi', null);
+    expect(out.systemInstruction).not.toContain('# Runtime');
+    expect(out.systemInstruction).not.toContain('# Project memory (ETERE.md)');
+  });
+
+  it('injects runtime context in the sub-agent branch too', () => {
+    const out = assemble(
+      ctx, sub, 'hi', 'designer', [], [],
+      'Active model: fake:fake-1', '# ETERE.md\nNotes.',
+    );
+    const s = out.systemInstruction;
+    expect(s).toContain('# Sub-agent: designer');
+    expect(s.indexOf('# Sub-agent: designer')).toBeLessThan(s.indexOf('# Project memory (ETERE.md)'));
+    expect(s.indexOf('# Project memory (ETERE.md)')).toBeLessThan(s.indexOf('# Active Skills'));
+  });
+
+  it('withRuntimeContext appends only the provided blocks', () => {
+    expect(withRuntimeContext('Base.')).toBe('Base.');
+    expect(withRuntimeContext('Base.', 'F')).toBe('Base.\n\n# Runtime\nF');
+    expect(withRuntimeContext('Base.', undefined, 'M')).toBe('Base.\n\n# Project memory (ETERE.md)\nM');
+  });
+});
 
 describe('assemble — hybrid skills', () => {
   it('renders only enabled label skills when no material skills (unchanged behavior)', () => {

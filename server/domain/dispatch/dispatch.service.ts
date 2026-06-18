@@ -15,7 +15,8 @@ import { ReasoningTracer } from '@/server/domain/reasoning/reasoning.tracer';
 import type { SubAgentsStore } from '@/server/domain/subagents/subagents.store';
 import type { SubAgentRecord } from '@/server/domain/subagents/subagents.types';
 import { parseLeadingMention } from './subagent-parser';
-import { assemble } from './prompt-assembler';
+import { assemble, withRuntimeContext } from './prompt-assembler';
+import { readProjectMemory } from './project-memory';
 import { formatAssembledPromptContent } from './assembled-prompt-step';
 import type { McpRegistry } from '@/server/domain/mcp/registry';
 import type { McpToolResult } from '@/server/domain/mcp/mcp.types';
@@ -91,6 +92,8 @@ export interface DispatchServiceDeps {
   mcpRegistry?: McpRegistry;
   breakpointService?: BreakpointService;
   skillsService?: { getActiveForPrompt(): import('@/server/domain/skills/skills.types').PromptMaterialSkill[] };
+  /** Resolve the project root for a session's workspace; null → no project memory. */
+  projectRootFor?: (workspaceId: string | undefined) => string | null;
 }
 
 interface RunDispatchLoopOpts {
@@ -121,6 +124,10 @@ export class DispatchService {
 
   getInFlightController(callId: string): AbortController | undefined {
     return this.inFlightControllers.get(callId);
+  }
+
+  private buildRuntimeFacts(providerName: string): string {
+    return `Current time (UTC): ${new Date().toISOString()}\nActive model: ${providerName}`;
   }
 
   private async executeToolCall(
@@ -466,7 +473,14 @@ export class DispatchService {
     // Inline text attachments as fenced code blocks into the user message.
     const effectiveStripped = inlineTextAttachments(mention.stripped, textAtts);
     const materialSkills = this.deps.skillsService?.getActiveForPrompt() ?? [];
-    const assembled = assemble(context, matchedSubAgent, effectiveStripped, mention.name, mcpToolDecls, materialSkills);
+    const projectMemory = readProjectMemory(
+      this.deps.projectRootFor?.(sessionRecord?.workspaceId) ?? null,
+    ) ?? undefined;
+    const runtimeFacts = this.buildRuntimeFacts(providerName);
+    const assembled = assemble(
+      context, matchedSubAgent, effectiveStripped, mention.name,
+      mcpToolDecls, materialSkills, runtimeFacts, projectMemory,
+    );
 
     if (aetherMode) {
       tracer.pushExternal({
@@ -670,18 +684,24 @@ export class DispatchService {
       schema: t.tool.inputSchema,
     }));
 
+    const resumeSystemInstruction = withRuntimeContext(
+      context.systemInstruction,
+      this.buildRuntimeFacts(providerName),
+      readProjectMemory(this.deps.projectRootFor?.(sessionRecord.workspaceId) ?? null) ?? undefined,
+    );
+
     if (opts.aetherMode) {
       tracer.pushExternal({
         type: 'assembled_prompt',
         title: 'Prompt sent to model',
-        content: formatAssembledPromptContent(context.systemInstruction, mcpToolDecls),
+        content: formatAssembledPromptContent(resumeSystemInstruction, mcpToolDecls),
       });
     }
 
     const loopResult = await this.runDispatchLoop(
       {
         provider,
-        systemInstruction: context.systemInstruction,
+        systemInstruction: resumeSystemInstruction,
         history: priorMessages.map((m) => ({ role: m.role, text: m.text })),
         userMessage: '',
         pendingAssistantText: target.text,
