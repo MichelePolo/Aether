@@ -2,7 +2,7 @@
 
 <!-- Private repo: replace YOUR_BADGE_TOKEN with the graph badge token from
      Codecov → Settings → Badges & Graphs. Public repos can drop the ?token=… part. -->
-[![codecov](https://codecov.io/gh/MichelePolo/Aether/branch/main/graph/badge.svg?token=YOUR_BADGE_TOKEN)](https://codecov.io/gh/MichelePolo/Aether)
+[![codecov](https://codecov.io/gh/MichelePolo/Aether/branch/main/graph/badge.svg?token=7f5d6ff7-09da-40ec-95dc-cd07447c01b5)](https://codecov.io/gh/MichelePolo/Aether)
 
 A local-first, multi-provider **agentic LLM dev studio**. Aether pairs a React single-page app with an Express + SQLite backend so you can drive multiple model providers, wire up MCP tools, gate dangerous tool calls behind approvals, and keep a fully persisted, forkable history — all from one workspace running on your machine.
 
