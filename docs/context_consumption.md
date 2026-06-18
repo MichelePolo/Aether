@@ -209,6 +209,85 @@ sequenceDiagram
 
 ---
 
+## Cambio modello a runtime
+
+Nella chat puoi cambiare modello mentre la sessione è in corso. Due strade,
+entrambe convergono sulla stessa risoluzione in `dispatch.service.ts:376-380`:
+
+- **Sticky per sessione**: il TopBar fa `PATCH /api/history/:id` →
+  `setProviderName` (`history.store.ts:127`), che scrive `provider_name` sulla
+  riga della sessione.
+- **Override per richiesta**: il body del dispatch può portare un
+  `providerName` puntuale.
+- Precedenza: `request.providerName ?? session.providerName ?? registry.default`.
+
+Il punto cruciale è **cosa NON cambia** quando switchi: la history su SQLite.
+
+### Impatto sul context consumption
+
+**1. La history è provider-agnostica → il nuovo modello eredita tutto.**
+I messaggi sono salvati come `{ role, text }` puri (`history.store.ts`), senza
+tag di provenienza. Al dispatch successivo, `prior.map(m => ({role, text}))`
+rispedisce **l'intero transcript**, incluso il testo generato dal modello
+precedente, al nuovo modello come **input tokens**. Cambiare modello **non
+resetta né alleggerisce** il contesto: paghi di nuovo tutta la storia,
+semplicemente con un tokenizer diverso.
+
+> **Insight**
+> - **Stesso transcript, costo diverso.** Ogni modello tokenizza diversamente,
+>   quindi i `tokensIn` riportati (dall'`usage` del provider,
+>   `dispatch.service.ts:597`) variano a parità di conversazione. Non c'è alcun
+>   conteggio token lato Aether: nessun budget client-side.
+> - **Nessuna consapevolezza della context window.** Niente troncamento. Una
+>   sessione lunga che sta nella finestra di un modello può **andare in
+>   overflow** passando a un modello con finestra più piccola (es. switch da un
+>   1M-context a un 128k), perché la history viene rispedita intera comunque.
+
+**2. Re-packaging diverso passando da/verso Anthropic.**
+Gli altri provider mandano turni strutturati; Anthropic appiattisce tutto in
+**un unico messaggio `user`** (`anthropic.provider.ts:220` `renderConversation`).
+Lo stesso storico salvato viene quindi *impacchettato diversamente* a seconda
+del modello attivo al momento del dispatch — conta per come il modello "legge"
+il contesto, non solo per i token.
+
+**3. Capabilities divergenti cambiano cosa entra nel payload.**
+
+| Provider | vision | thinking |
+|---|---|---|
+| anthropic / gemini / openai | ✅ | ✅ |
+| ollama | ➖ | ➖ |
+
+- **Immagini**: gli allegati immagine del messaggio corrente partono solo se
+  `provider.capabilities.vision` (`dispatch.service.ts:504`). Switchando a
+  Ollama, le immagini che alleghi vengono **silenziosamente droppate**
+  (`providerAttachments = []`). Nota collaterale: le immagini dei messaggi
+  *passati* non vengono **mai** re-inviate nella history (solo testo) — quel
+  pezzo di contesto è già perso indipendentemente dal modello.
+- **Thinking**: su Ollama il flag thinking non produce nulla; su Anthropic
+  abilita un budget di 8000 token (`anthropic.provider.ts:107`), che incide
+  sull'output consumption.
+
+**4. Il runtime fact riflette il nuovo modello.**
+`buildRuntimeFacts` inietta `Active model: <providerName>` nel blocco
+`# Runtime` (`dispatch.service.ts:138`): il system instruction cambia
+testualmente al cambio modello.
+
+**5. I tool MCP restano invariati.**
+Le dichiarazioni tool dipendono dai server MCP online, non dal modello — quindi
+switchare modello non cambia il set di tool dichiarati (a parità di server
+connessi).
+
+### In sintesi
+
+Cambiare modello a runtime **non è un'operazione "leggera" sul contesto**: il
+nuovo modello riparte con l'intero storico ricostruito come input fresco, ma con
+tokenizer, finestra di contesto e capabilities propri. I rischi concreti sono
+**overflow** passando a finestre più piccole e **perdita silenziosa di input**
+(immagini) passando a provider non-vision. Il costo si materializza al primo
+dispatch dopo lo switch, non al momento del cambio nel TopBar.
+
+---
+
 ## Conclusioni operative
 
 1. **Il system instruction si paga ad ogni turno**, intero. Se hai molte skill
