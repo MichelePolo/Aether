@@ -482,6 +482,7 @@ describe('DispatchService', () => {
     const prompt = (promptEvent?.data as { content?: string })?.content ?? '';
     expect(prompt).not.toContain('# Project memory (ETERE.md)');
     expect(prompt).toContain('# Runtime'); // runtime facts always present
+    expect(prompt).toContain('Active model:');
   });
 });
 

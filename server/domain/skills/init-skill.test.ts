@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { parseFrontmatter } from '@/server/domain/skills/frontmatter';
+import { parseFrontmatter } from './frontmatter';
 
 describe('init default skill', () => {
-  const md = readFileSync(path.join(__dirname, 'SKILL.md'), 'utf8');
+  const md = readFileSync(
+    path.resolve(__dirname, '..', '..', 'skills', 'defaults', 'init', 'SKILL.md'),
+    'utf8',
+  );
 
   it('has valid frontmatter with name "init"', () => {
     const fm = parseFrontmatter(md);
@@ -19,7 +22,7 @@ describe('init default skill', () => {
   });
 
   it('documents the FIFO-5 version window and the runtime-facts copy rule', () => {
-    expect(md).toContain('5');
+    expect(md).toMatch(/last 5|ultime 5|FIFO/i);
     expect(md).toContain('Storico versioni');
     expect(md).toMatch(/Current time|Active model|Runtime/);
   });
