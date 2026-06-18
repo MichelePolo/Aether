@@ -1,5 +1,6 @@
 import { query, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
+import { jsonSchemaToZod } from './json-schema-zod';
 import type {
   AIProvider,
   ProviderCapabilities,
@@ -183,9 +184,11 @@ function toolDefFor(decl: ProviderToolDecl, req: ProviderRequest): {
   inputSchema: Record<string, z.ZodType>;
   handler: (args: unknown, extra: unknown) => Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }>;
 } {
+  const required = new Set(decl.schema.required ?? []);
   const shape: Record<string, z.ZodType> = {};
-  for (const key of Object.keys(decl.schema.properties ?? {})) {
-    shape[key] = z.unknown();
+  for (const [key, propSchema] of Object.entries(decl.schema.properties ?? {})) {
+    const zt = jsonSchemaToZod(propSchema);
+    shape[key] = required.has(key) ? zt : zt.optional();
   }
   return {
     name: decl.qualifiedName,

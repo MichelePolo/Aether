@@ -141,6 +141,36 @@ describe('AnthropicProvider', () => {
     expect(arg.options.allowedTools).toEqual(['mcp__aether']);
   });
 
+  it('builds a coercing inputSchema so stringified array/number args are repaired (regression)', async () => {
+    querySpy.mockReturnValue(asyncIterableFrom([{ type: 'result', usage: { input_tokens: 0, output_tokens: 0 } }]));
+    const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
+    await collect(p.stream(baseReq({
+      mcpTools: [{
+        qualifiedName: 'fs.read_multiple',
+        description: 'Read files',
+        schema: {
+          type: 'object',
+          properties: {
+            paths: { type: 'array', items: { type: 'string' } },
+            head: { type: 'number' },
+          },
+          required: ['paths'],
+        },
+      }],
+      runToolCall: vi.fn(async () => ({ ok: true })),
+    }), new AbortController().signal));
+
+    const serverOpts = createSdkMcpServerSpy.mock.calls[0][0] as {
+      tools: Array<{ inputSchema: Record<string, { parse: (v: unknown) => unknown }> }>;
+    };
+    const schema = serverOpts.tools[0].inputSchema;
+    // The model emitting these as strings used to be rejected by the downstream MCP server.
+    expect(schema.paths.parse('["/a","/b"]')).toEqual(['/a', '/b']);
+    expect(schema.head.parse('5')).toBe(5);
+    // optional (not required) field accepts undefined
+    expect(schema.head.parse(undefined)).toBeUndefined();
+  });
+
   it('handler maps a failed runToolCall outcome to an isError CallToolResult', async () => {
     querySpy.mockReturnValue(asyncIterableFrom([{ type: 'result', usage: { input_tokens: 0, output_tokens: 0 } }]));
     const runToolCall = vi.fn(async () => ({ ok: false, error: 'Rejected by user' }));

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { loadConfig } from './config';
+import { DEFAULT_MAX_TOOL_CALLS_PER_DISPATCH } from './domain/dispatch/dispatch.service';
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -58,5 +59,22 @@ describe('loadConfig', () => {
   it('reads AETHER_DATA_DIR when set', () => {
     process.env.AETHER_DATA_DIR = '/tmp/aether';
     expect(loadConfig().dataDir).toBe('/tmp/aether');
+  });
+
+  it('defaults maxToolCallsPerDispatch when AETHER_MAX_TOOL_CALLS is unset', () => {
+    delete process.env.AETHER_MAX_TOOL_CALLS;
+    expect(loadConfig().maxToolCallsPerDispatch).toBe(DEFAULT_MAX_TOOL_CALLS_PER_DISPATCH);
+  });
+
+  it('reads AETHER_MAX_TOOL_CALLS as a positive integer', () => {
+    process.env.AETHER_MAX_TOOL_CALLS = '40';
+    expect(loadConfig().maxToolCallsPerDispatch).toBe(40);
+  });
+
+  it('falls back to the default when AETHER_MAX_TOOL_CALLS is non-numeric or non-positive', () => {
+    process.env.AETHER_MAX_TOOL_CALLS = 'lots';
+    expect(loadConfig().maxToolCallsPerDispatch).toBe(DEFAULT_MAX_TOOL_CALLS_PER_DISPATCH);
+    process.env.AETHER_MAX_TOOL_CALLS = '0';
+    expect(loadConfig().maxToolCallsPerDispatch).toBe(DEFAULT_MAX_TOOL_CALLS_PER_DISPATCH);
   });
 });
