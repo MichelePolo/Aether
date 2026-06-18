@@ -205,6 +205,7 @@ async function bootstrap() {
     mcpRegistry,
     breakpointService,
     skillsService,
+    maxToolCallsPerDispatch: cfg.maxToolCallsPerDispatch,
     projectRootFor: (workspaceId) => {
       if (workspaceId) {
         const ws = workspacesStore.get(workspaceId);

@@ -665,6 +665,7 @@ describe('runToolCall (agentic providers)', () => {
     opts: {
       mcpRegistry?: DispatchServiceDeps['mcpRegistry'];
       breakpointService?: DispatchServiceDeps['breakpointService'];
+      maxToolCallsPerDispatch?: DispatchServiceDeps['maxToolCallsPerDispatch'];
     } = {},
   ) {
     const db = makeTestDb();
@@ -677,6 +678,7 @@ describe('runToolCall (agentic providers)', () => {
       contextStore,
       mcpRegistry: opts.mcpRegistry,
       breakpointService: opts.breakpointService,
+      maxToolCallsPerDispatch: opts.maxToolCallsPerDispatch,
     });
     const session = await historyStore.createEmpty();
     return { service, historyStore, sessionId: session.id };
@@ -777,15 +779,15 @@ describe('runToolCall (agentic providers)', () => {
     expect(model.text).toContain('ERR:Rejected by user');
   });
 
-  it('enforces the per-dispatch tool cap: the 11th runToolCall is rejected without executing', async () => {
-    // Stub provider calls runToolCall 11 times and reports the first index that
-    // returned the cap error.
-    const agenticProvider: AIProvider = {
+  /** Provider that calls runToolCall `n` times and reports the first index that
+   *  returned the cap error (or -1 if none did). */
+  function cappingProvider(n: number): AIProvider {
+    return {
       model: 'agentic-stub',
       capabilities: { thinking: false, toolCalling: true, vision: false },
       async *stream(req: ProviderRequest): AsyncGenerator<ProviderChunk> {
         let cappedAt = -1;
-        for (let i = 0; i < 11; i += 1) {
+        for (let i = 0; i < n; i += 1) {
           const outcome = await req.runToolCall!({ qualifiedName: 'mock.echo', args: { i } });
           if (!outcome.ok && cappedAt === -1) cappedAt = i;
         }
@@ -793,23 +795,46 @@ describe('runToolCall (agentic providers)', () => {
         yield { type: 'done' };
       },
     };
+  }
 
-    const callTool = vi.fn().mockResolvedValue({ ok: true, output: { ok: 1 } });
-    const mcpRegistry = {
+  function autoApproveRegistry(callTool: ReturnType<typeof vi.fn>) {
+    return {
       policy: () => ({ autoApprove: true }),
       callTool,
       awaitDecision: vi.fn(),
       listLiveTools: () => [],
     } as unknown as import('@/server/domain/mcp/registry').McpRegistry;
+  }
 
-    const { service, sessionId } = await buildAgenticHarness(agenticProvider, { mcpRegistry });
+  it('enforces a configured per-dispatch tool cap: calls past the cap are rejected without executing', async () => {
+    const callTool = vi.fn().mockResolvedValue({ ok: true, output: { ok: 1 } });
+    const { service, sessionId } = await buildAgenticHarness(cappingProvider(11), {
+      mcpRegistry: autoApproveRegistry(callTool),
+      maxToolCallsPerDispatch: 3,
+    });
 
     const { emitter, events } = createCollectorEmitter();
     await service.handle({ sessionId, message: 'go' }, emitter, new AbortController().signal);
 
-    // 11th call (index 10) is the first to be capped; only 10 actually executed.
+    // 4th call (index 3) is the first to be capped; only 3 actually executed.
     const fullText = events.filter((e) => e.event === 'text').map((e) => (e.data as { chunk: string }).chunk).join('');
-    expect(fullText).toContain('CAPPED_AT:10');
-    expect(callTool).toHaveBeenCalledTimes(10);
+    expect(fullText).toContain('CAPPED_AT:3');
+    expect(callTool).toHaveBeenCalledTimes(3);
+  });
+
+  it('defaults the per-dispatch tool cap above 10 (so heavy file-reading loops are not cut at 10)', async () => {
+    const callTool = vi.fn().mockResolvedValue({ ok: true, output: { ok: 1 } });
+    const { service, sessionId } = await buildAgenticHarness(cappingProvider(11), {
+      mcpRegistry: autoApproveRegistry(callTool),
+      // no maxToolCallsPerDispatch override -> default applies
+    });
+
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle({ sessionId, message: 'go' }, emitter, new AbortController().signal);
+
+    // All 11 ran; none was capped under the default.
+    const fullText = events.filter((e) => e.event === 'text').map((e) => (e.data as { chunk: string }).chunk).join('');
+    expect(fullText).toContain('CAPPED_AT:-1');
+    expect(callTool).toHaveBeenCalledTimes(11);
   });
 });

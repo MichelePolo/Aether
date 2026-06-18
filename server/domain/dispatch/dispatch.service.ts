@@ -94,7 +94,16 @@ export interface DispatchServiceDeps {
   skillsService?: { getActiveForPrompt(): import('@/server/domain/skills/skills.types').PromptMaterialSkill[] };
   /** Resolve the project root for a session's workspace; null → no project memory. */
   projectRootFor?: (workspaceId: string | undefined) => string | null;
+  /** Max MCP tool calls executed in a single dispatch before further calls are
+   *  rejected with a cap error. Defaults to {@link DEFAULT_MAX_TOOL_CALLS_PER_DISPATCH}. */
+  maxToolCallsPerDispatch?: number;
 }
+
+/** Default per-dispatch tool-call cap. Aligned with the Anthropic SDK's MAX_TURNS
+ *  so agentic file-reading loops are not cut short mid-task (forcing the user to
+ *  type "continue"). Override via the `AETHER_MAX_TOOL_CALLS` env in the
+ *  composition root. */
+export const DEFAULT_MAX_TOOL_CALLS_PER_DISPATCH = 25;
 
 interface RunDispatchLoopOpts {
   provider: AIProvider;
@@ -227,7 +236,8 @@ export class DispatchService {
     let thinkingStart: number | undefined;
     let dispatchUsage: ProviderUsage | undefined;
 
-    const MAX_TOOL_CALLS_PER_DISPATCH = 10;
+    const MAX_TOOL_CALLS_PER_DISPATCH =
+      this.deps.maxToolCallsPerDispatch ?? DEFAULT_MAX_TOOL_CALLS_PER_DISPATCH;
     let pendingToolResults: ProviderToolResultMessage[] = [];
     let toolCallsCount = 0;
     let firstIter = true;

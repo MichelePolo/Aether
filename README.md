@@ -73,6 +73,7 @@ These are the environment variables the code actually reads:
 | `OLLAMA_HOST` | Ollama daemon URL (models are auto-discovered) | `http://localhost:11434` |
 | `AETHER_DEFAULT_PROVIDER` | Force the default provider (e.g. `gemini:gemini-1.5-pro`) | — |
 | `AETHER_FAKE_PROVIDER` | `1` to force the deterministic Fake provider | off |
+| `AETHER_MAX_TOOL_CALLS` | Max MCP tool calls executed per dispatch before further calls are rejected (raise for heavy file-reading sessions) | `25` |
 | `NODE_ENV` | `production` serves the prebuilt SPA from `dist/` instead of Vite | — |
 
 A provider only appears in the picker when its credential is present (or, for Ollama, when the daemon is reachable). Keys set in the in-app KeyVault are used when the matching env var is absent.
