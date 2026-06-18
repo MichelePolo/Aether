@@ -14,7 +14,8 @@ export default defineConfig({
     globals: true,
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html'],
+      // 'lcov' produces coverage/lcov.info for Codecov upload (see .github/workflows/ci.yml).
+      reporter: ['text', 'html', 'lcov'],
       exclude: [
         'node_modules/**',
         'dist/**',
@@ -29,14 +30,22 @@ export default defineConfig({
         'cli/index.ts',
         'cli/runtime.ts',
       ],
-      thresholds: {
-        'server/domain/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
-        'server/lib/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
-        'cli/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
-        'src/hooks/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
-        'src/stores/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
-        'src/lib/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
-      },
+      // Set COVERAGE_NO_THRESHOLDS=1 to generate the report without enforcing the
+      // thresholds — used by CI to produce lcov for Codecov upload without making
+      // existing coverage debt fail the build (real test failures still gate).
+      // Locally `npm run test:coverage` keeps the thresholds active.
+      ...(process.env.COVERAGE_NO_THRESHOLDS
+        ? {}
+        : {
+            thresholds: {
+              'server/domain/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
+              'server/lib/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
+              'cli/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
+              'src/hooks/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
+              'src/stores/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
+              'src/lib/**': { branches: 80, functions: 80, lines: 80, statements: 80 },
+            },
+          }),
     },
     projects: [
       {

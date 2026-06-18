@@ -1,5 +1,9 @@
 # Aether Core
 
+<!-- Private repo: replace YOUR_BADGE_TOKEN with the graph badge token from
+     Codecov → Settings → Badges & Graphs. Public repos can drop the ?token=… part. -->
+[![codecov](https://codecov.io/gh/MichelePolo/Aether/branch/main/graph/badge.svg?token=YOUR_BADGE_TOKEN)](https://codecov.io/gh/MichelePolo/Aether)
+
 A local-first, multi-provider **agentic LLM dev studio**. Aether pairs a React single-page app with an Express + SQLite backend so you can drive multiple model providers, wire up MCP tools, gate dangerous tool calls behind approvals, and keep a fully persisted, forkable history — all from one workspace running on your machine.
 
 > The whole stack runs from a single Node process: in development, Express serves the API and proxies the Vite dev server in middleware mode, so there's no separate frontend/backend to start.
