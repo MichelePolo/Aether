@@ -98,9 +98,12 @@ the agent to:
    is, the canonical commands, the architecture in brief, the conventions, and the
    traps. Do **not** restate what is obvious from the code.
 5. **Regeneration is an update, not an overwrite** — if `ETERE.md` already exists:
-   preserve the original `Creato` date and the existing version history, bump the
-   version (`v2`, `v3`, …), and **append** a row to the version-history table with
-   the new date and model.
+   preserve the original `Creato` date, bump the version counter (`v2`, `v3`, …),
+   and **append** a row to the version-history table with the new date and model.
+   The table is a **FIFO window of the last 5 versions**: when appending would
+   make it exceed 5 rows, drop the oldest row(s) so at most 5 remain. The version
+   counter keeps incrementing monotonically (it is not reset by the window), so a
+   table may legitimately show e.g. `v3..v7`.
 6. **Provider-agnostic** — describe ETERE.md as "Aether's project memory"; never
    reference a vendor or product name.
 
@@ -115,13 +118,17 @@ the agent to:
 > - **Creato:** 2026-06-18T14:30:00Z
 > - **Modello generatore:** anthropic:claude-opus-4-8
 >
-> #### Storico versioni
+> #### Storico versioni (ultime 5)
 > | Versione | Data | Modello |
 > |---|---|---|
 > | v1 | 2026-06-18T14:30:00Z | anthropic:claude-opus-4-8 |
 
 <documentary content: what / commands / architecture / conventions / gotchas>
 ```
+
+The version-history table is a FIFO window: it lists at most the **5 most recent**
+versions (oldest rows dropped on the 6th regeneration), while the version counter
+itself never resets.
 
 - **Project name:** inferred by the agent from the manifest (`package.json` name)
   or the directory name.
