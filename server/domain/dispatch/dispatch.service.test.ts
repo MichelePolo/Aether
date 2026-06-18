@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, it, expect, vi } from 'vitest';
 import { DispatchService } from './dispatch.service';
 import type { DispatchServiceDeps } from './dispatch.service';
@@ -419,6 +422,66 @@ describe('DispatchService', () => {
     await service.handle({ sessionId: session.id, message: 'hello' }, emitter, new AbortController().signal);
 
     expect(provider.lastRequest?.systemInstruction).toContain('- pdf: Work with PDFs');
+  });
+
+  it('injects ETERE.md from the session workspace root into the prompt', async () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'etere-dispatch-'));
+    writeFileSync(path.join(root, 'ETERE.md'), '# ETERE.md — proj\nUSE NPM RUN DEV.');
+
+    const provider = new FakeProvider({ chunks: ['pong'], model: 'fake-1' });
+    const db = makeTestDb();
+    // Insert a workspace row so the FK constraint on sessions.workspace_id is satisfied.
+    const wsId = 'ws-test-etere-1';
+    db.prepare('INSERT INTO workspaces (id, name, root_path, added_at) VALUES (?, ?, ?, ?)').run(wsId, 'test-ws', root, Date.now());
+    const historyStore = new HistoryStore(db);
+    const contextStore = new ContextStore(db);
+    const providers = await buildSingleProviderRegistry(provider);
+    const projectRootFor = (wId: string | undefined) => (wId === wsId ? root : null);
+    const service = new DispatchService({ providers, historyStore, contextStore, projectRootFor });
+    const session = await historyStore.createEmpty({ workspaceId: wsId });
+
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle(
+      { sessionId: session.id, message: 'ping', aetherMode: true },
+      emitter,
+      new AbortController().signal,
+    );
+
+    const promptEvent = events.find(
+      (e) => e.event === 'reasoning_step' && (e.data as { type: string }).type === 'assembled_prompt',
+    );
+    const prompt = (promptEvent?.data as { content?: string })?.content ?? '';
+    expect(prompt).toContain('# Project memory (ETERE.md)');
+    expect(prompt).toContain('USE NPM RUN DEV.');
+    expect(prompt).toContain('# Runtime');
+    expect(prompt).toContain('Active model:');
+
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('omits project memory when the session has no workspace', async () => {
+    const provider = new FakeProvider({ chunks: ['pong'], model: 'fake-1' });
+    const db = makeTestDb();
+    const historyStore = new HistoryStore(db);
+    const contextStore = new ContextStore(db);
+    const providers = await buildSingleProviderRegistry(provider);
+    const projectRootFor = (_wsId: string | undefined) => null;
+    const service = new DispatchService({ providers, historyStore, contextStore, projectRootFor });
+    const session = await historyStore.createEmpty(); // no workspaceId
+
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle(
+      { sessionId: session.id, message: 'ping', aetherMode: true },
+      emitter,
+      new AbortController().signal,
+    );
+
+    const promptEvent = events.find(
+      (e) => e.event === 'reasoning_step' && (e.data as { type: string }).type === 'assembled_prompt',
+    );
+    const prompt = (promptEvent?.data as { content?: string })?.content ?? '';
+    expect(prompt).not.toContain('# Project memory (ETERE.md)');
+    expect(prompt).toContain('# Runtime'); // runtime facts always present
   });
 });
 
