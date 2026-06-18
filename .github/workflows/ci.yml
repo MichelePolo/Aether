@@ -29,8 +29,21 @@ jobs:
       - name: Type-check (lint)
         run: npm run lint
 
-      - name: Test
-        run: npm run test:run
+      - name: Test (with coverage)
+        # COVERAGE_NO_THRESHOLDS=1 generates lcov without enforcing the 80% thresholds
+        # (existing coverage debt would otherwise fail CI). Real test failures still
+        # fail this step. Codecov's patch target nudges new code toward the bar.
+        run: npm run test:coverage
+        env:
+          COVERAGE_NO_THRESHOLDS: '1'
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          # Don't fail CI if the upload hiccups; the upload is informational.
+          fail_ci_if_error: false
 
   prod-bundle:
     name: prod-bundle

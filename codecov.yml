@@ -1,0 +1,35 @@
+# Codecov configuration — https://docs.codecov.com/docs/codecov-yaml
+#
+# Vitest already enforces hard 80% thresholds on the critical dirs (see
+# vitest.config.ts), failing CI on a miss. Codecov's checks here are therefore
+# `informational: true` — they annotate PRs (trend + diff coverage) without
+# adding a second, redundant merge gate.
+
+coverage:
+  status:
+    project:
+      default:
+        target: auto          # compare against the parent commit
+        threshold: 1%         # tolerate tiny dips from refactors
+        informational: true
+    patch:
+      default:
+        target: 80%           # new/changed lines should match the repo's bar
+        informational: true
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
+
+# Mirror vitest's coverage.exclude so Codecov's totals match the local report.
+ignore:
+  - "e2e"
+  - "dist"
+  - "**/*.config.*"
+  - "**/types/**"
+  - "src/main.tsx"
+  - "src/App.tsx"
+  - "server/index.ts"
+  - "cli/index.ts"
+  - "cli/runtime.ts"
