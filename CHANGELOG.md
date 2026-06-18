@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.6...aether-core-v0.1.7) (2026-06-18)
+
+
+### Features
+
+* ETERE.md init skill + per-workspace project-memory ingestion ([#74](https://github.com/MichelePolo/Aether/issues/74)) ([e400950](https://github.com/MichelePolo/Aether/commit/e4009509912186780fc54e57a1f8c3eb9145b4fa))
+
 ## [0.1.6](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.5...aether-core-v0.1.6) (2026-06-17)
 
 
