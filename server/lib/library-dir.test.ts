@@ -1,5 +1,7 @@
 import path from 'node:path';
-import { defaultLibraryDir } from './library-dir';
+import { mkdtempSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { defaultLibraryDir, assertWritableDir } from './library-dir';
 
 describe('defaultLibraryDir', () => {
   it('uses %APPDATA%/Aether on Windows when APPDATA is set', () => {
@@ -29,5 +31,29 @@ describe('defaultLibraryDir', () => {
   it('falls back to ~/.local/share/aether on Linux without XDG_DATA_HOME', () => {
     const r = defaultLibraryDir({ platform: 'linux', env: {}, homedir: '/home/me' });
     expect(r).toBe(path.join('/home/me', '.local', 'share', 'aether'));
+  });
+});
+
+describe('assertWritableDir', () => {
+  it('creates nested dirs and does not throw when path is writable', () => {
+    const tmp = mkdtempSync(path.join(tmpdir(), 'aether-test-'));
+    const target = path.join(tmp, 'a', 'b');
+    try {
+      expect(() => assertWritableDir(target)).not.toThrow();
+      expect(existsSync(target)).toBe(true);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('throws with AETHER_LIBRARY_DIR in message when dir cannot be created', () => {
+    const tmp = mkdtempSync(path.join(tmpdir(), 'aether-test-'));
+    const filePath = path.join(tmp, 'afile');
+    writeFileSync(filePath, 'data');
+    try {
+      expect(() => assertWritableDir(path.join(filePath, 'sub'))).toThrow(/AETHER_LIBRARY_DIR/);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });

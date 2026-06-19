@@ -1,10 +1,30 @@
 import os from 'node:os';
 import path from 'node:path';
+import { mkdirSync, accessSync, constants } from 'node:fs';
 
 export interface LibraryDirOpts {
   platform?: NodeJS.Platform;
   env?: NodeJS.ProcessEnv;
   homedir?: string;
+}
+
+/**
+ * Ensure `dir` exists and is writable, creating it (recursively) if needed.
+ * Throws a clear, actionable error if creation or the write check fails — so a
+ * misconfigured AETHER_LIBRARY_DIR fails fast at boot with a readable message
+ * instead of an opaque EACCES stack trace deep in the skills setup.
+ */
+export function assertWritableDir(dir: string): void {
+  try {
+    mkdirSync(dir, { recursive: true });
+    accessSync(dir, constants.W_OK);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `Aether library directory is not usable: ${dir} (${reason}). ` +
+      `Set AETHER_LIBRARY_DIR to a writable path.`,
+    );
+  }
 }
 
 /**

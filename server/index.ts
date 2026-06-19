@@ -49,6 +49,7 @@ import { seedDefaultSkills } from './domain/skills/seed';
 import { seedSkillSmith } from './domain/subagents/skill-smith';
 import { defaultsDir, skillsDirFor, agentsDirFor } from './domain/skills/skills.paths';
 import { relocateSkillsDir } from './domain/skills/relocate';
+import { assertWritableDir } from './lib/library-dir';
 
 dotenv.config();
 
@@ -61,6 +62,7 @@ async function bootstrap() {
     console.log(`[db] applied migrations: ${migrated.applied.join(', ')}`);
   }
 
+  assertWritableDir(cfg.libraryDir);
   if (relocateSkillsDir(cfg.dataDir, cfg.libraryDir)) {
     console.log(`[skills] relocated skills dir to ${skillsDirFor(cfg.libraryDir)}`);
   }
