@@ -516,6 +516,11 @@ export class DispatchService {
     }
 
     const effectiveWorkspaceId = parsed.data.workspaceId ?? sessionRecord?.workspaceId;
+    // Normalize for the MCP tool-pool key (case-insensitive on Windows). The prompt's
+    // `# availableWorkspaces -> current` marker uses the RAW path from projectRootFor()
+    // via resolveRuntimeContext() because formatAvailableWorkspaces matches against the
+    // raw registered-roots list; a lowercased path would miss on Windows. Same directory —
+    // do NOT unify these two uses.
     const currentRoot = normalizeRoot(
       this.deps.projectRootFor?.(effectiveWorkspaceId) ?? process.cwd(),
     );
