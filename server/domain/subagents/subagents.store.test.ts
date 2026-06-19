@@ -163,6 +163,10 @@ describe('SubAgentsStore', () => {
 
     const listed = (await store.list()).find((m) => m.id === meta.id);
     expect(listed?.model).toBeUndefined();
+
+    // Assert raw DB column is SQL NULL (not empty string)
+    const raw = db.prepare('SELECT model FROM subagents WHERE id = ?').get(meta.id) as { model: string | null };
+    expect(raw.model).toBeNull();
   });
 
   it('update() without model field preserves the existing model', async () => {
