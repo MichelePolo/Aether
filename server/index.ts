@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { mkdirSync } from 'node:fs';
 import { writeDaemonFile, clearDaemonFile } from './lib/daemon-file';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
@@ -46,7 +47,8 @@ import { SkillStateStore } from './domain/skills/skill-state.store';
 import { SkillsService } from './domain/skills/skills.service';
 import { seedDefaultSkills } from './domain/skills/seed';
 import { seedSkillSmith } from './domain/subagents/skill-smith';
-import { defaultsDir, skillsDirFor } from './domain/skills/skills.paths';
+import { defaultsDir, skillsDirFor, agentsDirFor } from './domain/skills/skills.paths';
+import { relocateSkillsDir } from './domain/skills/relocate';
 
 dotenv.config();
 
@@ -59,7 +61,11 @@ async function bootstrap() {
     console.log(`[db] applied migrations: ${migrated.applied.join(', ')}`);
   }
 
-  seedDefaultSkills(defaultsDir(), skillsDirFor(cfg.dataDir));
+  if (relocateSkillsDir(cfg.dataDir, cfg.libraryDir)) {
+    console.log(`[skills] relocated skills dir to ${skillsDirFor(cfg.libraryDir)}`);
+  }
+  mkdirSync(agentsDirFor(cfg.libraryDir), { recursive: true });
+  seedDefaultSkills(defaultsDir(), skillsDirFor(cfg.libraryDir));
 
   const contextStore = new ContextStore(db);
   const historyStore = new HistoryStore(db);
@@ -195,7 +201,7 @@ async function bootstrap() {
   };
 
   const skillStateStore = new SkillStateStore(db);
-  const skillsService = new SkillsService(skillStateStore, cfg.dataDir);
+  const skillsService = new SkillsService(skillStateStore, cfg.libraryDir);
 
   const dispatcher = new DispatchService({
     providers,
