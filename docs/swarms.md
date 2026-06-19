@@ -27,6 +27,7 @@ interface SwarmStep {
   subAgentName: string;    // riferimento per NOME a un sub-agent (non FK)
   promptTemplate: string;  // testo fisso premesso all'input ('' = nessuno)
   pauseAfter: boolean;     // gate human-in-the-loop dopo questo step
+  providerName?: string;   // override LLM per-step (transport:model). assente = eredita
 }
 interface SwarmRecord { id; name; steps: SwarmStep[]; createdAt; updatedAt; }
 ```
@@ -35,6 +36,15 @@ Gli step sono ordinati per `position` (`UNIQUE (swarm_id, position)`). Il
 `subAgentName` **non** è una foreign key: i sub-agent sono indirizzati per nome
 via `@mention` (come in chat) e un nome può essere (ri)creato dopo. La validità
 si verifica **all'avvio del run**, non a schema.
+
+**Selezione LLM per step (migration 016).** `swarm_steps.provider_name`
+(nullable) e `subagents.model` (nullable) consentono una swarm con **LLM diversi
+per step**. Entrambi sono chiavi del registry in forma `transport:model` (es.
+`anthropic:claude-opus-4-7`). Il binding è **ibrido**: il sub-agent ha un
+`model` di default (opzionale) e lo step può sovrascriverlo. Catena di
+risoluzione per step: `step.providerName ?? subAgent.model ?? sessione ??
+registry.default`. Il default del sub-agent vale **ovunque** il sub-agent sia
+usato, incluso un `@mention` diretto in chat (risolto in `DispatchService`).
 
 ---
 
@@ -53,10 +63,16 @@ Cuore in `swarm.orchestrator.ts` — `runSwarm(deps, {swarmId, input}, sse, sign
    - `swarm_step_started {position, subAgent}`
    - costruisce il messaggio:
      `promptTemplate ? template + "\n\n" + incoming : incoming`
+   - **risolve l'LLM dello step**: `requested = step.providerName ??
+     subAgent.model`. Se `requested` è settato ma non disponibile nel registry,
+     usa `providers.defaultName()` ed emette `swarm_step_warning {position,
+     requested, used}`; se non è richiesto nulla, passa `undefined` (nessun
+     warning). All'orchestratore basta una singola `subAgentsStore.list()` (che
+     ora porta anche `model`) per costruire la mappa `nome → model`.
    - **riusa interamente il dispatch loop della chat**:
-     `dispatcher.handle({ sessionId, message: "@<subAgent> <message>" }, collector, signal)`.
+     `dispatcher.handle({ sessionId, message: "@<subAgent> <message>", providerName }, collector, signal)`.
      Cioè ogni step è letteralmente un dispatch `@subagent ...` nella sessione
-     condivisa.
+     condivisa, con l'LLM risolto per quello step.
    - se il dispatch ha emesso un evento `error` (il dispatch **non lancia**) →
      `swarm_error {position}` + `swarm_done {error}`, stop.
    - `incoming = collector.text()` (l'output dello step) →
@@ -64,8 +80,9 @@ Cuore in `swarm.orchestrator.ts` — `runSwarm(deps, {swarmId, input}, sse, sign
    - se `step.pauseAfter` → gate di approvazione swarm-level (sotto).
 4. A fine ciclo: `swarm_done {status:'done', finalOutput: incoming}`.
 
-`DispatchService.handle` soddisfa già l'interfaccia `SwarmDispatcher` senza
-modifiche: la swarm non reimplementa nulla del flusso provider/tool/breakpoint.
+`DispatchService.handle` soddisfa l'interfaccia `SwarmDispatcher` (allargata per
+accettare un `providerName?` per-richiesta): la swarm non reimplementa nulla del
+flusso provider/tool/breakpoint.
 Ogni step eredita streaming, tracer, gate per-tool, persistenza history.
 L'orchestratore è puro e testabile: tutte le dipendenze (store, dispatcher,
 createSession, approvals) sono iniettate.
@@ -205,8 +222,12 @@ sequenceDiagram
     loop per ogni step i (sequenziale)
         O-->>U: swarm_step_started {i, subAgent}
         Note over O: message = template + "\n\n" + incoming
+        Note over O: providerName = step.providerName ?? subAgent.model
+        opt providerName richiesto ma non disponibile
+            O-->>U: swarm_step_warning {i, requested, used=default}
+        end
         O->>C: createCollectingSse(outer)
-        O->>D: handle({sessionId, "@subAgent message"}, collector)
+        O->>D: handle({sessionId, "@subAgent message", providerName}, collector)
         D->>H: legge history condivisa (cresce ogni step) + append
         opt il modello chiama un tool con gate
             D-->>C: tool_call_request {callId}
@@ -242,9 +263,17 @@ sequenceDiagram
 - **Solo lineare**: niente parallelo, branching, condizionali, variabili
   nominate tipo `{{architect.output}}`, né import/export YAML.
 
+Nota: gli step **possono** girare su LLM diversi (vedi "Selezione LLM per step"
+sopra) — la pipeline è lineare ma non più vincolata a un unico modello. Attenzione
+all'interazione con il context consumption: la sessione è condivisa, quindi uno
+step eredita l'intero transcript ricostruito secondo il proprio provider
+(tokenizer/finestra/rendering diversi). Vedi
+[`context_consumption.md`](./context_consumption.md).
+
 ### Vocabolario eventi SSE (swarm-level)
 
 `swarm_started`, `swarm_step_started`, `swarm_step_completed`,
+`swarm_step_warning` (LLM richiesto non disponibile → fallback al default),
 `swarm_approval_request`, `swarm_error`, `swarm_done` — più gli eventi per-agent
 inoltrati (`text`, `thinking`, `reasoning_step`, `tool_call_request`,
 `tool_call_started`, `tool_call_progress`, `tool_call_result`).
