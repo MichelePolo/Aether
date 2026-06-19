@@ -169,6 +169,34 @@ function withMockRootedTransport(store: BuiltinMcpStore): BuiltinMcpStore {
   return store;
 }
 
+// ---------------------------------------------------------------------------
+// Helper: inject always-ok mock connections for rooted builtins directly
+// into the registry (bypasses makeConnection so unknown tool names return ok).
+// ---------------------------------------------------------------------------
+import type { McpConnection } from './connection.types';
+import type { McpTool, McpToolResult } from './mcp.types';
+
+class AlwaysOkConnection implements McpConnection {
+  readonly defaultAutoApprove = true;
+  async initialize(): Promise<void> { /* no-op */ }
+  async listTools(): Promise<McpTool[]> {
+    return [{ name: 'list_directory', description: 'mock', inputSchema: { type: 'object', properties: {} } }];
+  }
+  async callTool(_name: string, _args: Record<string, unknown>): Promise<McpToolResult> {
+    return { ok: true, output: {} };
+  }
+  async close(): Promise<void> { /* no-op */ }
+}
+
+function withAlwaysOkRootedBuiltins(reg: McpRegistry, root: string): void {
+  const fsConn = new AlwaysOkConnection();
+  const gitConn = new AlwaysOkConnection();
+  const fsTool: McpTool = { name: 'list_directory', description: 'mock', inputSchema: { type: 'object', properties: {} } };
+  const gitTool: McpTool = { name: 'status', description: 'mock', inputSchema: { type: 'object', properties: {} } };
+  reg.__injectLiveForTest(`builtin:filesystem@${root}`, 'Filesystem', fsConn, [fsTool]);
+  reg.__injectLiveForTest(`builtin:git@${root}`, 'Git', gitConn, [gitTool]);
+}
+
 describe('McpRegistry — built-ins', () => {
   it('startBuiltin connects an enabled built-in via toConfigs', async () => {
     const db = makeTestDb();
@@ -230,6 +258,43 @@ describe('McpRegistry — built-ins', () => {
       for (const entry of list) {
         expect(entry.serverId.startsWith('builtin:')).toBe(false);
       }
+    } finally {
+      db.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// listLiveTools(root) and callTool with root routing
+// ---------------------------------------------------------------------------
+describe('McpRegistry — root-aware listLiveTools and callTool', () => {
+  it('listLiveTools(root) returns only that root\'s builtin instance', async () => {
+    const db = makeTestDb();
+    try {
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx);
+
+      withAlwaysOkRootedBuiltins(reg, '/work-a');
+      withAlwaysOkRootedBuiltins(reg, '/work-b');
+      const toolsA = reg.listLiveTools('/work-a');
+      // Filesystem tools appear once (stable name), from the /work-a instance only
+      const fsTools = toolsA.filter((t) => t.serverName === 'Filesystem');
+      expect(fsTools.length).toBeGreaterThan(0);
+      expect(fsTools.every((t) => t.serverId === 'builtin:filesystem@/work-a')).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('callTool routes Filesystem.* to the root-scoped instance', async () => {
+    const db = makeTestDb();
+    try {
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx);
+
+      withAlwaysOkRootedBuiltins(reg, '/work-a');
+      const res = await reg.callTool('Filesystem.list_directory', { path: '/work-a' }, { root: '/work-a' });
+      expect(res.ok).toBe(true); // mock connection returns ok
     } finally {
       db.close();
     }

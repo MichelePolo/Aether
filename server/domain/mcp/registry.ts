@@ -155,9 +155,15 @@ export class McpRegistry {
     this.states.set(id, { state: 'offline' });
   }
 
-  listLiveTools(): LiveTool[] {
+  listLiveTools(root?: string): LiveTool[] {
     const out: LiveTool[] = [];
+    const fsId = root ? `builtin:filesystem@${root}` : null;
+    const gitId = root ? `builtin:git@${root}` : null;
     for (const entry of this.live.values()) {
+      const id = entry.serverId;
+      const isRooted = id.startsWith('builtin:filesystem@') || id.startsWith('builtin:git@');
+      // Skip rooted instances that belong to a different root.
+      if (isRooted && id !== fsId && id !== gitId) continue;
       for (const tool of entry.tools) {
         const policy = this.resolvePolicy(entry, tool.name);
         out.push({
@@ -185,20 +191,28 @@ export class McpRegistry {
   }
 
   /** All live tools from all connected servers (including built-ins) — used by dispatch layer. */
-  getAvailableTools(): LiveTool[] {
-    return this.listLiveTools();
+  getAvailableTools(root?: string): LiveTool[] {
+    return this.listLiveTools(root);
   }
 
   async callTool(
     qualifiedName: string,
     args: Record<string, unknown>,
-    opts?: CallToolOpts,
+    opts?: { root?: string } & CallToolOpts,
   ): Promise<McpToolResult> {
     const sep = qualifiedName.indexOf('.');
     if (sep < 0) return { ok: false, error: `Invalid qualified name '${qualifiedName}'` };
     const serverName = qualifiedName.slice(0, sep);
     const toolName = qualifiedName.slice(sep + 1);
-    const entry = [...this.live.values()].find((e) => e.serverName === serverName);
+    let entry: LiveEntry | undefined;
+    if (opts?.root && (serverName === 'Filesystem' || serverName === 'Git')) {
+      const id = serverName === 'Filesystem'
+        ? `builtin:filesystem@${opts.root}`
+        : `builtin:git@${opts.root}`;
+      entry = this.live.get(id);
+    } else {
+      entry = [...this.live.values()].find((e) => e.serverName === serverName);
+    }
     if (!entry) return { ok: false, error: `Server '${serverName}' is offline` };
     return entry.connection.callTool(toolName, args, opts);
   }
@@ -349,6 +363,17 @@ export class McpRegistry {
         error: 'Reconnect failed after 5 attempts',
       });
     }
+  }
+
+  /** Test-only helper: directly inserts a live entry without going through makeConnection. */
+  __injectLiveForTest(
+    id: string,
+    serverName: string,
+    connection: McpConnection,
+    tools: McpTool[],
+  ): void {
+    this.live.set(id, { connection, serverName, serverId: id, tools, policies: {} });
+    this.states.set(id, { state: 'online' });
   }
 
   /** Test-only helper: bypasses the first-attempt delay and drives the reconnect loop. */
