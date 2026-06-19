@@ -143,11 +143,11 @@ eseguire un tool MCP. In `DispatchService.gateExecuteAndTrace`:
 - `BreakpointService.resolveDecision()` decide `auto` o `gate` in base alla
   policy del tool (`autoApprove`) o, in assenza, alla classificazione della
   categoria del tool (`classifyTool` → policy per categoria).
-- se `gate` → `mcpRegistry.awaitDecision(callId, 60_000)` **blocca** fino alla
+- se `gate` → `mcpRegistry.awaitDecision(callId)` **blocca** fino alla
   decisione utente.
 - **Canale**: evento `tool_call_request` (inoltrato dal `collecting-sse`);
   risposta via `POST /api/mcp/decision { callId, action }`.
-- **Timeout 60 s** → `awaitDecision` lancia `decision timeout`, intercettato con
+- **Timeout 24 h** → `awaitDecision` lancia `decision timeout`, intercettato con
   `.catch(() => 'reject')`. Un reject produce un *tool result* di errore che
   torna al modello: **lo step continua**, non muore il run.
 - ID: `callId` (UUID per chiamata).
@@ -162,7 +162,7 @@ Avviene **dopo** che il dispatch di uno step è terminato, se
 - `SwarmApprovalRegistry.awaitDecision(approvalId, timeout, signal)` **blocca**.
 - **Canale**: evento `swarm_approval_request`; risposta via
   `POST /api/swarms/decision { approvalId, action }`.
-- **Timeout 5 min** (default) → `reject`. Anche l'**abort** del signal → `reject`.
+- **Timeout 24 h** (default) → `reject`. Anche l'**abort** del signal → `reject`.
 - `reject` → `swarm_done {status:'rejected', stoppedAt:i}`: **ferma l'intero run**.
 - ID: `"${swarmId}:${position}"`.
 
@@ -174,7 +174,7 @@ Avviene **dopo** che il dispatch di uno step è terminato, se
 | Registry | `McpRegistry.decisions` | `SwarmApprovalRegistry.pending` |
 | ID | `callId` (UUID) | `${swarmId}:${position}` |
 | Route di risposta | `POST /api/mcp/decision` | `POST /api/swarms/decision` |
-| Timeout | 60 s | 5 min (default) |
+| Timeout | 24 h | 24 h (default) |
 | Legato al signal di abort | no (solo timer) | sì (abort → reject) |
 | Effetto del reject | il *tool* fallisce, lo step continua | l'intero run si ferma |
 
@@ -189,9 +189,9 @@ Punti chiave dell'interazione:
   `tool_call_request` di uno step vengono inoltrati sulla stessa connessione su
   cui poi arriva `swarm_approval_request`. La UI deve quindi gestire **entrambi**
   distinguendoli per evento/ID e rispondere sulla route giusta.
-- **Severità asimmetrica.** Un gate per-tool ignorato (timeout 60 s) degrada
+- **Severità asimmetrica.** Un gate per-tool ignorato (timeout 24 h) degrada
   solo quella chiamata a errore e lascia proseguire lo step; un gate swarm-level
-  ignorato (timeout 5 min) **uccide il run**.
+  ignorato (timeout 24 h) **uccide il run**.
 - **Disconnessione del client.** `res.on('close')` → abort del signal. Il gate
   swarm-level si risolve subito a `reject` (è bound sul signal); il gate
   per-tool eventualmente pendente non è legato al signal e si chiude solo al suo

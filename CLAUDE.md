@@ -51,7 +51,7 @@ Vitest runs **two projects** (`vitest.config.ts`): `frontend` (jsdom, matches `s
 1. Resolve provider: request body `providerName` → session's `providerName` → registry default.
 2. Read context, resolve a leading `@subagent` mention, preprocess attachments (text files inlined as fenced code blocks; images passed only to vision-capable providers; 10 MB total cap).
 3. `assemble()` builds the system instruction + tool declarations from context + subagent + live MCP tools.
-4. `runDispatchLoop()` streams provider chunks (`text` / `thinking` / `function_call` / `done`) out as **SSE events**, executes MCP tool calls (capped per dispatch — default 25, override via `AETHER_MAX_TOOL_CALLS`). Each tool call is gated by `BreakpointService` → `auto` (run) or `gate` (await a user approve/reject decision, 60s timeout).
+4. `runDispatchLoop()` streams provider chunks (`text` / `thinking` / `function_call` / `done`) out as **SSE events**, executes MCP tool calls (capped per dispatch — default 25, override via `AETHER_MAX_TOOL_CALLS`). Each tool call is gated by `BreakpointService` → `auto` (run) or `gate` (await a user approve/reject decision, 24h timeout).
 5. `ReasoningTracer` records steps; user and model messages (with usage tokens, reasoning steps, interrupted flag) are persisted to `HistoryStore`.
 
 `resume()` continues an interrupted model message. SSE is produced via `server/lib/sse.ts` (`SseEmitter`).

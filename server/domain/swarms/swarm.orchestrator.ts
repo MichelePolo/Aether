@@ -32,7 +32,9 @@ export async function runSwarm(
   sse: SseEmitter,
   signal: AbortSignal,
 ): Promise<void> {
-  const timeout = deps.approvalTimeoutMs ?? 300_000;
+  // 24h — give the user effectively unlimited time to approve a paused step.
+  // Abort still resolves to 'reject' immediately, so this won't leave runs hanging.
+  const timeout = deps.approvalTimeoutMs ?? 24 * 60 * 60 * 1000;
 
   const swarm = await deps.store.read(opts.swarmId);
   if (!swarm) {
