@@ -2,6 +2,8 @@ export interface SwarmStep {
   subAgentName: string;
   promptTemplate: string;
   pauseAfter: boolean;
+  /** Optional provider override (transport:model). Undefined = inherit. */
+  providerName?: string;
 }
 
 export interface SwarmRecord {

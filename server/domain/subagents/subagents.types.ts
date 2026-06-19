@@ -5,6 +5,8 @@ export interface SubAgentRecord {
   systemInstruction: string;
   skills: string[];
   tools: Tool[];
+  /** Optional default provider (transport:model). Undefined = no default. */
+  model?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -12,6 +14,7 @@ export interface SubAgentRecord {
 export interface SubAgentMeta {
   id: string;
   name: string;
+  model?: string;
   createdAt: number;
   updatedAt: number;
 }

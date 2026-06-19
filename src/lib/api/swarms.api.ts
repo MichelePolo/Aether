@@ -2,6 +2,7 @@ export interface SwarmStep {
   subAgentName: string;
   promptTemplate: string;
   pauseAfter: boolean;
+  providerName?: string;
 }
 export interface SwarmMeta {
   id: string;

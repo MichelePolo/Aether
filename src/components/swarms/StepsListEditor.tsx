@@ -1,5 +1,7 @@
 import type { SwarmStep } from '@/src/lib/api/swarms.api';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
+import { useProvidersStore } from '@/src/stores/providers.store';
+import { t } from '@/src/i18n/t';
 
 export function StepsListEditor({
   steps,
@@ -9,6 +11,7 @@ export function StepsListEditor({
   onChange: (steps: SwarmStep[]) => void;
 }) {
   const subAgents = useSubAgentsStore((s) => s.list);
+  const providers = useProvidersStore((s) => s.list);
 
   const update = (i: number, patch: Partial<SwarmStep>) =>
     onChange(steps.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
@@ -38,6 +41,20 @@ export function StepsListEditor({
                 <option key={sa.id} value={sa.name}>
                   {sa.name}
                 </option>
+              ))}
+            </select>
+            <select
+              className="bg-surface-2 border border-border-subtle rounded px-2 py-1 text-xs text-zinc-100"
+              value={step.providerName ?? ''}
+              onChange={(e) => update(i, { providerName: e.target.value || undefined })}
+              title={t('swarms.stepModelTitle')}
+            >
+              <option value="">{t('swarms.stepModelInherit')}</option>
+              {step.providerName && !providers.some((p) => p.name === step.providerName) && (
+                <option value={step.providerName}>{t('swarms.stepModelUnavailable', { name: step.providerName })}</option>
+              )}
+              {providers.map((p) => (
+                <option key={p.name} value={p.name}>{p.name}</option>
               ))}
             </select>
             <button className="text-zinc-500 hover:text-manipulation text-xs" onClick={() => move(i, -1)}>↑</button>

@@ -15,6 +15,7 @@ export interface SubAgentCreateInput {
   systemInstruction?: string;
   skills?: string[];
   tools?: Tool[];
+  model?: string;
 }
 
 export type SubAgentUpdateInput = Partial<SubAgentCreateInput>;

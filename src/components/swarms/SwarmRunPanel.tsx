@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSwarmRun } from '@/src/hooks/useSwarmRun';
+import { t } from '@/src/i18n/t';
 
 export function SwarmRunPanel({ swarmId }: { swarmId: string }) {
   const { state, run, approve, reject } = useSwarmRun();
@@ -30,6 +31,11 @@ export function SwarmRunPanel({ swarmId }: { swarmId: string }) {
               {st.position + 1}. {st.subAgent} — {st.status}
             </div>
             {st.output && <pre className="mt-1 whitespace-pre-wrap text-xs text-zinc-300">{st.output}</pre>}
+            {st.warning && (
+              <div className="text-[11px] text-amber-400">
+                {t('swarms.stepWarning', { requested: st.warning.requested ?? '—', used: st.warning.used ?? 'default' })}
+              </div>
+            )}
           </li>
         ))}
       </ol>
