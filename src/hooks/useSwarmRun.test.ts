@@ -11,6 +11,8 @@ const base: SwarmRunState = {
 it('records a step warning', () => {
   const next = reduce(base, 'swarm_step_warning', { position: 0, requested: 'openai:gpt-4o', used: 'fake:default' });
   expect(next.steps[0].warning).toEqual({ requested: 'openai:gpt-4o', used: 'fake:default' });
+  expect(next.steps[0].output).toBe('');
+  expect(next.steps[0].status).toBe('running');
 });
 
 it('leaves other steps untouched on swarm_step_warning', () => {

@@ -1,6 +1,7 @@
 import type { SwarmStep } from '@/src/lib/api/swarms.api';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
 import { useProvidersStore } from '@/src/stores/providers.store';
+import { t } from '@/src/i18n/t';
 
 export function StepsListEditor({
   steps,
@@ -46,11 +47,11 @@ export function StepsListEditor({
               className="bg-surface-2 border border-border-subtle rounded px-2 py-1 text-xs text-zinc-100"
               value={step.providerName ?? ''}
               onChange={(e) => update(i, { providerName: e.target.value || undefined })}
-              title="Model for this step"
+              title={t('swarms.stepModelTitle')}
             >
-              <option value="">Inherit</option>
+              <option value="">{t('swarms.stepModelInherit')}</option>
               {step.providerName && !providers.some((p) => p.name === step.providerName) && (
-                <option value={step.providerName}>{step.providerName} (unavailable)</option>
+                <option value={step.providerName}>{t('swarms.stepModelUnavailable', { name: step.providerName })}</option>
               )}
               {providers.map((p) => (
                 <option key={p.name} value={p.name}>{p.name}</option>
