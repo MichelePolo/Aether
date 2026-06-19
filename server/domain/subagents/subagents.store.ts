@@ -9,12 +9,14 @@ interface CreateInput {
   systemInstruction?: string;
   skills?: string[];
   tools?: Tool[];
+  model?: string;
 }
 
 type SubAgentRow = {
   id: string;
   name: string;
   system_instruction: string;
+  model: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -31,11 +33,12 @@ export class SubAgentsStore {
 
   async list(): Promise<SubAgentMeta[]> {
     const rows = this.db
-      .prepare('SELECT id, name, created_at, updated_at FROM subagents ORDER BY updated_at DESC')
-      .all() as { id: string; name: string; created_at: number; updated_at: number }[];
+      .prepare('SELECT id, name, model, created_at, updated_at FROM subagents ORDER BY updated_at DESC')
+      .all() as { id: string; name: string; model: string | null; created_at: number; updated_at: number }[];
     return rows.map((r) => ({
       id: r.id,
       name: r.name,
+      ...(r.model ? { model: r.model } : {}),
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     }));
@@ -44,7 +47,7 @@ export class SubAgentsStore {
   async read(id: string): Promise<SubAgentRecord | null> {
     const row = this.db
       .prepare(
-        'SELECT id, name, system_instruction, created_at, updated_at FROM subagents WHERE id = ?',
+        'SELECT id, name, system_instruction, model, created_at, updated_at FROM subagents WHERE id = ?',
       )
       .get(id) as SubAgentRow | undefined;
     if (!row) return null;
@@ -75,6 +78,7 @@ export class SubAgentsStore {
       systemInstruction: row.system_instruction,
       skills,
       tools,
+      ...(row.model ? { model: row.model } : {}),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -87,9 +91,9 @@ export class SubAgentsStore {
       const uniqueName = this.findUniqueName(input.name);
       this.db
         .prepare(
-          'INSERT INTO subagents (id, name, system_instruction, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+          'INSERT INTO subagents (id, name, system_instruction, model, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
         )
-        .run(id, uniqueName, input.systemInstruction ?? '', now, now);
+        .run(id, uniqueName, input.systemInstruction ?? '', input.model ?? null, now, now);
       this.writeChildren(id, input.skills ?? [], input.tools ?? []);
     });
     tx();
@@ -106,16 +110,17 @@ export class SubAgentsStore {
       const now = Date.now();
 
       const cur = this.db
-        .prepare('SELECT name, system_instruction FROM subagents WHERE id = ?')
-        .get(id) as { name: string; system_instruction: string };
+        .prepare('SELECT name, system_instruction, model FROM subagents WHERE id = ?')
+        .get(id) as { name: string; system_instruction: string; model: string | null };
 
       this.db
         .prepare(
-          'UPDATE subagents SET name = ?, system_instruction = ?, updated_at = ? WHERE id = ?',
+          'UPDATE subagents SET name = ?, system_instruction = ?, model = ?, updated_at = ? WHERE id = ?',
         )
         .run(
           patch.name ?? cur.name,
           patch.systemInstruction ?? cur.system_instruction,
+          patch.model ?? cur.model,
           now,
           id,
         );
@@ -156,11 +161,12 @@ export class SubAgentsStore {
 
   private metaOf(id: string): SubAgentMeta {
     const row = this.db
-      .prepare('SELECT id, name, created_at, updated_at FROM subagents WHERE id = ?')
-      .get(id) as { id: string; name: string; created_at: number; updated_at: number };
+      .prepare('SELECT id, name, model, created_at, updated_at FROM subagents WHERE id = ?')
+      .get(id) as { id: string; name: string; model: string | null; created_at: number; updated_at: number };
     return {
       id: row.id,
       name: row.name,
+      ...(row.model ? { model: row.model } : {}),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

@@ -131,4 +131,18 @@ describe('SubAgentsStore', () => {
   it('read() returns null for unknown id', async () => {
     expect(await store.read('nope')).toBeNull();
   });
+
+  it('round-trips a sub-agent model and exposes it via list()', async () => {
+    const meta = await store.create({ name: 'planner', model: 'gemini:gemini-1.5-pro' });
+    expect(meta.model).toBe('gemini:gemini-1.5-pro');
+
+    const rec = await store.read(meta.id);
+    expect(rec?.model).toBe('gemini:gemini-1.5-pro');
+
+    const listed = (await store.list()).find((m) => m.id === meta.id);
+    expect(listed?.model).toBe('gemini:gemini-1.5-pro');
+
+    const noModel = await store.create({ name: 'plain' });
+    expect((await store.read(noModel.id))?.model).toBeUndefined();
+  });
 });
