@@ -13,10 +13,10 @@ export class SkillsService {
 
   constructor(
     private readonly state: SkillStateStore,
-    dataDir: string,
+    libraryDir: string,
   ) {
-    this.skillsDir = skillsDirFor(dataDir);
-    this.draftsDir = draftsDirFor(dataDir);
+    this.skillsDir = skillsDirFor(libraryDir);
+    this.draftsDir = draftsDirFor(libraryDir);
   }
 
   list(): SkillsList {
