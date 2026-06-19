@@ -145,4 +145,31 @@ describe('SubAgentsStore', () => {
     const noModel = await store.create({ name: 'plain' });
     expect((await store.read(noModel.id))?.model).toBeUndefined();
   });
+
+  it('create() stores empty string model as NULL (no model)', async () => {
+    const meta = await store.create({ name: 'no-model', model: '' });
+    expect(meta.model).toBeUndefined();
+    const rec = await store.read(meta.id);
+    expect(rec?.model).toBeUndefined();
+  });
+
+  it('update() with model="" clears a previously-saved model', async () => {
+    const meta = await store.create({ name: 'agent', model: 'gemini:gemini-1.5-pro' });
+    expect(meta.model).toBe('gemini:gemini-1.5-pro');
+
+    await store.update(meta.id, { model: '' });
+    const rec = await store.read(meta.id);
+    expect(rec?.model).toBeUndefined();
+
+    const listed = (await store.list()).find((m) => m.id === meta.id);
+    expect(listed?.model).toBeUndefined();
+  });
+
+  it('update() without model field preserves the existing model', async () => {
+    const meta = await store.create({ name: 'keeper', model: 'gemini:gemini-1.5-pro' });
+    await store.update(meta.id, { systemInstruction: 'updated' });
+    const rec = await store.read(meta.id);
+    expect(rec?.model).toBe('gemini:gemini-1.5-pro');
+    expect(rec?.systemInstruction).toBe('updated');
+  });
 });

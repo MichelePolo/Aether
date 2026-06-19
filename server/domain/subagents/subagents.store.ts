@@ -93,7 +93,7 @@ export class SubAgentsStore {
         .prepare(
           'INSERT INTO subagents (id, name, system_instruction, model, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
         )
-        .run(id, uniqueName, input.systemInstruction ?? '', input.model ?? null, now, now);
+        .run(id, uniqueName, input.systemInstruction ?? '', input.model ? input.model : null, now, now);
       this.writeChildren(id, input.skills ?? [], input.tools ?? []);
     });
     tx();
@@ -120,7 +120,7 @@ export class SubAgentsStore {
         .run(
           patch.name ?? cur.name,
           patch.systemInstruction ?? cur.system_instruction,
-          patch.model ?? cur.model,
+          patch.model !== undefined ? (patch.model || null) : cur.model,
           now,
           id,
         );

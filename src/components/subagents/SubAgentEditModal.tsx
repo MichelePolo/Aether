@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Modal } from '@/src/components/ui/Modal';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
+import { useProvidersStore } from '@/src/stores/providers.store';
 import { useDialog } from '@/src/hooks/useDialog';
 import { subagentsApi } from '@/src/lib/api/subagents.api';
 import type { SubAgentRecord } from '@/src/types/subagent.types';
 import type { Tool } from '@/src/types/context.types';
+import { t } from '@/src/i18n/t';
 import { SkillsListEditor } from './SkillsListEditor';
 import { ToolsListEditor } from './ToolsListEditor';
 
@@ -17,6 +19,7 @@ export function SubAgentEditModal() {
   const update = useSubAgentsStore((s) => s.update);
   const error = useSubAgentsStore((s) => s.error);
   const clearError = useSubAgentsStore((s) => s.clearError);
+  const providers = useProvidersStore((s) => s.list);
   const dialog = useDialog();
 
   const [record, setRecord] = useState<FullRecord | null>(null);
@@ -126,6 +129,23 @@ export function SubAgentEditModal() {
               {record.systemInstruction || <span className="italic text-zinc-600">(empty)</span>}
             </pre>
           </section>
+
+          <label className="flex flex-col gap-1 text-xs text-zinc-400">
+            {t('subagents.defaultModelLabel')}
+            <select
+              className="bg-surface-2 border border-border-subtle rounded px-2 py-1 text-xs text-zinc-100"
+              value={record.model ?? ''}
+              onChange={(e) => persist({ model: e.target.value })}
+            >
+              <option value="">{t('subagents.defaultModelNone')}</option>
+              {record.model && !providers.some((p) => p.name === record.model) && (
+                <option value={record.model}>{t('subagents.defaultModelUnavailable', { name: record.model })}</option>
+              )}
+              {providers.map((p) => (
+                <option key={p.name} value={p.name}>{p.name}</option>
+              ))}
+            </select>
+          </label>
 
           <SkillsListEditor
             skills={record.skills}

@@ -166,6 +166,11 @@ export const messages = {
     stepModelTitle: 'Model for this step',
     stepWarning: 'Requested {requested}, ran on {used}',
   },
+  subagents: {
+    defaultModelLabel: 'Default model',
+    defaultModelNone: 'None',
+    defaultModelUnavailable: '{name} (unavailable)',
+  },
   skills: {
     heading: 'Skills',
     materialBadge: 'material',
