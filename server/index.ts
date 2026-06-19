@@ -212,6 +212,7 @@ async function bootstrap() {
     subAgentsStore,
     mcpRegistry,
     breakpointService,
+    previewService,
     skillsService,
     maxToolCallsPerDispatch: cfg.maxToolCallsPerDispatch,
     projectRootFor: (workspaceId) => {

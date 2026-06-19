@@ -22,6 +22,7 @@ import { formatAssembledPromptContent } from './assembled-prompt-step';
 import type { McpRegistry } from '@/server/domain/mcp/registry';
 import type { McpToolResult } from '@/server/domain/mcp/mcp.types';
 import type { BreakpointService } from '@/server/domain/mcp/breakpoints/breakpoints.service';
+import type { PreviewService } from '@/server/domain/mcp/breakpoints/preview.service';
 import type { ProviderRegistry } from '@/server/domain/providers/registry';
 import { classifyAttachment, MAX_ATTACHMENTS, MAX_TOTAL_BYTES } from './attachment.types';
 import { AppError, ValidationError } from '@/server/lib/errors';
@@ -94,6 +95,7 @@ export interface DispatchServiceDeps {
   subAgentsStore?: SubAgentsStore;
   mcpRegistry?: McpRegistry;
   breakpointService?: BreakpointService;
+  previewService?: PreviewService;
   skillsService?: { getActiveForPrompt(): import('@/server/domain/skills/skills.types').PromptMaterialSkill[] };
   /** Resolve the project root for a session's workspace; null → no project memory.
    *  The resolved root is also the one tagged `-> current` in the
@@ -201,7 +203,14 @@ export class DispatchService {
     tracer: ReasoningTracer,
     currentRoot: string,
   ): Promise<McpToolResult> {
-    sse.event('tool_call_request', fnCall);
+    // Compute the preview using the dispatch's effective root so workspace-rooted
+    // contexts resolve git diffs against the correct repo, not the global gitRoot().
+    const preview = this.deps.previewService
+      ? await this.deps.previewService
+          .previewToolCall({ qualifiedName: fnCall.qualifiedName, args: fnCall.args, root: currentRoot })
+          .catch(() => ({ kind: 'plain' as const }))
+      : { kind: 'plain' as const };
+    sse.event('tool_call_request', { ...fnCall, preview });
 
     let mode: 'auto' | 'gate';
     if (this.deps.breakpointService) {
