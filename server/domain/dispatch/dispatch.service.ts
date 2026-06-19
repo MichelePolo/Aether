@@ -16,6 +16,7 @@ import type { SubAgentsStore } from '@/server/domain/subagents/subagents.store';
 import type { SubAgentRecord } from '@/server/domain/subagents/subagents.types';
 import { parseLeadingMention } from './subagent-parser';
 import { assemble, withRuntimeContext, formatAvailableWorkspaces } from './prompt-assembler';
+import type { RuntimeContext } from './prompt-assembler';
 import { readProjectMemory } from './project-memory';
 import { formatAssembledPromptContent } from './assembled-prompt-step';
 import type { McpRegistry } from '@/server/domain/mcp/registry';
@@ -144,13 +145,20 @@ export class DispatchService {
     return `Current time (UTC): ${new Date().toISOString()}\nActive model: ${providerName}`;
   }
 
-  /** Body of the `# availableWorkspaces` block: every registered workspace root,
-   *  the active one (`currentRoot`) listed first and tagged `-> current`. Empty
-   *  string when nothing is registered and there is no current root, which omits
-   *  the block downstream. */
-  private buildAvailableWorkspaces(currentRoot: string | null): string {
+  /** Build the runtime-derived prompt blocks (`# Runtime`, `# availableWorkspaces`,
+   *  `# Project memory`) for a session. Shared by `handle()` and `resume()` so the
+   *  resumed turn sees the same runtime context as the initial one. */
+  private resolveRuntimeContext(
+    workspaceId: string | undefined,
+    providerName: string,
+  ): RuntimeContext {
+    const currentRoot = this.deps.projectRootFor?.(workspaceId) ?? null;
     const roots = this.deps.listWorkspaceRoots?.() ?? [];
-    return formatAvailableWorkspaces(roots, currentRoot);
+    return {
+      facts: this.buildRuntimeFacts(providerName),
+      projectMemory: readProjectMemory(currentRoot) ?? undefined,
+      availableWorkspaces: formatAvailableWorkspaces(roots, currentRoot),
+    };
   }
 
   private async executeToolCall(
@@ -498,13 +506,10 @@ export class DispatchService {
     // Inline text attachments as fenced code blocks into the user message.
     const effectiveStripped = inlineTextAttachments(mention.stripped, textAtts);
     const materialSkills = this.deps.skillsService?.getActiveForPrompt() ?? [];
-    const currentRoot = this.deps.projectRootFor?.(sessionRecord?.workspaceId) ?? null;
-    const projectMemory = readProjectMemory(currentRoot) ?? undefined;
-    const runtimeFacts = this.buildRuntimeFacts(providerName);
-    const availableWorkspaces = this.buildAvailableWorkspaces(currentRoot);
+    const runtime = this.resolveRuntimeContext(sessionRecord?.workspaceId, providerName);
     const assembled = assemble(
       context, matchedSubAgent, effectiveStripped, mention.name,
-      mcpToolDecls, materialSkills, runtimeFacts, projectMemory, availableWorkspaces,
+      mcpToolDecls, materialSkills, runtime,
     );
 
     if (aetherMode) {
@@ -709,12 +714,9 @@ export class DispatchService {
       schema: t.tool.inputSchema,
     }));
 
-    const resumeCurrentRoot = this.deps.projectRootFor?.(sessionRecord.workspaceId) ?? null;
     const resumeSystemInstruction = withRuntimeContext(
       context.systemInstruction,
-      this.buildRuntimeFacts(providerName),
-      readProjectMemory(resumeCurrentRoot) ?? undefined,
-      this.buildAvailableWorkspaces(resumeCurrentRoot),
+      this.resolveRuntimeContext(sessionRecord.workspaceId, providerName),
     );
 
     if (opts.aetherMode) {
