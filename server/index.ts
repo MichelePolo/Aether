@@ -213,6 +213,7 @@ async function bootstrap() {
       }
       return builtinStore.read().find((r) => r.transport === 'filesystem')?.fsRoot ?? null;
     },
+    listWorkspaceRoots: () => workspacesStore.list().map((w) => w.rootPath),
   });
 
   const swarmStore = new SwarmStore(db);

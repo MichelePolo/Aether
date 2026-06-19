@@ -75,21 +75,56 @@ function withSkillsBlock(
 
 const RUNTIME_HEADER = '# Runtime';
 const PROJECT_MEMORY_HEADER = '# Project memory (ETERE.md)';
+const AVAILABLE_WORKSPACES_HEADER = '# availableWorkspaces';
 
 /**
- * Append a `# Runtime` facts block and/or a `# Project memory (ETERE.md)` block
- * to a system instruction. Each block is omitted when its string is empty/absent.
- * Pure string composition — the caller supplies already-read/built content.
+ * Render the body of the `# availableWorkspaces` block: one registered workspace
+ * root per line, the active one listed first and tagged `-> current` so the model
+ * is never ambiguous about which root it operates in. Pure formatting — the
+ * caller supplies the registered roots and the resolved current root.
+ *
+ * Only a `currentPath` that is itself a registered workspace is marked: a
+ * filesystem-fallback root (a session with no workspace) is not a switchable
+ * workspace, so it is neither listed nor tagged. Returns '' when there is nothing
+ * to list.
+ *
+ * @param allPaths  Registered workspace root paths, in their natural order.
+ * @param currentPath  The active session's root, or null when none is selected.
  */
-export function withRuntimeContext(
-  systemInstruction: string,
-  runtimeFacts?: string,
-  projectMemory?: string,
-): string {
+export function formatAvailableWorkspaces(allPaths: string[], currentPath: string | null): string {
+  const current = currentPath && allPaths.includes(currentPath) ? currentPath : null;
+  // Current first (deduped against the rest), then the remaining roots in order.
+  const ordered = dedupStrings(current ? [current, ...allPaths] : allPaths);
+  return ordered.map((p) => (p === current ? `- ${p} -> current` : `- ${p}`)).join('\n');
+}
+
+/**
+ * Runtime-derived prompt blocks, supplied as already-read/built content. Grouped
+ * into one object so the blocks can grow without lengthening every call site's
+ * positional argument list.
+ */
+export interface RuntimeContext {
+  /** `# Runtime` facts (current time, active model). */
+  facts?: string;
+  /** `# Project memory (ETERE.md)` content. */
+  projectMemory?: string;
+  /** `# availableWorkspaces` block body (see {@link formatAvailableWorkspaces}). */
+  availableWorkspaces?: string;
+}
+
+/**
+ * Append the `# Runtime`, `# availableWorkspaces`, and `# Project memory
+ * (ETERE.md)` blocks to a system instruction, in that order. Each block is
+ * omitted when its string is empty/absent. Pure string composition.
+ */
+export function withRuntimeContext(systemInstruction: string, runtime: RuntimeContext = {}): string {
   const parts = [systemInstruction.trim()];
-  if (runtimeFacts && runtimeFacts.trim()) parts.push(`${RUNTIME_HEADER}\n${runtimeFacts.trim()}`);
-  if (projectMemory && projectMemory.trim()) {
-    parts.push(`${PROJECT_MEMORY_HEADER}\n${projectMemory.trim()}`);
+  if (runtime.facts?.trim()) parts.push(`${RUNTIME_HEADER}\n${runtime.facts.trim()}`);
+  if (runtime.availableWorkspaces?.trim()) {
+    parts.push(`${AVAILABLE_WORKSPACES_HEADER}\n${runtime.availableWorkspaces.trim()}`);
+  }
+  if (runtime.projectMemory?.trim()) {
+    parts.push(`${PROJECT_MEMORY_HEADER}\n${runtime.projectMemory.trim()}`);
   }
   return parts.filter(Boolean).join('\n\n');
 }
@@ -101,15 +136,14 @@ export function assemble(
   resolvedName: string | null,
   mcpTools: ProviderToolDecl[] = [],
   materialSkills: PromptMaterialSkill[] = [],
-  runtimeFacts?: string,
-  projectMemory?: string,
+  runtime: RuntimeContext = {},
 ): AssembledPrompt {
   const materialNames = materialSkills.map((m) => m.name);
   if (!subAgent) {
     const labels = activeSkillNames(ctx.skills);
     return {
       systemInstruction: withSkillsBlock(
-        withRuntimeContext(ctx.systemInstruction, runtimeFacts, projectMemory),
+        withRuntimeContext(ctx.systemInstruction, runtime),
         labels,
         materialSkills,
       ),
@@ -131,7 +165,7 @@ export function assemble(
   const tools = dedupToolsById([...ctx.tools, ...subAgent.tools]);
   return {
     systemInstruction: withSkillsBlock(
-      withRuntimeContext(baseSys, runtimeFacts, projectMemory),
+      withRuntimeContext(baseSys, runtime),
       labels,
       materialSkills,
     ),

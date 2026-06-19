@@ -27,9 +27,16 @@ describe('ContextStore', () => {
     // Provider-agnostic: never names a vendor.
     expect(DEFAULT_SYSTEM_INSTRUCTION).not.toMatch(/claude|anthropic|openai|gemini|ollama/i);
     // Key section markers from the approved design.
-    for (const marker of ['You are Aether', '# Voice', '# Transparency', '# Tools, agents, and skills', '# Safety']) {
+    for (const marker of ['You are Aether', '# Voice', '# Transparency', '# Tools, agents, and skills', '# Safety', '# Workspaces']) {
       expect(DEFAULT_SYSTEM_INSTRUCTION).toContain(marker);
     }
+  });
+
+  it('default system instruction documents the multi-workspace model', async () => {
+    // The runtime injects the registered roots under this exact header, so the
+    // base prompt must teach the model how to read it (current marked first).
+    expect(DEFAULT_SYSTEM_INSTRUCTION).toContain('# availableWorkspaces');
+    expect(DEFAULT_SYSTEM_INSTRUCTION).toMatch(/-> current/);
   });
 
   it('applies a patch (partial update)', async () => {

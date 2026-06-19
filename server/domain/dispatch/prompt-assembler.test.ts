@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { assemble, withRuntimeContext } from './prompt-assembler';
+import { assemble, withRuntimeContext, formatAvailableWorkspaces } from './prompt-assembler';
 import type { AetherContext } from '@/server/domain/context/context.types';
 import type { SubAgentRecord } from '@/server/domain/subagents/subagents.types';
 import type { ProviderToolDecl } from './providers/provider.types';
@@ -125,8 +125,10 @@ describe('assemble — runtime context injection', () => {
   it('injects runtime facts and project memory before Active Skills', () => {
     const out = assemble(
       ctx, null, 'hi', null, [], [],
-      'Current time (UTC): 2026-06-18T00:00:00Z\nActive model: fake:fake-1',
-      '# ETERE.md — demo\nNotes.',
+      {
+        facts: 'Current time (UTC): 2026-06-18T00:00:00Z\nActive model: fake:fake-1',
+        projectMemory: '# ETERE.md — demo\nNotes.',
+      },
     );
     const s = out.systemInstruction;
     expect(s).toContain('# Runtime');
@@ -148,7 +150,7 @@ describe('assemble — runtime context injection', () => {
   it('injects runtime context in the sub-agent branch too', () => {
     const out = assemble(
       ctx, sub, 'hi', 'designer', [], [],
-      'Active model: fake:fake-1', '# ETERE.md\nNotes.',
+      { facts: 'Active model: fake:fake-1', projectMemory: '# ETERE.md\nNotes.' },
     );
     const s = out.systemInstruction;
     expect(s).toContain('# Sub-agent: designer');
@@ -158,8 +160,83 @@ describe('assemble — runtime context injection', () => {
 
   it('withRuntimeContext appends only the provided blocks', () => {
     expect(withRuntimeContext('Base.')).toBe('Base.');
-    expect(withRuntimeContext('Base.', 'F')).toBe('Base.\n\n# Runtime\nF');
-    expect(withRuntimeContext('Base.', undefined, 'M')).toBe('Base.\n\n# Project memory (ETERE.md)\nM');
+    expect(withRuntimeContext('Base.', { facts: 'F' })).toBe('Base.\n\n# Runtime\nF');
+    expect(withRuntimeContext('Base.', { projectMemory: 'M' })).toBe('Base.\n\n# Project memory (ETERE.md)\nM');
+  });
+});
+
+describe('formatAvailableWorkspaces', () => {
+  it('lists the current workspace first, marked, then the rest in order', () => {
+    const body = formatAvailableWorkspaces(['/a', '/b', '/c'], '/b');
+    expect(body).toBe('- /b -> current\n- /a\n- /c');
+  });
+
+  it('keeps the given order when the current is already first', () => {
+    const body = formatAvailableWorkspaces(['/a', '/b'], '/a');
+    expect(body).toBe('- /a -> current\n- /b');
+  });
+
+  it('lists workspaces without a marker when there is no current', () => {
+    const body = formatAvailableWorkspaces(['/a', '/b'], null);
+    expect(body).toBe('- /a\n- /b');
+  });
+
+  it('does not mark a current root that is not a registered workspace', () => {
+    // A filesystem-fallback root (not a registered workspace) is not a
+    // switchable workspace, so it is neither listed nor tagged `-> current`.
+    const body = formatAvailableWorkspaces(['/a', '/b'], '/elsewhere');
+    expect(body).toBe('- /a\n- /b');
+  });
+
+  it('treats an empty-string current root as no current', () => {
+    expect(formatAvailableWorkspaces(['/a'], '')).toBe('- /a');
+  });
+
+  it('dedups repeated paths, keeping the current marked once', () => {
+    const body = formatAvailableWorkspaces(['/a', '/b', '/a'], '/a');
+    expect(body).toBe('- /a -> current\n- /b');
+  });
+
+  it('returns an empty string when there are no workspaces and no current', () => {
+    expect(formatAvailableWorkspaces([], null)).toBe('');
+  });
+});
+
+describe('withRuntimeContext — availableWorkspaces block', () => {
+  it('appends a # availableWorkspaces block after the runtime facts', () => {
+    const out = withRuntimeContext('Base.', { facts: 'F', availableWorkspaces: '- /a -> current\n- /b' });
+    expect(out).toBe('Base.\n\n# Runtime\nF\n\n# availableWorkspaces\n- /a -> current\n- /b');
+  });
+
+  it('omits the block when no workspaces body is provided', () => {
+    expect(withRuntimeContext('Base.', { facts: 'F' })).toBe('Base.\n\n# Runtime\nF');
+  });
+});
+
+describe('assemble — availableWorkspaces injection', () => {
+  it('injects the workspaces block between Runtime and Project memory', () => {
+    const out = assemble(
+      ctx, null, 'hi', null, [], [],
+      {
+        facts: 'Active model: fake:fake-1',
+        projectMemory: '# ETERE.md\nNotes.',
+        availableWorkspaces: '- /ws/current -> current\n- /ws/other',
+      },
+    );
+    const s = out.systemInstruction;
+    expect(s).toContain('# availableWorkspaces');
+    expect(s).toContain('- /ws/current -> current');
+    expect(s.indexOf('# Runtime')).toBeLessThan(s.indexOf('# availableWorkspaces'));
+    expect(s.indexOf('# availableWorkspaces')).toBeLessThan(s.indexOf('# Project memory (ETERE.md)'));
+  });
+
+  it('injects the workspaces block in the sub-agent branch too', () => {
+    const out = assemble(
+      ctx, sub, 'hi', 'designer', [], [],
+      { facts: 'Active model: fake:fake-1', availableWorkspaces: '- /ws/current -> current' },
+    );
+    expect(out.systemInstruction).toContain('# availableWorkspaces');
+    expect(out.systemInstruction).toContain('- /ws/current -> current');
   });
 });
 
