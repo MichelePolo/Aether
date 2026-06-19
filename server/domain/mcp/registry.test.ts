@@ -265,6 +265,66 @@ describe('McpRegistry — built-ins', () => {
 });
 
 // ---------------------------------------------------------------------------
+// listLiveTools(root) — stray global builtin:filesystem / builtin:git must not
+// cause duplicate tool declarations alongside the correct per-root instance.
+// ---------------------------------------------------------------------------
+describe('McpRegistry — listLiveTools skips stray global fs/git builtins', () => {
+  it('global builtin:filesystem does NOT appear when a rooted instance is present for the requested root', () => {
+    const db = makeTestDb();
+    try {
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx);
+
+      // Inject a bare global instance (simulating the pre-Fix-1a boot-started global)
+      const globalConn = new AlwaysOkConnection();
+      const globalFsTool: McpTool = { name: 'list_directory', description: 'global', inputSchema: { type: 'object', properties: {} } };
+      reg.__injectLiveForTest('builtin:filesystem', 'Filesystem', globalConn, [globalFsTool]);
+
+      // Also inject the correct per-root instance for /work
+      withAlwaysOkRootedBuiltins(reg, '/work');
+
+      const tools = reg.listLiveTools('/work');
+      const fsTools = tools.filter((t) => t.serverName === 'Filesystem');
+
+      // Each tool name must appear EXACTLY ONCE — no duplicates from the global
+      const toolNames = fsTools.map((t) => t.tool.name);
+      const uniqueNames = new Set(toolNames);
+      expect(toolNames.length).toBe(uniqueNames.size);
+      // All returned Filesystem tools come from the rooted instance, not the global
+      expect(fsTools.every((t) => t.serverId === 'builtin:filesystem@/work')).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('global builtin:git does NOT appear when a rooted instance is present for the requested root', () => {
+    const db = makeTestDb();
+    try {
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx);
+
+      // Inject bare global git instance
+      const globalConn = new AlwaysOkConnection();
+      const globalGitTool: McpTool = { name: 'status', description: 'global', inputSchema: { type: 'object', properties: {} } };
+      reg.__injectLiveForTest('builtin:git', 'Git', globalConn, [globalGitTool]);
+
+      // Inject correct per-root instance
+      withAlwaysOkRootedBuiltins(reg, '/work');
+
+      const tools = reg.listLiveTools('/work');
+      const gitTools = tools.filter((t) => t.serverName === 'Git');
+
+      const toolNames = gitTools.map((t) => t.tool.name);
+      const uniqueNames = new Set(toolNames);
+      expect(toolNames.length).toBe(uniqueNames.size);
+      expect(gitTools.every((t) => t.serverId === 'builtin:git@/work')).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // listLiveTools(root) and callTool with root routing
 // ---------------------------------------------------------------------------
 describe('McpRegistry — root-aware listLiveTools and callTool', () => {

@@ -172,9 +172,12 @@ export class McpRegistry {
     const gitId = root ? `builtin:git@${root}` : null;
     for (const entry of this.live.values()) {
       const id = entry.serverId;
-      const isRooted = id.startsWith('builtin:filesystem@') || id.startsWith('builtin:git@');
-      // Skip rooted instances that belong to a different root.
-      if (isRooted && id !== fsId && id !== gitId) continue;
+      // Skip any filesystem/git builtin id — whether rooted (builtin:filesystem@<root>)
+      // or bare global (builtin:filesystem) — that is not the requested root's instance.
+      // This prevents duplicate Filesystem.*/Git.* tool declarations when a stray global
+      // instance coexists with the correct per-root one.
+      const isFsOrGit = id.startsWith('builtin:filesystem') || id.startsWith('builtin:git');
+      if (isFsOrGit && id !== fsId && id !== gitId) continue;
       for (const tool of entry.tools) {
         const policy = this.resolvePolicy(entry, tool.name);
         out.push({

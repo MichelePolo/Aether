@@ -167,10 +167,12 @@ async function bootstrap() {
 
   await providers.refresh();
 
-  // Boot-time: start any already-enabled built-in MCPs (best-effort).
+  // Boot-time: start only the terminal built-in MCP globally (best-effort).
+  // filesystem and git are NOT pre-started — they spawn lazily per-root via
+  // ensureRootedBuiltins() in each dispatch, so they always inherit the correct root.
   const builtins = builtinStore.read();
   for (const b of builtins) {
-    if (b.enabled) {
+    if (b.enabled && b.transport === 'terminal') {
       await mcpRegistry.startBuiltin(b.transport).catch((err) => {
         console.warn(
           `[builtin-mcp] failed to start ${b.transport}: ${err instanceof Error ? err.message : err}`,
