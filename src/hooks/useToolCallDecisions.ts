@@ -3,11 +3,14 @@ import { useChatStore } from '@/src/stores/chat.store';
 import { useUiStore } from '@/src/stores/ui.store';
 import { breakpointsApi } from '@/src/lib/api/breakpoints.api';
 import { mcpApi } from '@/src/lib/api/mcp.api';
+import type { PreviewResult } from '@/src/types/breakpoints.types';
 
 export interface ToolCallRequestEvent {
   callId: string;
   qualifiedName: string;
   args: Record<string, unknown>;
+  /** SSE-embedded preview from the backend (computed at dispatch's effective root). */
+  preview?: PreviewResult;
 }
 
 type Listener = (ev: ToolCallRequestEvent) => void;
@@ -26,9 +29,11 @@ export function useToolCallDecisions(): void {
         return;
       }
       void (async () => {
-        const preview = await breakpointsApi
-          .preview({ qualifiedName: ev.qualifiedName, args: ev.args })
-          .catch(() => ({ kind: 'plain' as const }));
+        const preview = ev.preview !== undefined
+          ? ev.preview
+          : await breakpointsApi
+              .preview({ qualifiedName: ev.qualifiedName, args: ev.args })
+              .catch(() => ({ kind: 'plain' as const }));
         useUiStore.getState().openApprovalGate({ event: ev, preview });
       })();
     };

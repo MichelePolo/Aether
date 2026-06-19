@@ -41,4 +41,43 @@ describe('useToolCallDecisions', () => {
     });
     expect(useUiStore.getState().approvalGateState?.event.callId).toBe('c2');
   });
+
+  it('SSE-embedded preview → opens gate with that preview WITHOUT calling breakpointsApi.preview', async () => {
+    const { breakpointsApi } = await import('@/src/lib/api/breakpoints.api');
+    vi.mocked(breakpointsApi.preview).mockClear();
+    const embeddedPreview = { kind: 'gitDiff' as const, unified: 'diff --git a/f b/f\n', title: 'f' };
+    renderHook(() => useToolCallDecisions());
+    act(() =>
+      emitToolCallRequest({
+        callId: 'c3',
+        qualifiedName: 'fs.write_file',
+        args: { path: '/y' },
+        preview: embeddedPreview,
+      }),
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(breakpointsApi.preview).not.toHaveBeenCalled();
+    const gate = useUiStore.getState().approvalGateState;
+    expect(gate?.event.callId).toBe('c3');
+    expect(gate?.preview).toEqual(embeddedPreview);
+  });
+
+  it('SSE event without preview → HTTP fallback still fires', async () => {
+    const { breakpointsApi } = await import('@/src/lib/api/breakpoints.api');
+    vi.mocked(breakpointsApi.preview).mockClear();
+    renderHook(() => useToolCallDecisions());
+    act(() =>
+      emitToolCallRequest({ callId: 'c4', qualifiedName: 'fs.read_file', args: { path: '/z' } }),
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(breakpointsApi.preview).toHaveBeenCalledWith({
+      qualifiedName: 'fs.read_file',
+      args: { path: '/z' },
+    });
+    expect(useUiStore.getState().approvalGateState?.event.callId).toBe('c4');
+  });
 });
