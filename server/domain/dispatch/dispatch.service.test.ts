@@ -872,3 +872,75 @@ describe('runToolCall (agentic providers)', () => {
     expect(callTool).toHaveBeenCalledTimes(11);
   });
 });
+
+describe('DispatchService — sub-agent model resolution', () => {
+  /** Registry stub that records every name passed to get(). */
+  function makeRegistryStub(gotNames: string[]) {
+    const fakeProvider = new FakeProvider({ chunks: ['ok'], model: 'fake-1' });
+    const registryStub: ProviderRegistry = {
+      get(name: string) {
+        gotNames.push(name);
+        // Return a working provider for any name so the dispatch can complete.
+        return fakeProvider;
+      },
+      defaultName() { return 'fake:default'; },
+      list() { return []; },
+      issues() { return []; },
+      refresh: async () => {},
+    } as unknown as ProviderRegistry;
+    return registryStub;
+  }
+
+  /** Build a DispatchService wired with a stub registry and an optional sub-agent. */
+  async function makeServiceWithSubAgent(opts: {
+    providers: ProviderRegistry;
+    subAgent?: { name: string; model: string };
+  }) {
+    const db = makeTestDb();
+    const historyStore = new HistoryStore(db);
+    const contextStore = new ContextStore(db);
+    const session = await historyStore.createEmpty();
+
+    let subAgentsStore: DispatchServiceDeps['subAgentsStore'];
+    if (opts.subAgent) {
+      const { name, model } = opts.subAgent;
+      const record: import('@/server/domain/subagents/subagents.types').SubAgentRecord = {
+        name,
+        systemInstruction: '',
+        skills: [],
+        tools: [],
+        model,
+        createdAt: 0,
+        updatedAt: 0,
+      };
+      subAgentsStore = {
+        list: async () => [{ id: 'sa-1', name, model, createdAt: 0, updatedAt: 0 }],
+        read: async (_id: string) => record,
+      } as unknown as import('@/server/domain/subagents/subagents.store').SubAgentsStore;
+    }
+
+    const service = new DispatchService({ providers: opts.providers, historyStore, contextStore, subAgentsStore });
+    return { service, sessionId: session.id };
+  }
+
+  it('resolves a sub-agent default model when no providerName is requested', async () => {
+    const gotNames: string[] = [];
+    const providers = makeRegistryStub(gotNames);
+    const { service, sessionId } = await makeServiceWithSubAgent({ providers, subAgent: { name: 'vision', model: 'gemini:gemini-1.5-pro' } });
+
+    await service.handle({ sessionId, message: '@vision describe' }, createCollectorEmitter().emitter, new AbortController().signal);
+
+    expect(gotNames).toContain('gemini:gemini-1.5-pro');
+  });
+
+  it('lets an explicit providerName override the sub-agent model', async () => {
+    const gotNames: string[] = [];
+    const providers = makeRegistryStub(gotNames);
+    const { service, sessionId } = await makeServiceWithSubAgent({ providers, subAgent: { name: 'vision', model: 'gemini:gemini-1.5-pro' } });
+
+    await service.handle({ sessionId, message: '@vision describe', providerName: 'anthropic:claude-opus-4-7' }, createCollectorEmitter().emitter, new AbortController().signal);
+
+    expect(gotNames).toContain('anthropic:claude-opus-4-7');
+    expect(gotNames).not.toContain('gemini:gemini-1.5-pro');
+  });
+});

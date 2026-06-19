@@ -15,6 +15,7 @@ export const SubAgentRecordSchema = z.object({
   systemInstruction: z.string().max(8000),
   skills: z.array(z.string()).max(50),
   tools: z.array(ToolSchema).max(50),
+  model: z.string().max(120).optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });
@@ -26,6 +27,7 @@ export const SubAgentCreateInputSchema = z.object({
   systemInstruction: z.string().max(8000).default(''),
   skills: z.array(z.string()).max(50).default([]),
   tools: z.array(ToolSchema).max(50).default([]),
+  model: z.string().max(120).optional(),
 });
 
 export const SubAgentUpdateInputSchema = SubAgentCreateInputSchema.partial();

@@ -9,7 +9,7 @@ interface SwarmInput {
 }
 
 type SwarmRow = { id: string; name: string; created_at: number; updated_at: number };
-type StepRow = { position: number; subagent_name: string; prompt_template: string; pause_after: number };
+type StepRow = { position: number; subagent_name: string; prompt_template: string; pause_after: number; provider_name: string | null };
 
 export class SwarmStore {
   constructor(private readonly db: DatabaseHandle) {}
@@ -37,13 +37,14 @@ export class SwarmStore {
     const steps = (
       this.db
         .prepare(
-          'SELECT position, subagent_name, prompt_template, pause_after FROM swarm_steps WHERE swarm_id = ? ORDER BY position',
+          'SELECT position, subagent_name, prompt_template, pause_after, provider_name FROM swarm_steps WHERE swarm_id = ? ORDER BY position',
         )
         .all(id) as StepRow[]
     ).map((s): SwarmStep => ({
       subAgentName: s.subagent_name,
       promptTemplate: s.prompt_template,
       pauseAfter: s.pause_after === 1,
+      ...(s.provider_name ? { providerName: s.provider_name } : {}),
     }));
     return { id: row.id, name: row.name, steps, createdAt: row.created_at, updatedAt: row.updated_at };
   }
@@ -93,10 +94,10 @@ export class SwarmStore {
   private writeSteps(id: string, steps: SwarmStep[]): void {
     this.db.prepare('DELETE FROM swarm_steps WHERE swarm_id = ?').run(id);
     const insert = this.db.prepare(
-      'INSERT INTO swarm_steps (id, swarm_id, position, subagent_name, prompt_template, pause_after) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO swarm_steps (id, swarm_id, position, subagent_name, prompt_template, pause_after, provider_name) VALUES (?, ?, ?, ?, ?, ?, ?)',
     );
     steps.forEach((s, i) =>
-      insert.run(randomUUID(), id, i, s.subAgentName, s.promptTemplate ?? '', s.pauseAfter ? 1 : 0),
+      insert.run(randomUUID(), id, i, s.subAgentName, s.promptTemplate ?? '', s.pauseAfter ? 1 : 0, s.providerName ?? null),
     );
   }
 }

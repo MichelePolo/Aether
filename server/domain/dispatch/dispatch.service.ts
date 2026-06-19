@@ -391,18 +391,6 @@ export class DispatchService {
     const requestedName = parsed.data.providerName;
     const sessionName = sessionRecord?.providerName;
     const fallbackName = this.deps.providers.defaultName();
-    const providerName = requestedName ?? sessionName ?? fallbackName;
-    if (!providerName) {
-      sse.event('error', { message: 'No provider available', retryable: false });
-      sse.end();
-      return;
-    }
-    const provider = this.deps.providers.get(providerName);
-    if (!provider) {
-      sse.event('error', { message: `Provider '${providerName}' not available`, retryable: false });
-      sse.end();
-      return;
-    }
 
     const prior = await historyStore.read(sessionId);
     if (prior === null) {
@@ -485,6 +473,19 @@ export class DispatchService {
           result: null,
         }),
       });
+    }
+
+    const providerName = requestedName ?? matchedSubAgent?.model ?? sessionName ?? fallbackName;
+    if (!providerName) {
+      sse.event('error', { message: 'No provider available', retryable: false });
+      sse.end();
+      return;
+    }
+    const provider = this.deps.providers.get(providerName);
+    if (!provider) {
+      sse.event('error', { message: `Provider '${providerName}' not available`, retryable: false });
+      sse.end();
+      return;
     }
 
     const liveTools = this.deps.mcpRegistry?.listLiveTools() ?? [];

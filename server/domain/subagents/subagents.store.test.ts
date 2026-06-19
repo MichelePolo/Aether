@@ -131,4 +131,49 @@ describe('SubAgentsStore', () => {
   it('read() returns null for unknown id', async () => {
     expect(await store.read('nope')).toBeNull();
   });
+
+  it('round-trips a sub-agent model and exposes it via list()', async () => {
+    const meta = await store.create({ name: 'planner', model: 'gemini:gemini-1.5-pro' });
+    expect(meta.model).toBe('gemini:gemini-1.5-pro');
+
+    const rec = await store.read(meta.id);
+    expect(rec?.model).toBe('gemini:gemini-1.5-pro');
+
+    const listed = (await store.list()).find((m) => m.id === meta.id);
+    expect(listed?.model).toBe('gemini:gemini-1.5-pro');
+
+    const noModel = await store.create({ name: 'plain' });
+    expect((await store.read(noModel.id))?.model).toBeUndefined();
+  });
+
+  it('create() stores empty string model as NULL (no model)', async () => {
+    const meta = await store.create({ name: 'no-model', model: '' });
+    expect(meta.model).toBeUndefined();
+    const rec = await store.read(meta.id);
+    expect(rec?.model).toBeUndefined();
+  });
+
+  it('update() with model="" clears a previously-saved model', async () => {
+    const meta = await store.create({ name: 'agent', model: 'gemini:gemini-1.5-pro' });
+    expect(meta.model).toBe('gemini:gemini-1.5-pro');
+
+    await store.update(meta.id, { model: '' });
+    const rec = await store.read(meta.id);
+    expect(rec?.model).toBeUndefined();
+
+    const listed = (await store.list()).find((m) => m.id === meta.id);
+    expect(listed?.model).toBeUndefined();
+
+    // Assert raw DB column is SQL NULL (not empty string)
+    const raw = db.prepare('SELECT model FROM subagents WHERE id = ?').get(meta.id) as { model: string | null };
+    expect(raw.model).toBeNull();
+  });
+
+  it('update() without model field preserves the existing model', async () => {
+    const meta = await store.create({ name: 'keeper', model: 'gemini:gemini-1.5-pro' });
+    await store.update(meta.id, { systemInstruction: 'updated' });
+    const rec = await store.read(meta.id);
+    expect(rec?.model).toBe('gemini:gemini-1.5-pro');
+    expect(rec?.systemInstruction).toBe('updated');
+  });
 });

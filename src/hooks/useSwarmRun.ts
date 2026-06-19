@@ -7,6 +7,7 @@ export interface SwarmStepView {
   subAgent: string;
   output: string;
   status: 'running' | 'completed';
+  warning?: { requested?: string; used?: string };
 }
 export interface SwarmRunState {
   running: boolean;
@@ -18,7 +19,7 @@ export interface SwarmRunState {
 
 const INITIAL: SwarmRunState = { running: false, steps: [], pending: null, status: null, error: null };
 
-function reduce(s: SwarmRunState, name: string, data: any): SwarmRunState {
+export function reduce(s: SwarmRunState, name: string, data: any): SwarmRunState {
   switch (name) {
     case 'swarm_step_started':
       return {
@@ -34,6 +35,15 @@ function reduce(s: SwarmRunState, name: string, data: any): SwarmRunState {
       };
     case 'swarm_approval_request':
       return { ...s, pending: { approvalId: data.approvalId, position: data.position, output: data.output } };
+    case 'swarm_step_warning':
+      return {
+        ...s,
+        steps: s.steps.map((st) =>
+          st.position === data.position
+            ? { ...st, warning: { requested: data.requested, used: data.used } }
+            : st,
+        ),
+      };
     case 'swarm_error':
       return { ...s, error: data.message };
     case 'swarm_done':

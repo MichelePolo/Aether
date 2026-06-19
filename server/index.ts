@@ -224,6 +224,10 @@ async function bootstrap() {
     dispatcher,
     createSession: async () => (await historyStore.createEmpty()).id,
     approvals: swarmApprovals,
+    providers: {
+      isAvailable: (name: string) => providers.get(name) !== null,
+      defaultName: () => providers.defaultName(),
+    },
   };
 
   const tddRunnerDeps = {
