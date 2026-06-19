@@ -48,6 +48,21 @@ describe('SwarmStore', () => {
     expect(await store.read(meta.id)).toBeNull();
   });
 
+  it('persists swarm-level and per-step workspaceId', async () => {
+    const meta = await store.create({
+      name: 'ws',
+      workspaceId: 'w-default',
+      steps: [
+        { subAgentName: 'a', promptTemplate: '', pauseAfter: false, workspaceId: 'w-step' },
+        { subAgentName: 'b', promptTemplate: '', pauseAfter: false },
+      ],
+    });
+    const rec = await store.read(meta.id);
+    expect(rec!.workspaceId).toBe('w-default');
+    expect(rec!.steps[0].workspaceId).toBe('w-step');
+    expect(rec!.steps[1].workspaceId).toBeUndefined();
+  });
+
   it('round-trips a step providerName, omitting it when unset', async () => {
     const meta = await store.create({
       name: 'mixed',

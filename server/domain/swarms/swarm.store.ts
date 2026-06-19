@@ -5,11 +5,12 @@ import type { SwarmMeta, SwarmRecord, SwarmStep } from './swarm.types';
 
 interface SwarmInput {
   name: string;
+  workspaceId?: string;
   steps?: SwarmStep[];
 }
 
-type SwarmRow = { id: string; name: string; created_at: number; updated_at: number };
-type StepRow = { position: number; subagent_name: string; prompt_template: string; pause_after: number; provider_name: string | null };
+type SwarmRow = { id: string; name: string; workspace_id: string | null; created_at: number; updated_at: number };
+type StepRow = { position: number; subagent_name: string; prompt_template: string; pause_after: number; provider_name: string | null; workspace_id: string | null };
 
 export class SwarmStore {
   constructor(private readonly db: DatabaseHandle) {}
@@ -31,13 +32,13 @@ export class SwarmStore {
 
   async read(id: string): Promise<SwarmRecord | null> {
     const row = this.db
-      .prepare('SELECT id, name, created_at, updated_at FROM swarms WHERE id = ?')
+      .prepare('SELECT id, name, workspace_id, created_at, updated_at FROM swarms WHERE id = ?')
       .get(id) as SwarmRow | undefined;
     if (!row) return null;
     const steps = (
       this.db
         .prepare(
-          'SELECT position, subagent_name, prompt_template, pause_after, provider_name FROM swarm_steps WHERE swarm_id = ? ORDER BY position',
+          'SELECT position, subagent_name, prompt_template, pause_after, provider_name, workspace_id FROM swarm_steps WHERE swarm_id = ? ORDER BY position',
         )
         .all(id) as StepRow[]
     ).map((s): SwarmStep => ({
@@ -45,8 +46,16 @@ export class SwarmStore {
       promptTemplate: s.prompt_template,
       pauseAfter: s.pause_after === 1,
       ...(s.provider_name ? { providerName: s.provider_name } : {}),
+      ...(s.workspace_id ? { workspaceId: s.workspace_id } : {}),
     }));
-    return { id: row.id, name: row.name, steps, createdAt: row.created_at, updatedAt: row.updated_at };
+    return {
+      id: row.id,
+      name: row.name,
+      ...(row.workspace_id ? { workspaceId: row.workspace_id } : {}),
+      steps,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
   }
 
   async create(input: SwarmInput): Promise<SwarmMeta> {
@@ -54,22 +63,22 @@ export class SwarmStore {
     const now = Date.now();
     const tx = this.db.transaction(() => {
       this.db
-        .prepare('INSERT INTO swarms (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)')
-        .run(id, input.name, now, now);
+        .prepare('INSERT INTO swarms (id, name, workspace_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')
+        .run(id, input.name, input.workspaceId ?? null, now, now);
       this.writeSteps(id, input.steps ?? []);
     });
     tx();
     return this.metaOf(id);
   }
 
-  async update(id: string, patch: { name?: string; steps?: SwarmStep[] }): Promise<SwarmMeta> {
+  async update(id: string, patch: { name?: string; workspaceId?: string; steps?: SwarmStep[] }): Promise<SwarmMeta> {
     const tx = this.db.transaction(() => {
-      const cur = this.db.prepare('SELECT name FROM swarms WHERE id = ?').get(id) as { name: string } | undefined;
+      const cur = this.db.prepare('SELECT name, workspace_id FROM swarms WHERE id = ?').get(id) as { name: string; workspace_id: string | null } | undefined;
       if (!cur) throw new NotFoundError(`swarm ${id}`);
       const now = Date.now();
       this.db
-        .prepare('UPDATE swarms SET name = ?, updated_at = ? WHERE id = ?')
-        .run(patch.name ?? cur.name, now, id);
+        .prepare('UPDATE swarms SET name = ?, workspace_id = ?, updated_at = ? WHERE id = ?')
+        .run(patch.name ?? cur.name, patch.workspaceId !== undefined ? patch.workspaceId : cur.workspace_id, now, id);
       if (patch.steps) this.writeSteps(id, patch.steps);
     });
     tx();
@@ -94,10 +103,10 @@ export class SwarmStore {
   private writeSteps(id: string, steps: SwarmStep[]): void {
     this.db.prepare('DELETE FROM swarm_steps WHERE swarm_id = ?').run(id);
     const insert = this.db.prepare(
-      'INSERT INTO swarm_steps (id, swarm_id, position, subagent_name, prompt_template, pause_after, provider_name) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO swarm_steps (id, swarm_id, position, subagent_name, prompt_template, pause_after, provider_name, workspace_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     );
     steps.forEach((s, i) =>
-      insert.run(randomUUID(), id, i, s.subAgentName, s.promptTemplate ?? '', s.pauseAfter ? 1 : 0, s.providerName ?? null),
+      insert.run(randomUUID(), id, i, s.subAgentName, s.promptTemplate ?? '', s.pauseAfter ? 1 : 0, s.providerName ?? null, s.workspaceId ?? null),
     );
   }
 }

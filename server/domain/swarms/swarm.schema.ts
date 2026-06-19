@@ -5,10 +5,12 @@ export const SwarmStepSchema = z.object({
   promptTemplate: z.string().max(8000).default(''),
   pauseAfter: z.boolean().default(false),
   providerName: z.string().max(120).optional(),
+  workspaceId: z.string().min(1).max(120).optional(),
 });
 
 export const SwarmCreateInputSchema = z.object({
   name: z.string().min(1).max(64),
+  workspaceId: z.string().min(1).max(120).optional(),
   steps: z.array(SwarmStepSchema).max(20).default([]),
 });
 

@@ -5,7 +5,7 @@ import type { SwarmRecord } from './swarm.types';
 
 export interface SwarmDispatcher {
   handle(
-    body: { sessionId: string; message: string; providerName?: string },
+    body: { sessionId: string; message: string; providerName?: string; workspaceId?: string },
     sse: SseEmitter,
     signal: AbortSignal,
   ): Promise<void>;
@@ -83,9 +83,10 @@ export async function runSwarm(
       sse.event('swarm_step_warning', { position: i, requested, used: providerName });
     }
 
+    const stepWorkspaceId = step.workspaceId ?? swarm.workspaceId;
     const collector = createCollectingSse(sse);
     await deps.dispatcher.handle(
-      { sessionId, message: `@${step.subAgentName} ${message}`, providerName },
+      { sessionId, message: `@${step.subAgentName} ${message}`, providerName, workspaceId: stepWorkspaceId },
       collector,
       signal,
     );
