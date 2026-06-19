@@ -176,6 +176,10 @@ export class DispatchService {
     sse.event('tool_call_started', pendingCall);
     let latestProgress = '';
     try {
+      // Re-ensure the rooted builtins right before executing: the root may have been
+      // LRU-evicted from the pool between the top-of-dispatch ensure and this tool call
+      // (especially during long gate-wait pauses). This is idempotent for a live root.
+      await this.deps.mcpRegistry?.ensureRootedBuiltins?.(currentRoot);
       const result = await this.deps.mcpRegistry!.callTool(
         pendingCall.qualifiedName,
         pendingCall.args,
