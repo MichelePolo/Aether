@@ -71,8 +71,9 @@ export function createBuiltinMcpRoutes(store: BuiltinMcpStore, registry: McpRegi
           store.setEnabled(transport, false);
         }
       } else if ('fsRoot' in body && wasEnabled) {
-        // fsRoot changed while enabled → reconnect
-        await registry.reconnectBuiltin(transport);
+        // fsRoot changed while enabled → invalidate cached rooted instances so
+        // the next dispatch rebuilds them with the new default root.
+        await registry.invalidateRootedBuiltins();
       }
 
       const state = store.read().find((r) => r.transport === transport)!;

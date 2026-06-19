@@ -302,6 +302,39 @@ describe('McpRegistry — root-aware listLiveTools and callTool', () => {
 });
 
 // ---------------------------------------------------------------------------
+// invalidateRootedBuiltins — drops all rooted instances and clears rootedLru
+// ---------------------------------------------------------------------------
+describe('McpRegistry — invalidateRootedBuiltins', () => {
+  it('disconnects all rooted instances and clears rootedLru', async () => {
+    const db = makeTestDb();
+    try {
+      const builtinStore = withMockRootedTransport(new BuiltinMcpStore(db));
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx, builtinStore);
+
+      await reg.ensureRootedBuiltins('/root-a');
+      await reg.ensureRootedBuiltins('/root-b');
+
+      expect(reg.stateOf('builtin:filesystem@/root-a').state).toBe('online');
+      expect(reg.stateOf('builtin:filesystem@/root-b').state).toBe('online');
+
+      await reg.invalidateRootedBuiltins();
+
+      expect(reg.stateOf('builtin:filesystem@/root-a').state).toBe('offline');
+      expect(reg.stateOf('builtin:git@/root-a').state).toBe('offline');
+      expect(reg.stateOf('builtin:filesystem@/root-b').state).toBe('offline');
+      expect(reg.stateOf('builtin:git@/root-b').state).toBe('offline');
+
+      // rootedLru is cleared — re-ensuring the same root re-connects fresh
+      await reg.ensureRootedBuiltins('/root-a');
+      expect(reg.stateOf('builtin:filesystem@/root-a').state).toBe('online');
+    } finally {
+      db.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // ensureRootedBuiltins — LRU-capped pool of per-root builtin instances
 // ---------------------------------------------------------------------------
 describe('McpRegistry — ensureRootedBuiltins', () => {

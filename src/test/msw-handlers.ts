@@ -49,9 +49,6 @@ export const handlers = [
     const path = new URL(request.url).searchParams.get('path') ?? '/home/user';
     return HttpResponse.json({ path, entries: [{ name: 'sub', isDir: true }] });
   }),
-  http.post('http://localhost/api/workspaces/activate-for-session', () =>
-    HttpResponse.json({ rooted: null }),
-  ),
   http.get('http://localhost/api/profiles', () => HttpResponse.json({ profiles: [] })),
   http.post('http://localhost/api/profiles', () =>
     HttpResponse.json(

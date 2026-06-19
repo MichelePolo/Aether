@@ -141,6 +141,17 @@ export class McpRegistry {
     await this.startBuiltin(transport);
   }
 
+  /** Drop all rooted builtin instances so the next dispatch re-spawns them with
+   *  current config (used when the default fsRoot changes). */
+  async invalidateRootedBuiltins(): Promise<void> {
+    const roots = [...this.rootedLru];
+    this.rootedLru = [];
+    for (const r of roots) {
+      await this.disconnect(`builtin:filesystem@${r}`);
+      await this.disconnect(`builtin:git@${r}`);
+    }
+  }
+
   async disconnect(id: string): Promise<void> {
     const aborter = this.reconnectAborters.get(id);
     if (aborter) {

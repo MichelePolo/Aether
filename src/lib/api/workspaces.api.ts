@@ -40,13 +40,4 @@ export const workspacesApi = {
       await fetch(`/api/workspaces/browse${qs}`),
     );
   },
-
-  activateForSession: async (sessionId: string): Promise<{ rooted: string | null }> =>
-    jsonOrThrow<{ rooted: string | null }>(
-      await fetch('/api/workspaces/activate-for-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId }),
-      }),
-    ),
 };
