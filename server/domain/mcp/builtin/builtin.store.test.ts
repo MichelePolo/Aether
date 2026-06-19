@@ -146,3 +146,32 @@ describe('BuiltinMcpStore — libraryDir on filesystem transport', () => {
     expect(fs.args![1]).toBe('/cwd');
   });
 });
+
+describe('BuiltinMcpStore — rootedConfigs', () => {
+  it('rootedConfigs builds per-root filesystem + git configs with stable names', () => {
+    // enable filesystem + git in the test DB (match this file's existing helper)
+    const storeWithLib = new BuiltinMcpStore(db, '/lib');
+    storeWithLib.setEnabled('filesystem', true);
+    storeWithLib.setEnabled('git', true);
+
+    const cfgs = storeWithLib.rootedConfigs('/work');
+    const fs = cfgs.find((c) => c.name === 'Filesystem')!;
+    const git = cfgs.find((c) => c.name === 'Git')!;
+
+    expect(fs.id).toBe('builtin:filesystem@/work');
+    expect(fs.args).toContain('/work');
+    expect(fs.args).toContain('/lib');           // libraryDir always-allowed
+    expect(git.id).toBe('builtin:git@/work');
+    expect(git.args).toContain('/work');
+    expect(git.args).not.toContain('/lib');      // git is not given libraryDir
+    // terminal is never rooted
+    expect(cfgs.find((c) => c.name === 'Terminal')).toBeUndefined();
+  });
+
+  it('rootedConfigs omits disabled transports', () => {
+    const storeWithLib = new BuiltinMcpStore(db, '/lib');
+    storeWithLib.setEnabled('filesystem', false);
+    storeWithLib.setEnabled('git', false);
+    expect(storeWithLib.rootedConfigs('/work')).toEqual([]);
+  });
+});

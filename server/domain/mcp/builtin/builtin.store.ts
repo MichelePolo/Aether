@@ -127,4 +127,42 @@ export class BuiltinMcpStore {
       } as McpServerConfig;
     });
   }
+
+  /**
+   * Per-root configs for the rooted builtin transports (filesystem, git). Each
+   * gets an id suffixed with the root so the registry can pool one instance per
+   * root. Filesystem always-allows the libraryDir alongside the root; git does
+   * not. Terminal is excluded — it is never workspace-rooted.
+   */
+  rootedConfigs(root: string): McpServerConfig[] {
+    const rows = this.read().filter((r) => r.enabled);
+    const out: McpServerConfig[] = [];
+    for (const r of rows) {
+      if (r.transport === 'filesystem') {
+        const allowed = this.libraryDir && this.libraryDir !== root
+          ? [root, this.libraryDir]
+          : [root];
+        out.push({
+          id: `builtin:filesystem@${root}`,
+          name: 'Filesystem',
+          transport: 'stdio',
+          command: process.execPath,
+          args: [resolveFilesystemServerEntry(), ...allowed],
+          env: {},
+          status: 'offline',
+        } as McpServerConfig);
+      } else if (r.transport === 'git') {
+        out.push({
+          id: `builtin:git@${root}`,
+          name: 'Git',
+          transport: 'stdio',
+          command: process.execPath,
+          args: [...resolveAetherGitArgs(), root],
+          env: {},
+          status: 'offline',
+        } as McpServerConfig);
+      }
+    }
+    return out;
+  }
 }
