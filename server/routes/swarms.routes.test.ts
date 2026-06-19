@@ -106,4 +106,22 @@ describe('swarms routes', () => {
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
+
+  it('accepts update with workspaceId: null (clearing)', async () => {
+    db.prepare('INSERT INTO workspaces (id, name, root_path, added_at) VALUES (?, ?, ?, ?)').run('ws-2', 'my-ws2', '/tmp', Date.now());
+    const created = await request(app)
+      .post('/api/swarms')
+      .send({ name: 'clearable', workspaceId: 'ws-2', steps: [] });
+    expect(created.status).toBe(201);
+    const id = created.body.id;
+
+    // null should clear the workspaceId without triggering "unknown workspace" error
+    const res = await request(app)
+      .put(`/api/swarms/${id}`)
+      .send({ workspaceId: null });
+    expect(res.status).toBe(200);
+
+    const got = await request(app).get(`/api/swarms/${id}`);
+    expect(got.body.workspaceId).toBeUndefined();
+  });
 });

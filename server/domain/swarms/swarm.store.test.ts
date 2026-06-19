@@ -75,4 +75,27 @@ describe('SwarmStore', () => {
     expect(rec?.steps[0].providerName).toBe('anthropic:claude-opus-4-7');
     expect(rec?.steps[1].providerName).toBeUndefined();
   });
+
+  it('update workspaceId round-trip: set, change, clear, omit', async () => {
+    // Create with workspaceId
+    const meta = await store.create({ name: 'ws-roundtrip', workspaceId: 'w-a', steps: [] });
+    let rec = await store.read(meta.id);
+    expect(rec!.workspaceId).toBe('w-a');
+
+    // Update to a different workspaceId
+    await store.update(meta.id, { workspaceId: 'w-b' });
+    rec = await store.read(meta.id);
+    expect(rec!.workspaceId).toBe('w-b');
+
+    // Clear by passing null
+    await store.update(meta.id, { workspaceId: null });
+    rec = await store.read(meta.id);
+    expect(rec!.workspaceId).toBeUndefined();
+
+    // Update without workspaceId field — should remain cleared (not changed)
+    await store.update(meta.id, { name: 'ws-roundtrip-2' });
+    rec = await store.read(meta.id);
+    expect(rec!.workspaceId).toBeUndefined();
+    expect(rec!.name).toBe('ws-roundtrip-2');
+  });
 });

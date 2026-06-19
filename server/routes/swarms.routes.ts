@@ -20,10 +20,11 @@ function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => P
 
 function validateWorkspaceIds(
   workspacesStore: WorkspacesStore | undefined,
-  ids: Array<string | undefined>,
+  ids: Array<string | null | undefined>,
 ): void {
   if (!workspacesStore) return;
   for (const id of ids) {
+    // null means "clear" — skip validation; only non-empty strings are checked.
     if (id && !workspacesStore.get(id)) {
       throw new ValidationError(`Unknown workspaceId: ${id}`);
     }

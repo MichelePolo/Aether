@@ -9,7 +9,10 @@ interface SwarmInput {
   steps?: SwarmStep[];
 }
 
+/** Full swarm row including workspace_id, used by read() and create(). */
 type SwarmRow = { id: string; name: string; workspace_id: string | null; created_at: number; updated_at: number };
+/** Partial row fetched by list() and metaOf() (no workspace_id in SELECT). */
+type SwarmMetaRow = { id: string; name: string; created_at: number; updated_at: number };
 type StepRow = { position: number; subagent_name: string; prompt_template: string; pause_after: number; provider_name: string | null; workspace_id: string | null };
 
 export class SwarmStore {
@@ -18,7 +21,7 @@ export class SwarmStore {
   async list(): Promise<SwarmMeta[]> {
     const rows = this.db
       .prepare('SELECT id, name, created_at, updated_at FROM swarms ORDER BY updated_at DESC')
-      .all() as SwarmRow[];
+      .all() as SwarmMetaRow[];
     return rows.map((r) => ({
       id: r.id,
       name: r.name,
@@ -71,14 +74,16 @@ export class SwarmStore {
     return this.metaOf(id);
   }
 
-  async update(id: string, patch: { name?: string; workspaceId?: string; steps?: SwarmStep[] }): Promise<SwarmMeta> {
+  async update(id: string, patch: { name?: string; workspaceId?: string | null; steps?: SwarmStep[] }): Promise<SwarmMeta> {
     const tx = this.db.transaction(() => {
       const cur = this.db.prepare('SELECT name, workspace_id FROM swarms WHERE id = ?').get(id) as { name: string; workspace_id: string | null } | undefined;
       if (!cur) throw new NotFoundError(`swarm ${id}`);
       const now = Date.now();
+      // null = explicit clear; undefined = leave unchanged; string = set to new value.
+      const newWorkspaceId = patch.workspaceId !== undefined ? (patch.workspaceId ?? null) : cur.workspace_id;
       this.db
         .prepare('UPDATE swarms SET name = ?, workspace_id = ?, updated_at = ? WHERE id = ?')
-        .run(patch.name ?? cur.name, patch.workspaceId !== undefined ? patch.workspaceId : cur.workspace_id, now, id);
+        .run(patch.name ?? cur.name, newWorkspaceId, now, id);
       if (patch.steps) this.writeSteps(id, patch.steps);
     });
     tx();
@@ -93,7 +98,7 @@ export class SwarmStore {
   private metaOf(id: string): SwarmMeta {
     const row = this.db
       .prepare('SELECT id, name, created_at, updated_at FROM swarms WHERE id = ?')
-      .get(id) as SwarmRow;
+      .get(id) as SwarmMetaRow;
     const n = (
       this.db.prepare('SELECT COUNT(*) AS n FROM swarm_steps WHERE swarm_id = ?').get(id) as { n: number }
     ).n;

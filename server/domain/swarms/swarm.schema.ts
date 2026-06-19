@@ -14,7 +14,10 @@ export const SwarmCreateInputSchema = z.object({
   steps: z.array(SwarmStepSchema).max(20).default([]),
 });
 
-export const SwarmUpdateInputSchema = SwarmCreateInputSchema.partial();
+export const SwarmUpdateInputSchema = SwarmCreateInputSchema.partial().extend({
+  // Allow null to explicitly clear the workspace assignment; undefined = leave unchanged.
+  workspaceId: z.string().min(1).max(120).nullable().optional(),
+});
 
 export const SwarmRunInputSchema = z.object({
   input: z.string().min(1).max(20000),
