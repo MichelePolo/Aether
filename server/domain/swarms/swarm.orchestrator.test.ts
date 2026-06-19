@@ -15,7 +15,7 @@ function recordingSse() {
 
 function fakeDispatcher(spy?: (msg: string) => void) {
   return {
-    handle: async (body: { sessionId: string; message: string }, sse: SseEmitter) => {
+    handle: async (body: { sessionId: string; message: string; providerName?: string }, sse: SseEmitter) => {
       spy?.(body.message);
       sse.event('text', { chunk: `out:${body.message}` });
       sse.event('done', {});
@@ -74,9 +74,7 @@ function makeDeps(opts: MakeDepsOpts): SwarmOrchestratorDeps {
 }
 
 function recordEvents(sse: SseEmitter): Array<{ name: string; data: any }> {
-  // sse already records into an array via recordingSse(); we need to intercept events
-  // The tests pass `sse` (the SseEmitter) and expect this to return the same events array.
-  // We handle this by attaching a shared events array to the sse object.
+  // Returns the shared events array attached by beforeEach.
   return (sse as any).__events as Array<{ name: string; data: any }>;
 }
 
