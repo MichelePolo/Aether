@@ -5,7 +5,7 @@ import type { SwarmRecord } from './swarm.types';
 
 export interface SwarmDispatcher {
   handle(
-    body: { sessionId: string; message: string },
+    body: { sessionId: string; message: string; providerName?: string },
     sse: SseEmitter,
     signal: AbortSignal,
   ): Promise<void>;
@@ -13,10 +13,11 @@ export interface SwarmDispatcher {
 
 export interface SwarmOrchestratorDeps {
   store: { read(id: string): Promise<SwarmRecord | null> };
-  subAgentsStore: { list(): Promise<{ name: string }[]> };
+  subAgentsStore: { list(): Promise<{ name: string; model?: string }[]> };
   dispatcher: SwarmDispatcher;
   createSession: () => Promise<string>;
   approvals: SwarmApprovalRegistry;
+  providers: { isAvailable(name: string): boolean; defaultName(): string | null };
   approvalTimeoutMs?: number;
 }
 
@@ -47,7 +48,9 @@ export async function runSwarm(
     return;
   }
 
-  const known = new Set((await deps.subAgentsStore.list()).map((s) => s.name));
+  const subAgents = await deps.subAgentsStore.list();
+  const known = new Set(subAgents.map((s) => s.name));
+  const modelByName = new Map(subAgents.map((s) => [s.name, s.model] as const));
   const missing = swarm.steps.find((s) => !known.has(s.subAgentName));
   if (missing) {
     sse.event('swarm_error', { message: `unknown sub-agent: ${missing.subAgentName}` });
@@ -70,9 +73,17 @@ export async function runSwarm(
     sse.event('swarm_step_started', { position: i, subAgent: step.subAgentName });
 
     const message = step.promptTemplate ? `${step.promptTemplate}\n\n${incoming}` : incoming;
+
+    const requested = step.providerName ?? modelByName.get(step.subAgentName);
+    let providerName = requested;
+    if (requested && !deps.providers.isAvailable(requested)) {
+      providerName = deps.providers.defaultName() ?? undefined;
+      sse.event('swarm_step_warning', { position: i, requested, used: providerName });
+    }
+
     const collector = createCollectingSse(sse);
     await deps.dispatcher.handle(
-      { sessionId, message: `@${step.subAgentName} ${message}` },
+      { sessionId, message: `@${step.subAgentName} ${message}`, providerName },
       collector,
       signal,
     );

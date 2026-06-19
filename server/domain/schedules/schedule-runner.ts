@@ -138,6 +138,10 @@ export class ScheduleRunner {
             dispatcher,
             createSession,
             approvals,
+            providers: {
+              isAvailable: (name: string) => this.deps.providers!.get(name) !== null,
+              defaultName: () => this.deps.providers!.defaultName(),
+            },
           },
           { swarmId, input },
           rec.sse, ctrl.signal,
