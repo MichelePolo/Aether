@@ -209,7 +209,7 @@ export class DispatchService {
     }
     const decision: 'approve' | 'reject' = mode === 'auto'
       ? 'approve'
-      : await (this.deps.mcpRegistry?.awaitDecision(fnCall.callId, 60_000) ?? Promise.resolve('reject' as const))
+      : await (this.deps.mcpRegistry?.awaitDecision(fnCall.callId) ?? Promise.resolve('reject' as const))
           .catch(() => 'reject' as const);
 
     const t0 = performance.now();

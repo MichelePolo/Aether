@@ -214,7 +214,8 @@ export class McpRegistry {
     }
   }
 
-  awaitDecision(callId: string, timeoutMs = 60_000): Promise<'approve' | 'reject'> {
+  // 24h — give the user effectively unlimited time to approve/reject a gated tool call.
+  awaitDecision(callId: string, timeoutMs = 24 * 60 * 60 * 1000): Promise<'approve' | 'reject'> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.decisions.delete(callId);
