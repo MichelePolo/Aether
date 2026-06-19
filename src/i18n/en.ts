@@ -160,6 +160,12 @@ export const messages = {
       save: 'Save',
     },
   },
+  swarms: {
+    stepModelInherit: 'Inherit',
+    stepModelUnavailable: '{name} (unavailable)',
+    stepModelTitle: 'Model for this step',
+    stepWarning: 'Requested {requested}, ran on {used}',
+  },
   skills: {
     heading: 'Skills',
     materialBadge: 'material',

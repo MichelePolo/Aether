@@ -30,6 +30,11 @@ export function SwarmRunPanel({ swarmId }: { swarmId: string }) {
               {st.position + 1}. {st.subAgent} — {st.status}
             </div>
             {st.output && <pre className="mt-1 whitespace-pre-wrap text-xs text-zinc-300">{st.output}</pre>}
+            {st.warning && (
+              <div className="text-[11px] text-amber-400">
+                Requested {st.warning.requested ?? '—'}, ran on {st.warning.used ?? 'default'}
+              </div>
+            )}
           </li>
         ))}
       </ol>
