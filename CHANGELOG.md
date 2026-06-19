@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.10](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.9...aether-core-v0.1.10) (2026-06-19)
+
+
+### Features
+
+* **dispatch:** inject # availableWorkspaces block and document multi-workspace model ([#80](https://github.com/MichelePolo/Aether/issues/80)) ([31e70ea](https://github.com/MichelePolo/Aether/commit/31e70ea86fb5b3667edda157f9eac7b35831093d))
+
 ## [0.1.9](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.8...aether-core-v0.1.9) (2026-06-19)
 
 
