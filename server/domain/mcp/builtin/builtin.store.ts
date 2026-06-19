@@ -59,7 +59,10 @@ function resolveAetherGitArgs(): string[] {
 }
 
 export class BuiltinMcpStore {
-  constructor(private readonly db: DatabaseHandle) {}
+  constructor(
+    private readonly db: DatabaseHandle,
+    private readonly libraryDir?: string,
+  ) {}
 
   read(): BuiltinMcpState[] {
     const rows = this.db
@@ -88,12 +91,16 @@ export class BuiltinMcpStore {
     const rows = this.read().filter((r) => r.enabled);
     return rows.map((r) => {
       if (r.transport === 'filesystem') {
+        const primaryRoot = r.fsRoot ?? defaultCwd;
+        const allowed = this.libraryDir && this.libraryDir !== primaryRoot
+          ? [primaryRoot, this.libraryDir]
+          : [primaryRoot];
         return {
           id: 'builtin:filesystem',
           name: 'Filesystem',
           transport: 'stdio',
           command: process.execPath,
-          args: [resolveFilesystemServerEntry(), r.fsRoot ?? defaultCwd],
+          args: [resolveFilesystemServerEntry(), ...allowed],
           env: {},
           status: 'offline',
         } as McpServerConfig;

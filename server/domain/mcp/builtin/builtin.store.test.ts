@@ -115,3 +115,34 @@ describe('BuiltinMcpStore — git transport (slice 28)', () => {
     expect(args[args.length - 1]).toBe('/tmp/work');
   });
 });
+
+describe('BuiltinMcpStore — libraryDir on filesystem transport', () => {
+  it('includes libraryDir as an additional allowed dir when it differs from fsRoot', () => {
+    const storeWithLib = new BuiltinMcpStore(db, '/lib');
+    storeWithLib.setEnabled('filesystem', true);
+    const configs = storeWithLib.toConfigs('/cwd');
+    const fs = configs.find((c) => c.id === 'builtin:filesystem')!;
+    expect(fs).toBeDefined();
+    expect(fs.args).toContain('/cwd');
+    expect(fs.args).toContain('/lib');
+  });
+
+  it('does not duplicate libraryDir when it equals the primary root', () => {
+    const storeWithLib = new BuiltinMcpStore(db, '/cwd');
+    storeWithLib.setEnabled('filesystem', true);
+    const configs = storeWithLib.toConfigs('/cwd');
+    const fs = configs.find((c) => c.id === 'builtin:filesystem')!;
+    const allowedDirs = (fs.args ?? []).filter((a) => a === '/cwd');
+    expect(allowedDirs).toHaveLength(1);
+  });
+
+  it('does not add an extra dir when constructed without libraryDir', () => {
+    const storeNoLib = new BuiltinMcpStore(db);
+    storeNoLib.setEnabled('filesystem', true);
+    const configs = storeNoLib.toConfigs('/cwd');
+    const fs = configs.find((c) => c.id === 'builtin:filesystem')!;
+    // args = [entryPoint, '/cwd'] — exactly 2 elements
+    expect(fs.args).toHaveLength(2);
+    expect(fs.args![1]).toBe('/cwd');
+  });
+});

@@ -76,7 +76,7 @@ async function bootstrap() {
   await seedSkillSmith(subAgentsStore);
   const searchService = new SearchService(db);
 
-  const builtinStore = new BuiltinMcpStore(db);
+  const builtinStore = new BuiltinMcpStore(db, cfg.libraryDir);
   const mcpRegistry = new McpRegistry(contextStore, builtinStore);
 
   const policyStore = new BreakpointPolicyStore(db);
