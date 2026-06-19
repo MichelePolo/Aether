@@ -75,19 +75,49 @@ function withSkillsBlock(
 
 const RUNTIME_HEADER = '# Runtime';
 const PROJECT_MEMORY_HEADER = '# Project memory (ETERE.md)';
+const AVAILABLE_WORKSPACES_HEADER = '# availableWorkspaces';
 
 /**
- * Append a `# Runtime` facts block and/or a `# Project memory (ETERE.md)` block
- * to a system instruction. Each block is omitted when its string is empty/absent.
- * Pure string composition — the caller supplies already-read/built content.
+ * Render the body of the `# availableWorkspaces` block: one absolute path per
+ * line, the active workspace listed first and tagged `-> current` so the model
+ * is never ambiguous about which root it operates in. Pure formatting — the
+ * caller supplies the registered roots and the resolved current root.
+ *
+ * @param allPaths  Registered workspace root paths, in their natural order.
+ * @param currentPath  The active session's root, or null when none is selected.
+ *   When set it is always first (even if it is not among `allPaths`, e.g. a
+ *   filesystem-root fallback). Returns '' when there is nothing to list.
+ */
+export function formatAvailableWorkspaces(allPaths: string[], currentPath: string | null): string {
+  // Current first (deduped against the rest), then the remaining roots in order.
+  const ordered = currentPath ? [currentPath, ...allPaths] : [...allPaths];
+  const seen = new Set<string>();
+  const lines: string[] = [];
+  for (const p of ordered) {
+    if (seen.has(p)) continue;
+    seen.add(p);
+    lines.push(p === currentPath ? `- ${p} -> current` : `- ${p}`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Append a `# Runtime` facts block, a `# availableWorkspaces` block, and/or a
+ * `# Project memory (ETERE.md)` block to a system instruction. Each block is
+ * omitted when its string is empty/absent. Pure string composition — the caller
+ * supplies already-read/built content.
  */
 export function withRuntimeContext(
   systemInstruction: string,
   runtimeFacts?: string,
   projectMemory?: string,
+  availableWorkspaces?: string,
 ): string {
   const parts = [systemInstruction.trim()];
   if (runtimeFacts && runtimeFacts.trim()) parts.push(`${RUNTIME_HEADER}\n${runtimeFacts.trim()}`);
+  if (availableWorkspaces && availableWorkspaces.trim()) {
+    parts.push(`${AVAILABLE_WORKSPACES_HEADER}\n${availableWorkspaces.trim()}`);
+  }
   if (projectMemory && projectMemory.trim()) {
     parts.push(`${PROJECT_MEMORY_HEADER}\n${projectMemory.trim()}`);
   }
@@ -103,13 +133,14 @@ export function assemble(
   materialSkills: PromptMaterialSkill[] = [],
   runtimeFacts?: string,
   projectMemory?: string,
+  availableWorkspaces?: string,
 ): AssembledPrompt {
   const materialNames = materialSkills.map((m) => m.name);
   if (!subAgent) {
     const labels = activeSkillNames(ctx.skills);
     return {
       systemInstruction: withSkillsBlock(
-        withRuntimeContext(ctx.systemInstruction, runtimeFacts, projectMemory),
+        withRuntimeContext(ctx.systemInstruction, runtimeFacts, projectMemory, availableWorkspaces),
         labels,
         materialSkills,
       ),
@@ -131,7 +162,7 @@ export function assemble(
   const tools = dedupToolsById([...ctx.tools, ...subAgent.tools]);
   return {
     systemInstruction: withSkillsBlock(
-      withRuntimeContext(baseSys, runtimeFacts, projectMemory),
+      withRuntimeContext(baseSys, runtimeFacts, projectMemory, availableWorkspaces),
       labels,
       materialSkills,
     ),

@@ -459,6 +459,40 @@ describe('DispatchService', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
+  it('injects # availableWorkspaces with the session workspace marked current', async () => {
+    const provider = new FakeProvider({ chunks: ['pong'], model: 'fake-1' });
+    const db = makeTestDb();
+    const wsId = 'ws-aw-1';
+    db.prepare('INSERT INTO workspaces (id, name, root_path, added_at) VALUES (?, ?, ?, ?)').run(wsId, 'cur', '/proj/current', Date.now());
+    db.prepare('INSERT INTO workspaces (id, name, root_path, added_at) VALUES (?, ?, ?, ?)').run('ws-aw-2', 'other', '/proj/other', Date.now() + 1);
+    const historyStore = new HistoryStore(db);
+    const contextStore = new ContextStore(db);
+    const providers = await buildSingleProviderRegistry(provider);
+    const projectRootFor = (wId: string | undefined) => (wId === wsId ? '/proj/current' : null);
+    const listWorkspaceRoots = () => ['/proj/current', '/proj/other'];
+    const service = new DispatchService({
+      providers, historyStore, contextStore, projectRootFor, listWorkspaceRoots,
+    });
+    const session = await historyStore.createEmpty({ workspaceId: wsId });
+
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle(
+      { sessionId: session.id, message: 'ping', aetherMode: true },
+      emitter,
+      new AbortController().signal,
+    );
+
+    const promptEvent = events.find(
+      (e) => e.event === 'reasoning_step' && (e.data as { type: string }).type === 'assembled_prompt',
+    );
+    const prompt = (promptEvent?.data as { content?: string })?.content ?? '';
+    expect(prompt).toContain('# availableWorkspaces');
+    expect(prompt).toContain('- /proj/current -> current');
+    expect(prompt).toContain('- /proj/other');
+    // The current workspace must come first.
+    expect(prompt.indexOf('/proj/current')).toBeLessThan(prompt.indexOf('/proj/other'));
+  });
+
   it('omits project memory when the session has no workspace', async () => {
     const provider = new FakeProvider({ chunks: ['pong'], model: 'fake-1' });
     const db = makeTestDb();

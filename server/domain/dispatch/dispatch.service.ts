@@ -15,7 +15,7 @@ import { ReasoningTracer } from '@/server/domain/reasoning/reasoning.tracer';
 import type { SubAgentsStore } from '@/server/domain/subagents/subagents.store';
 import type { SubAgentRecord } from '@/server/domain/subagents/subagents.types';
 import { parseLeadingMention } from './subagent-parser';
-import { assemble, withRuntimeContext } from './prompt-assembler';
+import { assemble, withRuntimeContext, formatAvailableWorkspaces } from './prompt-assembler';
 import { readProjectMemory } from './project-memory';
 import { formatAssembledPromptContent } from './assembled-prompt-step';
 import type { McpRegistry } from '@/server/domain/mcp/registry';
@@ -92,8 +92,13 @@ export interface DispatchServiceDeps {
   mcpRegistry?: McpRegistry;
   breakpointService?: BreakpointService;
   skillsService?: { getActiveForPrompt(): import('@/server/domain/skills/skills.types').PromptMaterialSkill[] };
-  /** Resolve the project root for a session's workspace; null → no project memory. */
+  /** Resolve the project root for a session's workspace; null → no project memory.
+   *  The resolved root is also the one tagged `-> current` in the
+   *  `# availableWorkspaces` prompt block. */
   projectRootFor?: (workspaceId: string | undefined) => string | null;
+  /** List every registered workspace root path, for the `# availableWorkspaces`
+   *  prompt block. Absent → the block is omitted. */
+  listWorkspaceRoots?: () => string[];
   /** Max MCP tool calls executed in a single dispatch before further calls are
    *  rejected with a cap error. Defaults to {@link DEFAULT_MAX_TOOL_CALLS_PER_DISPATCH}. */
   maxToolCallsPerDispatch?: number;
@@ -137,6 +142,15 @@ export class DispatchService {
 
   private buildRuntimeFacts(providerName: string): string {
     return `Current time (UTC): ${new Date().toISOString()}\nActive model: ${providerName}`;
+  }
+
+  /** Body of the `# availableWorkspaces` block: every registered workspace root,
+   *  the active one (`currentRoot`) listed first and tagged `-> current`. Empty
+   *  string when nothing is registered and there is no current root, which omits
+   *  the block downstream. */
+  private buildAvailableWorkspaces(currentRoot: string | null): string {
+    const roots = this.deps.listWorkspaceRoots?.() ?? [];
+    return formatAvailableWorkspaces(roots, currentRoot);
   }
 
   private async executeToolCall(
@@ -483,13 +497,13 @@ export class DispatchService {
     // Inline text attachments as fenced code blocks into the user message.
     const effectiveStripped = inlineTextAttachments(mention.stripped, textAtts);
     const materialSkills = this.deps.skillsService?.getActiveForPrompt() ?? [];
-    const projectMemory = readProjectMemory(
-      this.deps.projectRootFor?.(sessionRecord?.workspaceId) ?? null,
-    ) ?? undefined;
+    const currentRoot = this.deps.projectRootFor?.(sessionRecord?.workspaceId) ?? null;
+    const projectMemory = readProjectMemory(currentRoot) ?? undefined;
     const runtimeFacts = this.buildRuntimeFacts(providerName);
+    const availableWorkspaces = this.buildAvailableWorkspaces(currentRoot);
     const assembled = assemble(
       context, matchedSubAgent, effectiveStripped, mention.name,
-      mcpToolDecls, materialSkills, runtimeFacts, projectMemory,
+      mcpToolDecls, materialSkills, runtimeFacts, projectMemory, availableWorkspaces,
     );
 
     if (aetherMode) {
@@ -694,10 +708,12 @@ export class DispatchService {
       schema: t.tool.inputSchema,
     }));
 
+    const resumeCurrentRoot = this.deps.projectRootFor?.(sessionRecord.workspaceId) ?? null;
     const resumeSystemInstruction = withRuntimeContext(
       context.systemInstruction,
       this.buildRuntimeFacts(providerName),
-      readProjectMemory(this.deps.projectRootFor?.(sessionRecord.workspaceId) ?? null) ?? undefined,
+      readProjectMemory(resumeCurrentRoot) ?? undefined,
+      this.buildAvailableWorkspaces(resumeCurrentRoot),
     );
 
     if (opts.aetherMode) {
