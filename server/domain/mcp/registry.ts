@@ -17,6 +17,11 @@ import { HttpMcpConnection } from './http-connection';
 const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 16000];
 const MAX_RECONNECT_ATTEMPTS = RECONNECT_DELAYS_MS.length;
 
+function poolMax(): number {
+  const n = parseInt(process.env.AETHER_BUILTIN_POOL_MAX ?? '', 10);
+  return Number.isFinite(n) && n > 0 ? n : 8;
+}
+
 interface LiveEntry {
   connection: McpConnection;
   serverName: string;
@@ -42,6 +47,8 @@ export class McpRegistry {
     { resolve: (v: 'approve' | 'reject') => void; timer: NodeJS.Timeout }
   >();
   private reconnectAborters = new Map<string, AbortController>();
+  /** Normalized roots with live builtin instances, most-recently-used last. */
+  private rootedLru: string[] = [];
 
   constructor(
     private readonly contextStore: ContextStore,
@@ -88,6 +95,29 @@ export class McpRegistry {
         error: e instanceof Error ? e.message : 'connect failed',
       });
       throw e;
+    }
+  }
+
+  /**
+   * Ensure the rooted filesystem/git builtin instances for `root` are live.
+   * `root` must already be normalized (see normalizeRoot). Touches LRU and
+   * closes the least-recently-used root's instances when over the pool cap.
+   */
+  async ensureRootedBuiltins(root: string): Promise<void> {
+    if (!this.builtinStore) return;
+    for (const cfg of this.builtinStore.rootedConfigs(root)) {
+      if (!this.live.has(cfg.id)) {
+        await this.connectFromConfig(cfg).catch(() => {
+          /* a failed root instance surfaces as an offline tool, not a crash */
+        });
+      }
+    }
+    this.rootedLru = this.rootedLru.filter((r) => r !== root);
+    this.rootedLru.push(root);
+    while (this.rootedLru.length > poolMax()) {
+      const evict = this.rootedLru.shift()!;
+      await this.disconnect(`builtin:filesystem@${evict}`);
+      await this.disconnect(`builtin:git@${evict}`);
     }
   }
 

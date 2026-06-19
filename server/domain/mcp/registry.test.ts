@@ -157,6 +157,18 @@ function withMockTransport(store: BuiltinMcpStore): BuiltinMcpStore {
   return store;
 }
 
+// ---------------------------------------------------------------------------
+// Helper: override rootedConfigs to return mock transport configs so no real
+// subprocesses are spawned when ensureRootedBuiltins is called.
+// ---------------------------------------------------------------------------
+function withMockRootedTransport(store: BuiltinMcpStore): BuiltinMcpStore {
+  store.rootedConfigs = (root: string) => [
+    { id: `builtin:filesystem@${root}`, name: 'Filesystem', transport: 'mock' as const, status: 'offline' },
+    { id: `builtin:git@${root}`, name: 'Git', transport: 'mock' as const, status: 'offline' },
+  ];
+  return store;
+}
+
 describe('McpRegistry — built-ins', () => {
   it('startBuiltin connects an enabled built-in via toConfigs', async () => {
     const db = makeTestDb();
@@ -220,6 +232,51 @@ describe('McpRegistry — built-ins', () => {
       }
     } finally {
       db.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ensureRootedBuiltins — LRU-capped pool of per-root builtin instances
+// ---------------------------------------------------------------------------
+describe('McpRegistry — ensureRootedBuiltins', () => {
+  it('pools one instance set per distinct root (idempotent)', async () => {
+    const db = makeTestDb();
+    try {
+      const builtinStore = withMockRootedTransport(new BuiltinMcpStore(db));
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx, builtinStore);
+
+      await reg.ensureRootedBuiltins('/work-a');
+      await reg.ensureRootedBuiltins('/work-a'); // idempotent
+      await reg.ensureRootedBuiltins('/work-b');
+
+      expect(reg.stateOf('builtin:filesystem@/work-a').state).toBe('online');
+      expect(reg.stateOf('builtin:filesystem@/work-b').state).toBe('online');
+    } finally {
+      db.close();
+    }
+  });
+
+  it('evicts the least-recently-used root set when over the cap', async () => {
+    vi.stubEnv('AETHER_BUILTIN_POOL_MAX', '2');
+    const db = makeTestDb();
+    try {
+      const builtinStore = withMockRootedTransport(new BuiltinMcpStore(db));
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx, builtinStore);
+
+      await reg.ensureRootedBuiltins('/r1');
+      await reg.ensureRootedBuiltins('/r2');
+      await reg.ensureRootedBuiltins('/r1'); // touch r1 -> r2 is now LRU
+      await reg.ensureRootedBuiltins('/r3'); // over cap -> evict r2
+
+      expect(reg.stateOf('builtin:filesystem@/r2').state).toBe('offline');
+      expect(reg.stateOf('builtin:filesystem@/r1').state).toBe('online');
+      expect(reg.stateOf('builtin:filesystem@/r3').state).toBe('online');
+    } finally {
+      db.close();
+      vi.unstubAllEnvs();
     }
   });
 });
