@@ -179,7 +179,7 @@ export function createApp(
   if (deps.swarmStore && deps.swarmApprovals && deps.swarmOrchestratorDeps) {
     app.use(
       '/api/swarms',
-      createSwarmRoutes(deps.swarmStore, deps.swarmOrchestratorDeps, deps.swarmApprovals),
+      createSwarmRoutes(deps.swarmStore, deps.swarmOrchestratorDeps, deps.swarmApprovals, deps.workspacesStore),
     );
   }
 

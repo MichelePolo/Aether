@@ -10,6 +10,7 @@ import {
 import type { SwarmStore } from '@/server/domain/swarms/swarm.store';
 import type { SwarmApprovalRegistry } from '@/server/domain/swarms/swarm.approval';
 import { runSwarm, type SwarmOrchestratorDeps } from '@/server/domain/swarms/swarm.orchestrator';
+import type { WorkspacesStore } from '@/server/domain/workspaces/workspaces.store';
 
 function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -17,10 +18,23 @@ function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => P
   };
 }
 
+function validateWorkspaceIds(
+  workspacesStore: WorkspacesStore | undefined,
+  ids: Array<string | undefined>,
+): void {
+  if (!workspacesStore) return;
+  for (const id of ids) {
+    if (id && !workspacesStore.get(id)) {
+      throw new ValidationError(`Unknown workspaceId: ${id}`);
+    }
+  }
+}
+
 export function createSwarmRoutes(
   store: SwarmStore,
   orchestratorDeps: SwarmOrchestratorDeps,
   approvals: SwarmApprovalRegistry,
+  workspacesStore?: WorkspacesStore,
 ): Router {
   const router = Router();
 
@@ -31,6 +45,10 @@ export function createSwarmRoutes(
   router.post('/', asyncHandler(async (req, res) => {
     const parsed = SwarmCreateInputSchema.safeParse(req.body);
     if (!parsed.success) throw new ValidationError('Invalid swarm payload', parsed.error);
+    validateWorkspaceIds(workspacesStore, [
+      parsed.data.workspaceId,
+      ...parsed.data.steps.map((s) => s.workspaceId),
+    ]);
     res.status(201).json(await store.create(parsed.data));
   }));
 
@@ -55,6 +73,10 @@ export function createSwarmRoutes(
   router.put('/:id', asyncHandler(async (req, res) => {
     const parsed = SwarmUpdateInputSchema.safeParse(req.body);
     if (!parsed.success) throw new ValidationError('Invalid swarm body', parsed.error);
+    validateWorkspaceIds(workspacesStore, [
+      parsed.data.workspaceId,
+      ...(parsed.data.steps ?? []).map((s) => s.workspaceId),
+    ]);
     res.json(await store.update(req.params.id, parsed.data));
   }));
 
