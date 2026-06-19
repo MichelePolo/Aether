@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.9](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.8...aether-core-v0.1.9) (2026-06-19)
+
+
+### Features
+
+* **swarms:** per-step / per-sub-agent LLM selection ([#79](https://github.com/MichelePolo/Aether/issues/79)) ([50a64d7](https://github.com/MichelePolo/Aether/commit/50a64d7144651bc860dff64cacb1448520ed338d))
+
 ## [0.1.8](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.7...aether-core-v0.1.8) (2026-06-18)
 
 
