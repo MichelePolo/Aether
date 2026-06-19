@@ -47,4 +47,17 @@ describe('SwarmStore', () => {
     await store.delete(meta.id);
     expect(await store.read(meta.id)).toBeNull();
   });
+
+  it('round-trips a step providerName, omitting it when unset', async () => {
+    const meta = await store.create({
+      name: 'mixed',
+      steps: [
+        { subAgentName: 'architect', promptTemplate: '', pauseAfter: false, providerName: 'anthropic:claude-opus-4-7' },
+        { subAgentName: 'coder', promptTemplate: '', pauseAfter: false },
+      ],
+    });
+    const rec = await store.read(meta.id);
+    expect(rec?.steps[0].providerName).toBe('anthropic:claude-opus-4-7');
+    expect(rec?.steps[1].providerName).toBeUndefined();
+  });
 });

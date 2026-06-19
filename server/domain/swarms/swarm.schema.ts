@@ -4,6 +4,7 @@ export const SwarmStepSchema = z.object({
   subAgentName: z.string().min(1).max(80),
   promptTemplate: z.string().max(8000).default(''),
   pauseAfter: z.boolean().default(false),
+  providerName: z.string().max(120).optional(),
 });
 
 export const SwarmCreateInputSchema = z.object({
