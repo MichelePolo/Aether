@@ -16,6 +16,8 @@ const ModeBody = z.object({ mode: z.enum(['auto', 'gate']) });
 const PreviewBody = z.object({
   qualifiedName: z.string().min(1),
   args: z.record(z.string(), z.unknown()),
+  /** Optional effective workspace root; when present, overrides the service's injected gitRoot(). */
+  root: z.string().optional(),
 });
 
 export interface BreakpointsRoutesDeps {

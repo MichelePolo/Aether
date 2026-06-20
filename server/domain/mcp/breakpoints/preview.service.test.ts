@@ -151,6 +151,46 @@ describe('PreviewService — git diff (slice 28)', () => {
   });
 });
 
+describe('PreviewService — explicit root overrides injected gitRoot (task 8)', () => {
+  it('git_commit preview uses supplied root instead of injected gitRoot()', async () => {
+    const defaultRepo = mkdtempSync(join(tmpdir(), 'aether-default-'));
+    const workRepo = mkdtempSync(join(tmpdir(), 'aether-work-'));
+    try {
+      // Set up workRepo as a real git repo with a staged change
+      const ENV_LOCAL = {
+        GIT_AUTHOR_NAME: 'T',
+        GIT_AUTHOR_EMAIL: 't@a.dev',
+        GIT_COMMITTER_NAME: 'T',
+        GIT_COMMITTER_EMAIL: 't@a.dev',
+      };
+      execFileSync('git', ['init', '-q'], { cwd: workRepo, stdio: 'pipe', env: { ...process.env, ...ENV_LOCAL } });
+      writeFileSync(join(workRepo, 'x.txt'), 'A\n');
+      execFileSync('git', ['add', '.'], { cwd: workRepo, stdio: 'pipe', env: { ...process.env, ...ENV_LOCAL } });
+      execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: workRepo, stdio: 'pipe', env: { ...process.env, ...ENV_LOCAL } });
+      writeFileSync(join(workRepo, 'x.txt'), 'B\n');
+      execFileSync('git', ['add', '.'], { cwd: workRepo, stdio: 'pipe', env: { ...process.env, ...ENV_LOCAL } });
+
+      // Construct preview with injected gitRoot pointing to defaultRepo (no staged changes there),
+      // but invoke with explicit root = workRepo (has staged changes with content 'B').
+      const svc = new PreviewService({ safeRoots: () => [], gitRoot: () => defaultRepo });
+      const r = await svc.previewToolCall({
+        qualifiedName: 'Git.git_commit',
+        args: { message: 'wip' },
+        root: workRepo,
+      });
+      // If the supplied root is used → gitDiff contains the staged change (A→B in workRepo).
+      // If the injected gitRoot() were used → gitDiff would be empty (no staged changes in defaultRepo).
+      expect(r.kind).toBe('gitDiff');
+      if (r.kind === 'gitDiff') {
+        expect(r.unified).toMatch(/B/); // staged content from workRepo, not present in defaultRepo
+      }
+    } finally {
+      rmSync(defaultRepo, { recursive: true, force: true });
+      rmSync(workRepo, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('PreviewService — commitList for remote (slice 29)', () => {
   function repoWithOutgoing(): string {
     const bare = mkdtempSync(join(tmpdir(), 'aether-pbare-'));

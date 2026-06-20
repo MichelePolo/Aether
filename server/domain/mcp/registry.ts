@@ -17,6 +17,11 @@ import { HttpMcpConnection } from './http-connection';
 const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 16000];
 const MAX_RECONNECT_ATTEMPTS = RECONNECT_DELAYS_MS.length;
 
+function poolMax(): number {
+  const n = parseInt(process.env.AETHER_BUILTIN_POOL_MAX ?? '', 10);
+  return Number.isFinite(n) && n > 0 ? n : 8;
+}
+
 interface LiveEntry {
   connection: McpConnection;
   serverName: string;
@@ -42,6 +47,8 @@ export class McpRegistry {
     { resolve: (v: 'approve' | 'reject') => void; timer: NodeJS.Timeout }
   >();
   private reconnectAborters = new Map<string, AbortController>();
+  /** Normalized roots with live builtin instances, most-recently-used last. */
+  private rootedLru: string[] = [];
 
   constructor(
     private readonly contextStore: ContextStore,
@@ -91,6 +98,29 @@ export class McpRegistry {
     }
   }
 
+  /**
+   * Ensure the rooted filesystem/git builtin instances for `root` are live.
+   * `root` must already be normalized (see normalizeRoot). Touches LRU and
+   * closes the least-recently-used root's instances when over the pool cap.
+   */
+  async ensureRootedBuiltins(root: string): Promise<void> {
+    if (!this.builtinStore) return;
+    for (const cfg of this.builtinStore.rootedConfigs(root)) {
+      if (!this.live.has(cfg.id)) {
+        await this.connectFromConfig(cfg).catch(() => {
+          /* a failed root instance surfaces as an offline tool, not a crash */
+        });
+      }
+    }
+    this.rootedLru = this.rootedLru.filter((r) => r !== root);
+    this.rootedLru.push(root);
+    while (this.rootedLru.length > poolMax()) {
+      const evict = this.rootedLru.shift()!;
+      await this.disconnect(`builtin:filesystem@${evict}`);
+      await this.disconnect(`builtin:git@${evict}`);
+    }
+  }
+
   async startBuiltin(transport: BuiltinTransport): Promise<void> {
     if (!this.builtinStore) throw new Error('Built-in MCP store not configured');
     const id = `builtin:${transport}`;
@@ -111,6 +141,17 @@ export class McpRegistry {
     await this.startBuiltin(transport);
   }
 
+  /** Drop all rooted builtin instances so the next dispatch re-spawns them with
+   *  current config (used when the default fsRoot changes). */
+  async invalidateRootedBuiltins(): Promise<void> {
+    const roots = [...this.rootedLru];
+    this.rootedLru = [];
+    for (const r of roots) {
+      await this.disconnect(`builtin:filesystem@${r}`);
+      await this.disconnect(`builtin:git@${r}`);
+    }
+  }
+
   async disconnect(id: string): Promise<void> {
     const aborter = this.reconnectAborters.get(id);
     if (aborter) {
@@ -125,9 +166,18 @@ export class McpRegistry {
     this.states.set(id, { state: 'offline' });
   }
 
-  listLiveTools(): LiveTool[] {
+  listLiveTools(root?: string): LiveTool[] {
     const out: LiveTool[] = [];
+    const fsId = root ? `builtin:filesystem@${root}` : null;
+    const gitId = root ? `builtin:git@${root}` : null;
     for (const entry of this.live.values()) {
+      const id = entry.serverId;
+      // Skip any filesystem/git builtin id — whether rooted (builtin:filesystem@<root>)
+      // or bare global (builtin:filesystem) — that is not the requested root's instance.
+      // This prevents duplicate Filesystem.*/Git.* tool declarations when a stray global
+      // instance coexists with the correct per-root one.
+      const isFsOrGit = id.startsWith('builtin:filesystem') || id.startsWith('builtin:git');
+      if (isFsOrGit && id !== fsId && id !== gitId) continue;
       for (const tool of entry.tools) {
         const policy = this.resolvePolicy(entry, tool.name);
         out.push({
@@ -155,20 +205,28 @@ export class McpRegistry {
   }
 
   /** All live tools from all connected servers (including built-ins) — used by dispatch layer. */
-  getAvailableTools(): LiveTool[] {
-    return this.listLiveTools();
+  getAvailableTools(root?: string): LiveTool[] {
+    return this.listLiveTools(root);
   }
 
   async callTool(
     qualifiedName: string,
     args: Record<string, unknown>,
-    opts?: CallToolOpts,
+    opts?: { root?: string } & CallToolOpts,
   ): Promise<McpToolResult> {
     const sep = qualifiedName.indexOf('.');
     if (sep < 0) return { ok: false, error: `Invalid qualified name '${qualifiedName}'` };
     const serverName = qualifiedName.slice(0, sep);
     const toolName = qualifiedName.slice(sep + 1);
-    const entry = [...this.live.values()].find((e) => e.serverName === serverName);
+    let entry: LiveEntry | undefined;
+    if (opts?.root && (serverName === 'Filesystem' || serverName === 'Git')) {
+      const id = serverName === 'Filesystem'
+        ? `builtin:filesystem@${opts.root}`
+        : `builtin:git@${opts.root}`;
+      entry = this.live.get(id);
+    } else {
+      entry = [...this.live.values()].find((e) => e.serverName === serverName);
+    }
     if (!entry) return { ok: false, error: `Server '${serverName}' is offline` };
     return entry.connection.callTool(toolName, args, opts);
   }
@@ -319,6 +377,17 @@ export class McpRegistry {
         error: 'Reconnect failed after 5 attempts',
       });
     }
+  }
+
+  /** Test-only helper: directly inserts a live entry without going through makeConnection. */
+  __injectLiveForTest(
+    id: string,
+    serverName: string,
+    connection: McpConnection,
+    tools: McpTool[],
+  ): void {
+    this.live.set(id, { connection, serverName, serverId: id, tools, policies: {} });
+    this.states.set(id, { state: 'online' });
   }
 
   /** Test-only helper: bypasses the first-attempt delay and drives the reconnect loop. */

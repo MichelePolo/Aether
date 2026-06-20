@@ -70,6 +70,7 @@ These are the environment variables the code actually reads:
 | --- | --- | --- |
 | `PORT` | HTTP port for the server | `3000` |
 | `AETHER_DATA_DIR` | Directory for the SQLite database | `./data` |
+| `AETHER_LIBRARY_DIR` | Directory for skills (and future agents) | OS app-data dir |
 | `GEMINI_API_KEY` | Enable the Gemini provider | — |
 | `ANTHROPIC_API_KEY` | Enable Anthropic/Claude (Claude CLI OAuth is also auto-detected) | — |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Anthropic OAuth/Teams without an API key — generate via `claude setup-token`; passed explicitly to the spawned agent so dispatch authenticates under isolation | — |

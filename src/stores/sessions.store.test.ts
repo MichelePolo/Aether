@@ -1,9 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/src/test/msw-server';
 import { useSessionsStore } from './sessions.store';
 import { useChatStore } from './chat.store';
-import { workspacesApi } from '@/src/lib/api/workspaces.api';
 
 beforeEach(() => {
   useSessionsStore.getState()._reset();
@@ -535,8 +534,7 @@ describe('useSessionsStore edge cases', () => {
 describe('useSessionsStore — workspaces (slice 23)', () => {
   beforeEach(() => useSessionsStore.getState()._reset?.());
 
-  it('setSessionWorkspace PATCHes then calls activateForSession', async () => {
-    const spy = vi.spyOn(workspacesApi, 'activateForSession').mockResolvedValue({ rooted: '/x' });
+  it('setSessionWorkspace PATCHes and updates local state without calling activateForSession', async () => {
     server.use(
       http.patch('http://localhost/api/sessions/s1', () =>
         HttpResponse.json({ id: 's1', title: 't', createdAt: 0, updatedAt: 1 }),
@@ -548,12 +546,9 @@ describe('useSessionsStore — workspaces (slice 23)', () => {
     } as Partial<ReturnType<typeof useSessionsStore.getState>>);
     await useSessionsStore.getState().setSessionWorkspace('s1', 'w1');
     expect(useSessionsStore.getState().sessions[0].workspaceId).toBe('w1');
-    expect(spy).toHaveBeenCalledWith('s1');
-    spy.mockRestore();
   });
 
-  it('setActive calls workspacesApi.activateForSession (non-fatal on error)', async () => {
-    const spy = vi.spyOn(workspacesApi, 'activateForSession').mockRejectedValue(new Error('nope'));
+  it('setActive switches the active session without calling activateForSession', async () => {
     server.use(
       http.get('http://localhost/api/sessions/s2', () => HttpResponse.json({ messages: [] })),
     );
@@ -567,8 +562,6 @@ describe('useSessionsStore — workspaces (slice 23)', () => {
     useSessionsStore.getState().setActive('s2');
     await Promise.resolve();
     await Promise.resolve();
-    expect(spy).toHaveBeenCalledWith('s2');
     expect(useSessionsStore.getState().activeSessionId).toBe('s2');
-    spy.mockRestore();
   });
 });

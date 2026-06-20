@@ -157,6 +157,46 @@ function withMockTransport(store: BuiltinMcpStore): BuiltinMcpStore {
   return store;
 }
 
+// ---------------------------------------------------------------------------
+// Helper: override rootedConfigs to return mock transport configs so no real
+// subprocesses are spawned when ensureRootedBuiltins is called.
+// ---------------------------------------------------------------------------
+function withMockRootedTransport(store: BuiltinMcpStore): BuiltinMcpStore {
+  store.rootedConfigs = (root: string) => [
+    { id: `builtin:filesystem@${root}`, name: 'Filesystem', transport: 'mock' as const, status: 'offline' },
+    { id: `builtin:git@${root}`, name: 'Git', transport: 'mock' as const, status: 'offline' },
+  ];
+  return store;
+}
+
+// ---------------------------------------------------------------------------
+// Helper: inject always-ok mock connections for rooted builtins directly
+// into the registry (bypasses makeConnection so unknown tool names return ok).
+// ---------------------------------------------------------------------------
+import type { McpConnection } from './connection.types';
+import type { McpTool, McpToolResult } from './mcp.types';
+
+class AlwaysOkConnection implements McpConnection {
+  readonly defaultAutoApprove = true;
+  async initialize(): Promise<void> { /* no-op */ }
+  async listTools(): Promise<McpTool[]> {
+    return [{ name: 'list_directory', description: 'mock', inputSchema: { type: 'object', properties: {} } }];
+  }
+  async callTool(_name: string, _args: Record<string, unknown>): Promise<McpToolResult> {
+    return { ok: true, output: {} };
+  }
+  async close(): Promise<void> { /* no-op */ }
+}
+
+function withAlwaysOkRootedBuiltins(reg: McpRegistry, root: string): void {
+  const fsConn = new AlwaysOkConnection();
+  const gitConn = new AlwaysOkConnection();
+  const fsTool: McpTool = { name: 'list_directory', description: 'mock', inputSchema: { type: 'object', properties: {} } };
+  const gitTool: McpTool = { name: 'status', description: 'mock', inputSchema: { type: 'object', properties: {} } };
+  reg.__injectLiveForTest(`builtin:filesystem@${root}`, 'Filesystem', fsConn, [fsTool]);
+  reg.__injectLiveForTest(`builtin:git@${root}`, 'Git', gitConn, [gitTool]);
+}
+
 describe('McpRegistry — built-ins', () => {
   it('startBuiltin connects an enabled built-in via toConfigs', async () => {
     const db = makeTestDb();
@@ -220,6 +260,181 @@ describe('McpRegistry — built-ins', () => {
       }
     } finally {
       db.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// listLiveTools(root) — stray global builtin:filesystem / builtin:git must not
+// cause duplicate tool declarations alongside the correct per-root instance.
+// ---------------------------------------------------------------------------
+describe('McpRegistry — listLiveTools skips stray global fs/git builtins', () => {
+  it('global builtin:filesystem does NOT appear when a rooted instance is present for the requested root', () => {
+    const db = makeTestDb();
+    try {
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx);
+
+      // Inject a bare global instance (simulating the pre-Fix-1a boot-started global)
+      const globalConn = new AlwaysOkConnection();
+      const globalFsTool: McpTool = { name: 'list_directory', description: 'global', inputSchema: { type: 'object', properties: {} } };
+      reg.__injectLiveForTest('builtin:filesystem', 'Filesystem', globalConn, [globalFsTool]);
+
+      // Also inject the correct per-root instance for /work
+      withAlwaysOkRootedBuiltins(reg, '/work');
+
+      const tools = reg.listLiveTools('/work');
+      const fsTools = tools.filter((t) => t.serverName === 'Filesystem');
+
+      // Each tool name must appear EXACTLY ONCE — no duplicates from the global
+      const toolNames = fsTools.map((t) => t.tool.name);
+      const uniqueNames = new Set(toolNames);
+      expect(toolNames.length).toBe(uniqueNames.size);
+      // All returned Filesystem tools come from the rooted instance, not the global
+      expect(fsTools.every((t) => t.serverId === 'builtin:filesystem@/work')).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('global builtin:git does NOT appear when a rooted instance is present for the requested root', () => {
+    const db = makeTestDb();
+    try {
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx);
+
+      // Inject bare global git instance
+      const globalConn = new AlwaysOkConnection();
+      const globalGitTool: McpTool = { name: 'status', description: 'global', inputSchema: { type: 'object', properties: {} } };
+      reg.__injectLiveForTest('builtin:git', 'Git', globalConn, [globalGitTool]);
+
+      // Inject correct per-root instance
+      withAlwaysOkRootedBuiltins(reg, '/work');
+
+      const tools = reg.listLiveTools('/work');
+      const gitTools = tools.filter((t) => t.serverName === 'Git');
+
+      const toolNames = gitTools.map((t) => t.tool.name);
+      const uniqueNames = new Set(toolNames);
+      expect(toolNames.length).toBe(uniqueNames.size);
+      expect(gitTools.every((t) => t.serverId === 'builtin:git@/work')).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// listLiveTools(root) and callTool with root routing
+// ---------------------------------------------------------------------------
+describe('McpRegistry — root-aware listLiveTools and callTool', () => {
+  it('listLiveTools(root) returns only that root\'s builtin instance', async () => {
+    const db = makeTestDb();
+    try {
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx);
+
+      withAlwaysOkRootedBuiltins(reg, '/work-a');
+      withAlwaysOkRootedBuiltins(reg, '/work-b');
+      const toolsA = reg.listLiveTools('/work-a');
+      // Filesystem tools appear once (stable name), from the /work-a instance only
+      const fsTools = toolsA.filter((t) => t.serverName === 'Filesystem');
+      expect(fsTools.length).toBeGreaterThan(0);
+      expect(fsTools.every((t) => t.serverId === 'builtin:filesystem@/work-a')).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('callTool routes Filesystem.* to the root-scoped instance', async () => {
+    const db = makeTestDb();
+    try {
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx);
+
+      withAlwaysOkRootedBuiltins(reg, '/work-a');
+      const res = await reg.callTool('Filesystem.list_directory', { path: '/work-a' }, { root: '/work-a' });
+      expect(res.ok).toBe(true); // mock connection returns ok
+    } finally {
+      db.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// invalidateRootedBuiltins — drops all rooted instances and clears rootedLru
+// ---------------------------------------------------------------------------
+describe('McpRegistry — invalidateRootedBuiltins', () => {
+  it('disconnects all rooted instances and clears rootedLru', async () => {
+    const db = makeTestDb();
+    try {
+      const builtinStore = withMockRootedTransport(new BuiltinMcpStore(db));
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx, builtinStore);
+
+      await reg.ensureRootedBuiltins('/root-a');
+      await reg.ensureRootedBuiltins('/root-b');
+
+      expect(reg.stateOf('builtin:filesystem@/root-a').state).toBe('online');
+      expect(reg.stateOf('builtin:filesystem@/root-b').state).toBe('online');
+
+      await reg.invalidateRootedBuiltins();
+
+      expect(reg.stateOf('builtin:filesystem@/root-a').state).toBe('offline');
+      expect(reg.stateOf('builtin:git@/root-a').state).toBe('offline');
+      expect(reg.stateOf('builtin:filesystem@/root-b').state).toBe('offline');
+      expect(reg.stateOf('builtin:git@/root-b').state).toBe('offline');
+
+      // rootedLru is cleared — re-ensuring the same root re-connects fresh
+      await reg.ensureRootedBuiltins('/root-a');
+      expect(reg.stateOf('builtin:filesystem@/root-a').state).toBe('online');
+    } finally {
+      db.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ensureRootedBuiltins — LRU-capped pool of per-root builtin instances
+// ---------------------------------------------------------------------------
+describe('McpRegistry — ensureRootedBuiltins', () => {
+  it('pools one instance set per distinct root (idempotent)', async () => {
+    const db = makeTestDb();
+    try {
+      const builtinStore = withMockRootedTransport(new BuiltinMcpStore(db));
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx, builtinStore);
+
+      await reg.ensureRootedBuiltins('/work-a');
+      await reg.ensureRootedBuiltins('/work-a'); // idempotent
+      await reg.ensureRootedBuiltins('/work-b');
+
+      expect(reg.stateOf('builtin:filesystem@/work-a').state).toBe('online');
+      expect(reg.stateOf('builtin:filesystem@/work-b').state).toBe('online');
+    } finally {
+      db.close();
+    }
+  });
+
+  it('evicts the least-recently-used root set when over the cap', async () => {
+    vi.stubEnv('AETHER_BUILTIN_POOL_MAX', '2');
+    const db = makeTestDb();
+    try {
+      const builtinStore = withMockRootedTransport(new BuiltinMcpStore(db));
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx, builtinStore);
+
+      await reg.ensureRootedBuiltins('/r1');
+      await reg.ensureRootedBuiltins('/r2');
+      await reg.ensureRootedBuiltins('/r1'); // touch r1 -> r2 is now LRU
+      await reg.ensureRootedBuiltins('/r3'); // over cap -> evict r2
+
+      expect(reg.stateOf('builtin:filesystem@/r2').state).toBe('offline');
+      expect(reg.stateOf('builtin:filesystem@/r1').state).toBe('online');
+      expect(reg.stateOf('builtin:filesystem@/r3').state).toBe('online');
+    } finally {
+      db.close();
+      vi.unstubAllEnvs();
     }
   });
 });

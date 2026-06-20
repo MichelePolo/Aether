@@ -157,21 +157,12 @@ export function createApp(
     );
   }
 
-  if (
-    deps.workspacesStore &&
-    deps.filesystemBrowser &&
-    deps.historyStore &&
-    deps.builtinStore &&
-    deps.mcpRegistry
-  ) {
+  if (deps.workspacesStore && deps.filesystemBrowser) {
     app.use(
       '/api/workspaces',
       createWorkspacesRoutes({
         store: deps.workspacesStore,
         browser: deps.filesystemBrowser,
-        historyStore: deps.historyStore,
-        builtinStore: deps.builtinStore,
-        mcpRegistry: deps.mcpRegistry,
       }),
     );
   }
@@ -179,7 +170,7 @@ export function createApp(
   if (deps.swarmStore && deps.swarmApprovals && deps.swarmOrchestratorDeps) {
     app.use(
       '/api/swarms',
-      createSwarmRoutes(deps.swarmStore, deps.swarmOrchestratorDeps, deps.swarmApprovals),
+      createSwarmRoutes(deps.swarmStore, deps.swarmOrchestratorDeps, deps.swarmApprovals, deps.workspacesStore),
     );
   }
 

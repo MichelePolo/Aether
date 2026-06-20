@@ -126,7 +126,8 @@ export function useStreamingDispatch() {
           useChatStore.getState().failAssistant(id, d.message, !!d.retryable);
           return;
         } else if (ev.event === 'tool_call_request') {
-          // payload shape from backend N1: { id, qualifiedName, args }
+          // payload shape from backend: { id, qualifiedName, args, preview? }
+          // preview is pre-computed at the dispatch's effective root — use it directly to skip the HTTP fallback.
           emitToolCallRequest(ev.data as ToolCallRequestEvent);
         } else if (ev.event === 'tool_call_started') {
           const p = ev.data as {
@@ -229,6 +230,8 @@ export function useStreamingDispatch() {
           useChatStore.getState().failAssistant(id, d.message, !!d.retryable);
           return;
         } else if (ev.event === 'tool_call_request') {
+          // payload shape from backend: { id, qualifiedName, args, preview? }
+          // preview is pre-computed at the dispatch's effective root — use it directly to skip the HTTP fallback.
           emitToolCallRequest(ev.data as ToolCallRequestEvent);
         } else if (ev.event === 'tool_call_started') {
           const p = ev.data as {

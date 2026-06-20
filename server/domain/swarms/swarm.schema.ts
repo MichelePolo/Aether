@@ -5,14 +5,19 @@ export const SwarmStepSchema = z.object({
   promptTemplate: z.string().max(8000).default(''),
   pauseAfter: z.boolean().default(false),
   providerName: z.string().max(120).optional(),
+  workspaceId: z.string().min(1).max(120).optional(),
 });
 
 export const SwarmCreateInputSchema = z.object({
   name: z.string().min(1).max(64),
+  workspaceId: z.string().min(1).max(120).optional(),
   steps: z.array(SwarmStepSchema).max(20).default([]),
 });
 
-export const SwarmUpdateInputSchema = SwarmCreateInputSchema.partial();
+export const SwarmUpdateInputSchema = SwarmCreateInputSchema.partial().extend({
+  // Allow null to explicitly clear the workspace assignment; undefined = leave unchanged.
+  workspaceId: z.string().min(1).max(120).nullable().optional(),
+});
 
 export const SwarmRunInputSchema = z.object({
   input: z.string().min(1).max(20000),

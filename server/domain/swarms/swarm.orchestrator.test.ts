@@ -39,10 +39,11 @@ function deps(over: Partial<SwarmOrchestratorDeps>): SwarmOrchestratorDeps {
 // --- helpers for per-step provider tests ---
 
 type MakeDepsOpts = {
-  steps: Array<{ subAgentName: string; promptTemplate: string; pauseAfter: boolean; providerName?: string }>;
+  steps: Array<{ subAgentName: string; promptTemplate: string; pauseAfter: boolean; providerName?: string; workspaceId?: string }>;
   subAgents: Array<{ name: string; model?: string }>;
   providers: { isAvailable(name: string): boolean; defaultName(): string | null };
-  onHandle?: (body: { sessionId: string; message: string; providerName?: string }) => void;
+  swarmWorkspaceId?: string;
+  onHandle?: (body: { sessionId: string; message: string; providerName?: string; workspaceId?: string }) => void;
 };
 
 function makeDeps(opts: MakeDepsOpts): SwarmOrchestratorDeps {
@@ -51,6 +52,7 @@ function makeDeps(opts: MakeDepsOpts): SwarmOrchestratorDeps {
       read: vi.fn(async () => ({
         id: 'sw',
         name: 'test-swarm',
+        ...(opts.swarmWorkspaceId !== undefined ? { workspaceId: opts.swarmWorkspaceId } : {}),
         steps: opts.steps,
         createdAt: 0,
         updatedAt: 0,
@@ -60,7 +62,7 @@ function makeDeps(opts: MakeDepsOpts): SwarmOrchestratorDeps {
       list: vi.fn(async () => opts.subAgents),
     } as any,
     dispatcher: {
-      handle: async (body: { sessionId: string; message: string; providerName?: string }, sse: SseEmitter) => {
+      handle: async (body: { sessionId: string; message: string; providerName?: string; workspaceId?: string }, sse: SseEmitter) => {
         opts.onHandle?.(body);
         sse.event('text', { chunk: `out:${body.message}` });
         sse.event('done', {});
@@ -246,5 +248,21 @@ describe('runSwarm', () => {
     await runSwarm(d, { swarmId: 'sw', input: 'go' }, sse, signal);
     expect(seen).toEqual([undefined]);
     expect(events.find((e) => e.name === 'swarm_step_warning')).toBeUndefined();
+  });
+
+  it('passes effective workspaceId (step override else swarm default) to dispatch', async () => {
+    const seen: Array<string | undefined> = [];
+    const d = makeDeps({
+      steps: [
+        { subAgentName: 'a', promptTemplate: '', pauseAfter: false, workspaceId: 'w-step' },
+        { subAgentName: 'b', promptTemplate: '', pauseAfter: false },
+      ],
+      subAgents: [{ name: 'a' }, { name: 'b' }],
+      swarmWorkspaceId: 'w-default',
+      providers: { isAvailable: () => true, defaultName: () => null },
+      onHandle: (body) => seen.push(body.workspaceId),
+    });
+    await runSwarm(d, { swarmId: 'sw', input: 'go' }, sse, signal);
+    expect(seen).toEqual(['w-step', 'w-default']);
   });
 });

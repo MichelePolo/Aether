@@ -22,9 +22,11 @@ import { formatAssembledPromptContent } from './assembled-prompt-step';
 import type { McpRegistry } from '@/server/domain/mcp/registry';
 import type { McpToolResult } from '@/server/domain/mcp/mcp.types';
 import type { BreakpointService } from '@/server/domain/mcp/breakpoints/breakpoints.service';
+import type { PreviewService } from '@/server/domain/mcp/breakpoints/preview.service';
 import type { ProviderRegistry } from '@/server/domain/providers/registry';
 import { classifyAttachment, MAX_ATTACHMENTS, MAX_TOTAL_BYTES } from './attachment.types';
 import { AppError, ValidationError } from '@/server/lib/errors';
+import { normalizeRoot } from '@/server/lib/normalize-root';
 
 const DispatchAttachmentSchema = z.object({
   name: z.string().min(1).max(255),
@@ -39,6 +41,7 @@ export const DispatchRequestSchema = z.object({
   thinking: z.boolean().optional(),
   aetherMode: z.boolean().optional(),
   providerName: z.string().optional(),
+  workspaceId: z.string().optional(),
   attachments: z.array(DispatchAttachmentSchema).max(MAX_ATTACHMENTS).optional(),
 });
 export type DispatchRequest = z.infer<typeof DispatchRequestSchema>;
@@ -92,6 +95,7 @@ export interface DispatchServiceDeps {
   subAgentsStore?: SubAgentsStore;
   mcpRegistry?: McpRegistry;
   breakpointService?: BreakpointService;
+  previewService?: PreviewService;
   skillsService?: { getActiveForPrompt(): import('@/server/domain/skills/skills.types').PromptMaterialSkill[] };
   /** Resolve the project root for a session's workspace; null → no project memory.
    *  The resolved root is also the one tagged `-> current` in the
@@ -121,6 +125,7 @@ interface RunDispatchLoopOpts {
   mcpTools: ProviderToolDecl[];
   subAgent?: string;
   attachments?: Array<{ name: string; mime: string; bytes: Buffer }>;
+  currentRoot: string;
 }
 
 interface RunDispatchLoopResult {
@@ -164,16 +169,22 @@ export class DispatchService {
   private async executeToolCall(
     pendingCall: ProviderFunctionCall,
     sse: SseEmitter,
+    currentRoot: string,
   ): Promise<{ result: McpToolResult; progressNote: string }> {
     const ctrl = new AbortController();
     this.inFlightControllers.set(pendingCall.callId, ctrl);
     sse.event('tool_call_started', pendingCall);
     let latestProgress = '';
     try {
+      // Re-ensure the rooted builtins right before executing: the root may have been
+      // LRU-evicted from the pool between the top-of-dispatch ensure and this tool call
+      // (especially during long gate-wait pauses). This is idempotent for a live root.
+      await this.deps.mcpRegistry?.ensureRootedBuiltins?.(currentRoot);
       const result = await this.deps.mcpRegistry!.callTool(
         pendingCall.qualifiedName,
         pendingCall.args,
         {
+          root: currentRoot,
           signal: ctrl.signal,
           onProgress: (note) => {
             latestProgress = note;
@@ -194,8 +205,16 @@ export class DispatchService {
     fnCall: ProviderFunctionCall,
     sse: SseEmitter,
     tracer: ReasoningTracer,
+    currentRoot: string,
   ): Promise<McpToolResult> {
-    sse.event('tool_call_request', fnCall);
+    // Compute the preview using the dispatch's effective root so workspace-rooted
+    // contexts resolve git diffs against the correct repo, not the global gitRoot().
+    const preview = this.deps.previewService
+      ? await this.deps.previewService
+          .previewToolCall({ qualifiedName: fnCall.qualifiedName, args: fnCall.args, root: currentRoot })
+          .catch(() => ({ kind: 'plain' as const }))
+      : { kind: 'plain' as const };
+    sse.event('tool_call_request', { ...fnCall, preview });
 
     let mode: 'auto' | 'gate';
     if (this.deps.breakpointService) {
@@ -220,7 +239,7 @@ export class DispatchService {
     } else if (!this.deps.mcpRegistry) {
       toolResult = { ok: false, error: 'No MCP registry configured' };
     } else {
-      const executed = await this.executeToolCall(fnCall, sse);
+      const executed = await this.executeToolCall(fnCall, sse, currentRoot);
       toolResult = executed.result;
       progressNote = executed.progressNote;
     }
@@ -286,7 +305,7 @@ export class DispatchService {
               qualifiedName: call.qualifiedName,
               args: call.args,
             };
-            const r = await this.gateExecuteAndTrace(fnCall, sse, tracer);
+            const r = await this.gateExecuteAndTrace(fnCall, sse, tracer, opts.currentRoot);
             return r.ok ? { ok: true, output: r.output } : { ok: false, error: r.error };
           };
 
@@ -346,7 +365,7 @@ export class DispatchService {
             }
             toolCallsCount += 1;
 
-            const toolResult = await this.gateExecuteAndTrace(pendingCall, sse, tracer);
+            const toolResult = await this.gateExecuteAndTrace(pendingCall, sse, tracer, opts.currentRoot);
 
             pendingToolResults = [{
               callId: pendingCall.callId,
@@ -496,7 +515,17 @@ export class DispatchService {
       return;
     }
 
-    const liveTools = this.deps.mcpRegistry?.listLiveTools() ?? [];
+    const effectiveWorkspaceId = parsed.data.workspaceId ?? sessionRecord?.workspaceId;
+    // Normalize for the MCP tool-pool key (case-insensitive on Windows). The prompt's
+    // `# availableWorkspaces -> current` marker uses the RAW path from projectRootFor()
+    // via resolveRuntimeContext() because formatAvailableWorkspaces matches against the
+    // raw registered-roots list; a lowercased path would miss on Windows. Same directory —
+    // do NOT unify these two uses.
+    const currentRoot = normalizeRoot(
+      this.deps.projectRootFor?.(effectiveWorkspaceId) ?? process.cwd(),
+    );
+    await this.deps.mcpRegistry?.ensureRootedBuiltins?.(currentRoot);
+    const liveTools = this.deps.mcpRegistry?.listLiveTools(currentRoot) ?? [];
     const mcpToolDecls = liveTools.map((t) => ({
       qualifiedName: t.qualifiedName,
       description: t.tool.description,
@@ -506,7 +535,7 @@ export class DispatchService {
     // Inline text attachments as fenced code blocks into the user message.
     const effectiveStripped = inlineTextAttachments(mention.stripped, textAtts);
     const materialSkills = this.deps.skillsService?.getActiveForPrompt() ?? [];
-    const runtime = this.resolveRuntimeContext(sessionRecord?.workspaceId, providerName);
+    const runtime = this.resolveRuntimeContext(effectiveWorkspaceId, providerName);
     const assembled = assemble(
       context, matchedSubAgent, effectiveStripped, mention.name,
       mcpToolDecls, materialSkills, runtime,
@@ -553,6 +582,7 @@ export class DispatchService {
         mcpTools: assembled.mcpTools,
         subAgent: assembled.subAgent ?? undefined,
         attachments: providerAttachments.length > 0 ? providerAttachments : undefined,
+        currentRoot,
       },
       tracer,
       sse,
@@ -707,7 +737,12 @@ export class DispatchService {
       return;
     }
 
-    const liveTools = this.deps.mcpRegistry?.listLiveTools() ?? [];
+    const effectiveWorkspaceId = sessionRecord.workspaceId;
+    const currentRoot = normalizeRoot(
+      this.deps.projectRootFor?.(effectiveWorkspaceId) ?? process.cwd(),
+    );
+    await this.deps.mcpRegistry?.ensureRootedBuiltins?.(currentRoot);
+    const liveTools = this.deps.mcpRegistry?.listLiveTools(currentRoot) ?? [];
     const mcpToolDecls = liveTools.map((t) => ({
       qualifiedName: t.qualifiedName,
       description: t.tool.description,
@@ -716,7 +751,7 @@ export class DispatchService {
 
     const resumeSystemInstruction = withRuntimeContext(
       context.systemInstruction,
-      this.resolveRuntimeContext(sessionRecord.workspaceId, providerName),
+      this.resolveRuntimeContext(effectiveWorkspaceId, providerName),
     );
 
     if (opts.aetherMode) {
@@ -736,6 +771,7 @@ export class DispatchService {
         pendingAssistantText: target.text,
         thinking: false,
         mcpTools: mcpToolDecls,
+        currentRoot,
       },
       tracer,
       sse,

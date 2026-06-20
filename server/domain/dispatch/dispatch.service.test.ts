@@ -518,6 +518,78 @@ describe('DispatchService', () => {
     expect(prompt).toContain('# Runtime'); // runtime facts always present
     expect(prompt).toContain('Active model:');
   });
+
+  it('roots tools at the same workspace the prompt marks current (body override)', async () => {
+    // A session belongs to workspace W1; the dispatch body overrides to W2.
+    // Assert: ensureRootedBuiltins / listLiveTools were called with W2's normalised root,
+    // and the assembled_prompt "-> current" line names W2's root.
+    const provider = new FakeProvider({ chunks: ['pong'], model: 'fake-1' });
+    const db = makeTestDb();
+
+    const w1Id = 'ws-inv-1';
+    const w2Id = 'ws-inv-2';
+    const w1Root = '/proj/workspace-one';
+    const w2Root = '/proj/workspace-two';
+    db.prepare('INSERT INTO workspaces (id, name, root_path, added_at) VALUES (?, ?, ?, ?)').run(w1Id, 'ws1', w1Root, Date.now());
+    db.prepare('INSERT INTO workspaces (id, name, root_path, added_at) VALUES (?, ?, ?, ?)').run(w2Id, 'ws2', w2Root, Date.now() + 1);
+
+    const historyStore = new HistoryStore(db);
+    const contextStore = new ContextStore(db);
+    const providers = await buildSingleProviderRegistry(provider);
+
+    // Session is in W1
+    const session = await historyStore.createEmpty({ workspaceId: w1Id });
+
+    const projectRootFor = (wId: string | undefined) => {
+      if (wId === w1Id) return w1Root;
+      if (wId === w2Id) return w2Root;
+      return null;
+    };
+    const listWorkspaceRoots = () => [w1Root, w2Root];
+
+    // Spy registry that records root arguments
+    const rootsPassedToEnsure: string[] = [];
+    const rootsPassedToList: string[] = [];
+    const mcpRegistry = {
+      ensureRootedBuiltins: async (root: string) => { rootsPassedToEnsure.push(root); },
+      listLiveTools: (root?: string) => { if (root !== undefined) rootsPassedToList.push(root); return []; },
+      callTool: async () => ({ ok: true as const, output: 'ok' }),
+      policy: () => ({ autoApprove: true }),
+      awaitDecision: async () => 'approve' as const,
+    } as unknown as import('@/server/domain/mcp/registry').McpRegistry;
+
+    const service = new DispatchService({
+      providers,
+      historyStore,
+      contextStore,
+      projectRootFor,
+      listWorkspaceRoots,
+      mcpRegistry,
+    });
+
+    const { emitter, events } = createCollectorEmitter();
+    // Body overrides workspaceId to W2
+    await service.handle(
+      { sessionId: session.id, message: 'ping', aetherMode: true, workspaceId: w2Id },
+      emitter,
+      new AbortController().signal,
+    );
+
+    // (a) Tools were rooted at W2's normalised root
+    const { normalizeRoot } = await import('@/server/lib/normalize-root');
+    const expectedRoot = normalizeRoot(w2Root);
+    expect(rootsPassedToEnsure).toContain(expectedRoot);
+    expect(rootsPassedToList).toContain(expectedRoot);
+
+    // (b) The assembled_prompt marks W2's root as -> current (not W1's)
+    const promptEvent = events.find(
+      (e) => e.event === 'reasoning_step' && (e.data as { type: string }).type === 'assembled_prompt',
+    );
+    const prompt = (promptEvent?.data as { content?: string })?.content ?? '';
+    expect(prompt).toContain('# availableWorkspaces');
+    expect(prompt).toContain(`- ${w2Root} -> current`);
+    expect(prompt).not.toContain(`- ${w1Root} -> current`);
+  });
 });
 
 describe('DispatchService — attachments', () => {

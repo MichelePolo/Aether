@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
@@ -12,27 +12,12 @@ import { makeTestDb } from '@/server/test/test-db';
 function makeApp(opts: {
   store?: WorkspacesStore;
   browser?: FilesystemBrowserService;
-  historyStore?: {
-    setSessionWorkspace?: (id: string, w: string | null) => Promise<void>;
-    listSessions?: () => Promise<Array<{ id: string; workspaceId?: string }>>;
-  };
-  builtinStore?: {
-    read: () => Array<{ transport: string; enabled: boolean; fsRoot: string | null }>;
-    setFsRoot: (t: string, p: string | null) => void;
-  };
-  mcpRegistry?: { reconnectBuiltin: (t: string) => Promise<void> };
 }) {
   const app = express();
   app.use(express.json());
   app.use('/api/workspaces', createWorkspacesRoutes({
     store: opts.store!,
     browser: opts.browser ?? new FilesystemBrowserService(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    historyStore: opts.historyStore as any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    builtinStore: opts.builtinStore as any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mcpRegistry: opts.mcpRegistry as any,
   }));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   app.use((err: any, _req: any, res: any, _next: any) => {
@@ -131,51 +116,12 @@ describe('workspaces.routes', () => {
     expect(res.status).toBe(400);
   });
 
-  it('POST /api/workspaces/activate-for-session reroots Filesystem MCP when needed', async () => {
+  it('POST /api/workspaces/activate-for-session is removed — route returns 404', async () => {
     const db = makeTestDb();
     const store = new WorkspacesStore(db);
-    const created = store.create({ name: 'p', rootPath: dir });
-    const setFsRoot = vi.fn();
-    const reconnectBuiltin = vi.fn().mockResolvedValue(undefined);
-    const builtinStore = {
-      read: () => [{ transport: 'filesystem', enabled: true, fsRoot: '/old' }],
-      setFsRoot,
-    };
-    const historyStore = {
-      listSessions: () => Promise.resolve([{ id: 's1', workspaceId: created.id }]),
-      setSessionWorkspace: vi.fn().mockResolvedValue(undefined),
-    };
-    const res = await request(
-      makeApp({ store, builtinStore, mcpRegistry: { reconnectBuiltin }, historyStore }),
-    )
+    const res = await request(makeApp({ store }))
       .post('/api/workspaces/activate-for-session')
       .send({ sessionId: 's1' });
-    expect(res.status).toBe(200);
-    expect(res.body.rooted).toBe(dir);
-    expect(setFsRoot).toHaveBeenCalledWith('filesystem', dir);
-    expect(reconnectBuiltin).toHaveBeenCalledWith('filesystem');
-  });
-
-  it('POST activate-for-session skips reroot when filesystem MCP is disabled', async () => {
-    const db = makeTestDb();
-    const store = new WorkspacesStore(db);
-    const created = store.create({ name: 'p', rootPath: dir });
-    const setFsRoot = vi.fn();
-    const builtinStore = {
-      read: () => [{ transport: 'filesystem', enabled: false, fsRoot: null }],
-      setFsRoot,
-    };
-    const historyStore = {
-      listSessions: () => Promise.resolve([{ id: 's1', workspaceId: created.id }]),
-      setSessionWorkspace: vi.fn(),
-    };
-    const res = await request(
-      makeApp({ store, builtinStore, mcpRegistry: { reconnectBuiltin: vi.fn() }, historyStore }),
-    )
-      .post('/api/workspaces/activate-for-session')
-      .send({ sessionId: 's1' });
-    expect(res.status).toBe(200);
-    expect(res.body.rooted).toBeNull();
-    expect(setFsRoot).not.toHaveBeenCalled();
+    expect(res.status).toBe(404);
   });
 });

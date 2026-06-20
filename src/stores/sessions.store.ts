@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { sessionsApi } from '@/src/lib/api/sessions.api';
 import { historyApi } from '@/src/lib/api/history.api';
-import { workspacesApi } from '@/src/lib/api/workspaces.api';
 import { useChatStore } from '@/src/stores/chat.store';
 import type { SessionMeta } from '@/src/types/session.types';
 
@@ -164,14 +163,13 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
   },
 
   setSessionWorkspace: async (sessionId, workspaceId) => {
-    // PATCH the server, then update locally, then trigger MCP reroot.
+    // PATCH the server, then update locally.
     await sessionsApi.updateSession(sessionId, { workspaceId });
     set((s) => ({
       sessions: s.sessions.map((x) =>
         x.id === sessionId ? { ...x, workspaceId: workspaceId ?? undefined } : x,
       ),
     }));
-    workspacesApi.activateForSession(sessionId).catch(() => {});
   },
 
   setProviderName: async (id, providerName) => {
@@ -220,8 +218,6 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
     } else {
       run();
     }
-    // Slice 23: reroot Filesystem MCP for this session's workspace (fire-and-forget).
-    workspacesApi.activateForSession(id).catch(() => {});
     const token = ++hydrationToken;
     historyApi
       .fetchById(id)

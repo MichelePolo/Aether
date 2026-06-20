@@ -4,14 +4,19 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** Root of material skills: ${dataDir}/skills */
-export function skillsDirFor(dataDir: string): string {
-  return path.join(dataDir, 'skills');
+/** Root of material skills: ${libraryDir}/skills */
+export function skillsDirFor(libraryDir: string): string {
+  return path.join(libraryDir, 'skills');
 }
 
-/** Staging area for generated/manual drafts: ${dataDir}/skills/.drafts */
-export function draftsDirFor(dataDir: string): string {
-  return path.join(skillsDirFor(dataDir), '.drafts');
+/** Staging area for generated/manual drafts: ${libraryDir}/skills/.drafts */
+export function draftsDirFor(libraryDir: string): string {
+  return path.join(skillsDirFor(libraryDir), '.drafts');
+}
+
+/** Reserved home for future file-based agents: ${libraryDir}/agents */
+export function agentsDirFor(libraryDir: string): string {
+  return path.join(libraryDir, 'agents');
 }
 
 /**

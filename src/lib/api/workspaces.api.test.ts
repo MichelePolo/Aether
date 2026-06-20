@@ -26,9 +26,4 @@ describe('workspacesApi (against MSW defaults)', () => {
     expect(r.path).toBe('/tmp');
     expect(Array.isArray(r.entries)).toBe(true);
   });
-
-  it('activateForSession returns rooted', async () => {
-    const r = await workspacesApi.activateForSession('s1');
-    expect(r).toHaveProperty('rooted');
-  });
 });

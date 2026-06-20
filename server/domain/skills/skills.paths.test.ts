@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { existsSync } from 'node:fs';
-import { skillsDirFor, draftsDirFor, defaultsDir } from './skills.paths';
+import { skillsDirFor, draftsDirFor, agentsDirFor, defaultsDir } from './skills.paths';
 
 describe('skills paths', () => {
   it('skillsDirFor joins skills under the data dir', () => {
@@ -9,6 +9,10 @@ describe('skills paths', () => {
 
   it('draftsDirFor nests .drafts under the skills dir', () => {
     expect(draftsDirFor('/data')).toBe(path.join('/data', 'skills', '.drafts'));
+  });
+
+  it('agentsDirFor joins agents under the library dir', () => {
+    expect(agentsDirFor('/lib')).toBe(path.join('/lib', 'agents'));
   });
 
   it('defaultsDir resolves to an existing bundled defaults directory in dev', () => {

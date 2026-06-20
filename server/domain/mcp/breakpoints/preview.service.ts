@@ -20,13 +20,15 @@ export class PreviewService {
   async previewToolCall(input: {
     qualifiedName: string;
     args: Record<string, unknown>;
+    /** Override the injected `gitRoot()` for this call; defaults to `gitRoot()` when absent. */
+    root?: string;
   }): Promise<PreviewResult> {
     if (GIT_REMOTE_PREVIEW_PATTERN.test(input.qualifiedName)) {
-      return this.remotePreview(input.qualifiedName, input.args);
+      return this.remotePreview(input.qualifiedName, input.args, input.root);
     }
 
     if (GIT_DIFF_PREVIEW_PATTERN.test(input.qualifiedName)) {
-      return this.gitPreview(input.qualifiedName, input.args);
+      return this.gitPreview(input.qualifiedName, input.args, input.root);
     }
 
     if (!WRITE_TOOL_PATTERN.test(input.qualifiedName)) return { kind: 'plain' };
@@ -64,8 +66,9 @@ export class PreviewService {
   private async gitPreview(
     qualifiedName: string,
     args: Record<string, unknown>,
+    explicitRoot?: string,
   ): Promise<PreviewResult> {
-    const root = this.deps.gitRoot();
+    const root = explicitRoot ?? this.deps.gitRoot();
     if (!root) return { kind: 'plain' };
     const tool = qualifiedName.split('.')[1];
     const paths = Array.isArray(args.paths)
@@ -99,8 +102,9 @@ export class PreviewService {
   private async remotePreview(
     qualifiedName: string,
     args: Record<string, unknown>,
+    explicitRoot?: string,
   ): Promise<PreviewResult> {
-    const root = this.deps.gitRoot();
+    const root = explicitRoot ?? this.deps.gitRoot();
     if (!root) return { kind: 'plain' };
     const tool = qualifiedName.split('.')[1];
     const remote = typeof args.remote === 'string' && SAFE_REF.test(args.remote) ? args.remote : 'origin';

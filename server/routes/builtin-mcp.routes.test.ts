@@ -23,6 +23,7 @@ beforeEach(() => {
   vi.spyOn(registry, 'startBuiltin').mockResolvedValue(undefined);
   vi.spyOn(registry, 'stopBuiltin').mockResolvedValue(undefined);
   vi.spyOn(registry, 'reconnectBuiltin').mockResolvedValue(undefined);
+  vi.spyOn(registry, 'invalidateRootedBuiltins').mockResolvedValue(undefined);
   app = express();
   app.use(express.json());
   app.use('/api/mcp/builtin', createBuiltinMcpRoutes(store, registry));
@@ -68,12 +69,13 @@ describe('builtin MCP routes', () => {
     expect(registry.stopBuiltin).toHaveBeenCalledWith('terminal');
   });
 
-  it('PUT fsRoot while enabled triggers reconnect', async () => {
+  it('PUT fsRoot while enabled invalidates cached rooted builtins', async () => {
     store.setEnabled('filesystem', true);
     const res = await request(app).put('/api/mcp/builtin/filesystem').send({ fsRoot: '/tmp' });
     expect(res.status).toBe(200);
     expect(res.body.state.fsRoot).toBe('/tmp');
-    expect(registry.reconnectBuiltin).toHaveBeenCalledWith('filesystem');
+    expect(registry.invalidateRootedBuiltins).toHaveBeenCalled();
+    expect(registry.reconnectBuiltin).not.toHaveBeenCalled();
   });
 
   it('PUT with invalid fsRoot returns 400', async () => {

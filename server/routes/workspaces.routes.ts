@@ -5,9 +5,6 @@ import os from 'node:os';
 import { ValidationError } from '@/server/lib/errors';
 import type { WorkspacesStore } from '@/server/domain/workspaces/workspaces.store';
 import type { FilesystemBrowserService } from '@/server/domain/workspaces/filesystem-browser.service';
-import type { HistoryStore } from '@/server/domain/history/history.store';
-import type { BuiltinMcpStore } from '@/server/domain/mcp/builtin/builtin.store';
-import type { McpRegistry } from '@/server/domain/mcp/registry';
 
 function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -17,14 +14,10 @@ function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => P
 
 const CreateBody = z.object({ name: z.string().min(1), rootPath: z.string().min(1) });
 const RenameBody = z.object({ name: z.string().min(1) });
-const ActivateBody = z.object({ sessionId: z.string().min(1) });
 
 export interface WorkspacesRoutesDeps {
   store: WorkspacesStore;
   browser: FilesystemBrowserService;
-  historyStore: HistoryStore;
-  builtinStore: BuiltinMcpStore;
-  mcpRegistry: McpRegistry;
 }
 
 export function createWorkspacesRoutes(deps: WorkspacesRoutesDeps): Router {
@@ -66,38 +59,6 @@ export function createWorkspacesRoutes(deps: WorkspacesRoutesDeps): Router {
           `Cannot list directory: ${(e as { message?: string }).message ?? String(e)}`,
         );
       }
-    }),
-  );
-
-  router.post(
-    '/activate-for-session',
-    asyncHandler(async (req, res) => {
-      const parsed = ActivateBody.safeParse(req.body);
-      if (!parsed.success) throw new ValidationError('Invalid body', parsed.error);
-      const sessions = await deps.historyStore.listSessions();
-      const session = sessions.find((s) => s.id === parsed.data.sessionId);
-      const workspaceId = session?.workspaceId;
-      const workspace = workspaceId ? deps.store.get(workspaceId) : undefined;
-      const targetRoot = workspace?.rootPath ?? null;
-
-      const rootable = deps.builtinStore
-        .read()
-        .filter((r) => (r.transport === 'filesystem' || r.transport === 'git') && r.enabled);
-      if (rootable.length === 0) {
-        res.json({ rooted: null });
-        return;
-      }
-      if (targetRoot === null) {
-        res.json({ rooted: null });
-        return;
-      }
-      for (const row of rootable) {
-        if (row.fsRoot !== targetRoot) {
-          deps.builtinStore.setFsRoot(row.transport, targetRoot);
-          await deps.mcpRegistry.reconnectBuiltin(row.transport);
-        }
-      }
-      res.json({ rooted: targetRoot });
     }),
   );
 
