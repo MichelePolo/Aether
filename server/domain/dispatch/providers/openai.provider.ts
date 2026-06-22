@@ -11,7 +11,10 @@ export type OpenAIModel = 'gpt-5' | 'gpt-5-mini' | 'gpt-4.1' | 'o3';
 
 export interface OpenAIProviderOpts {
   apiKey: string;
-  model: OpenAIModel;
+  model: string;
+  baseUrl?: string;
+  headers?: Record<string, string>;
+  capabilities?: ProviderCapabilities;
 }
 
 interface OpenAIToolCallFrag {
@@ -42,7 +45,7 @@ interface OpenAIErrorBody {
   error?: { message?: string };
 }
 
-const ENDPOINT = 'https://api.openai.com/v1/chat/completions';
+export const DEFAULT_OPENAI_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 
 export class OpenAIProvider implements AIProvider {
   readonly model: string;
@@ -50,7 +53,7 @@ export class OpenAIProvider implements AIProvider {
 
   constructor(private readonly opts: OpenAIProviderOpts) {
     this.model = opts.model;
-    this.capabilities = {
+    this.capabilities = opts.capabilities ?? {
       thinking: opts.model === 'o3',
       toolCalling: true,
       vision: true,
@@ -60,13 +63,16 @@ export class OpenAIProvider implements AIProvider {
   async *stream(req: ProviderRequest, signal: AbortSignal): AsyncIterable<ProviderChunk> {
     const body = buildBody(this.model, req);
 
-    const res = await fetch(ENDPOINT, {
+    const url = this.opts.baseUrl ?? DEFAULT_OPENAI_ENDPOINT;
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+      'accept': 'text/event-stream',
+      ...(this.opts.headers ?? { 'authorization': `Bearer ${this.opts.apiKey}` }),
+    };
+
+    const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'authorization': `Bearer ${this.opts.apiKey}`,
-        'accept': 'text/event-stream',
-      },
+      headers,
       body: JSON.stringify(body),
       signal,
     });
