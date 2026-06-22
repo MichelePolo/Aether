@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.11](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.10...aether-core-v0.1.11) (2026-06-20)
+
+
+### Features
+
+* data-agnostic library dir + race-free per-context workspace rooting ([#84](https://github.com/MichelePolo/Aether/issues/84)) ([7e58b72](https://github.com/MichelePolo/Aether/commit/7e58b7225fd1523674a8537cdf76d4a0e515d3d6))
+
 ## [0.1.10](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.9...aether-core-v0.1.10) (2026-06-19)
 
 
