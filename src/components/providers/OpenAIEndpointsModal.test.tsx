@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { OpenAIEndpointsModal } from './OpenAIEndpointsModal';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useOpenAIEndpointsStore } from '@/src/stores/openaiEndpoints.store';
+import { useProviderAuthStore } from '@/src/stores/providerAuth.store';
 import { providersApi } from '@/src/lib/api/providers.api';
 import type { OpenAICompatEndpoint } from '@/src/types/openai-endpoints.types';
 
@@ -17,6 +18,7 @@ const withHeaders: OpenAICompatEndpoint = {
 
 beforeEach(() => {
   useOpenAIEndpointsStore.getState()._reset();
+  useProviderAuthStore.getState()._reset();
   useUiStore.getState().openOpenAIEndpoints();
   vi.spyOn(providersApi, 'listOpenAIEndpoints').mockResolvedValue([vllm]);
 });
@@ -102,5 +104,16 @@ describe('OpenAIEndpointsModal', () => {
     render(<OpenAIEndpointsModal />);
     expect(await screen.findByText('headered')).toBeInTheDocument();
     expect(screen.getByText(/headers set/)).toBeInTheDocument();
+  });
+
+  it('status dot reflects per-endpoint openaiCompat status from the auth store', async () => {
+    useProviderAuthStore.setState({
+      openaiCompat: [{ id: 'ep1', label: 'vllm', state: 'ok', reason: '2 models' }],
+    });
+    render(<OpenAIEndpointsModal />);
+    await screen.findByText('vllm');
+    const dot = screen.getByTestId('status-dot');
+    expect(dot).toHaveAttribute('data-state', 'ok');
+    expect(screen.getByText('2 models')).toBeInTheDocument();
   });
 });

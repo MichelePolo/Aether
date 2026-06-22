@@ -17,8 +17,7 @@ function dotStateClass(state: string | undefined): string {
 function EndpointRow({ ep }: { ep: OpenAICompatEndpoint }) {
   const remove = useOpenAIEndpointsStore((s) => s.remove);
   const update = useOpenAIEndpointsStore((s) => s.update);
-  const statuses = useProviderAuthStore((s) => s.statuses);
-  const status = statuses.find((s) => s.transport === 'openai-compat');
+  const status = useProviderAuthStore((s) => s.openaiCompat.find((e) => e.id === ep.id));
   const [confirm, setConfirm] = useState(false);
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(ep.label);
