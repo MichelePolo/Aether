@@ -64,4 +64,15 @@ describe('Modal', () => {
     render(<Modal open onClose={() => {}}>body</Modal>);
     expect(document.body.style.overflow).toBe('hidden');
   });
+
+  it('caps height and scrolls the body so tall content stays reachable', () => {
+    const { container } = render(<Modal open onClose={() => {}} title="T">body</Modal>);
+    const dialog = container.querySelector('dialog')!;
+    // dialog is height-capped and a flex column so the body can scroll within it
+    expect(dialog.className).toContain('max-h-[85vh]');
+    expect(dialog.className).toContain('flex');
+    // the content wrapper scrolls vertically
+    const body = screen.getByText('body').closest('div')!;
+    expect(body.className).toContain('overflow-y-auto');
+  });
 });

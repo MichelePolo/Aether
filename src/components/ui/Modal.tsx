@@ -88,16 +88,16 @@ export function Modal({
       onMouseDown={onBackdropMouseDown}
       aria-label={title}
       className={cn(
-        'bg-surface-1 border border-border-subtle rounded-xl shadow-2xl w-full max-w-md p-0 overflow-hidden text-zinc-300 glass',
+        'bg-surface-1 border border-border-subtle rounded-xl shadow-2xl w-full max-w-md p-0 overflow-hidden text-zinc-300 glass flex flex-col max-h-[85vh]',
         className,
       )}
     >
       {title && (
-        <div className="px-4 py-3 border-b border-border-subtle mono-label text-white">
+        <div className="shrink-0 px-4 py-3 border-b border-border-subtle mono-label text-white">
           {title}
         </div>
       )}
-      <div className="p-4">{children}</div>
+      <div className="p-4 overflow-y-auto">{children}</div>
     </dialog>
   );
 }
