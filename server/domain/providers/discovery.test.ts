@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { discoverOllama, geminiHardcodedModels, discoverAnthropic, ANTHROPIC_MODELS_URL } from './discovery';
+import { discoverOllama, geminiHardcodedModels, discoverAnthropic, ANTHROPIC_MODELS_URL, discoverOpenAICompat } from './discovery';
 
 describe('discoverOllama', () => {
   beforeEach(() => {
@@ -73,6 +73,25 @@ describe('geminiHardcodedModels', () => {
     const models = geminiHardcodedModels();
     expect(models.length).toBeGreaterThan(0);
     expect(models).toEqual(expect.arrayContaining(['gemini-2.0-flash-exp']));
+  });
+});
+
+describe('discoverOpenAICompat', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('discoverOpenAICompat estrae gli id da /v1/models', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      expect(url).toBe('https://vllm.corp/v1/models');
+      return new Response(JSON.stringify({ data: [{ id: 'qwen' }, { id: 'llama' }] }), { status: 200 });
+    }));
+    expect(await discoverOpenAICompat('https://vllm.corp/v1')).toEqual(['qwen', 'llama']);
+  });
+
+  it('discoverOpenAICompat ritorna [] su errore', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('net'); }));
+    expect(await discoverOpenAICompat('https://x/v1')).toEqual([]);
   });
 });
 
