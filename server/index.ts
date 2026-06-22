@@ -194,6 +194,7 @@ async function bootstrap() {
     getOpenAIKey: () => resolver.get('openai'),
     getGeminiKey: () => resolver.get('gemini'),
     listOllamaEndpoints,
+    listOpenAICompatEndpoints,
   });
 
   // Detect whether the claude CLI is present (for the info row label).

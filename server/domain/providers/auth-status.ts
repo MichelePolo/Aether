@@ -3,7 +3,9 @@ import type {
   ProviderTransport,
   TransportStatus,
   OllamaEndpointStatus,
+  OpenAICompatEndpointStatus,
 } from './auth-status.types';
+import type { ResolvedOpenAICompatEndpoint } from './openai-endpoints.types';
 import { TRANSPORT_ORDER } from './auth-status.types';
 import { ANTHROPIC_MODELS_URL, ANTHROPIC_VERSION } from './discovery';
 
@@ -14,7 +16,9 @@ export interface AuthStatusServiceDeps {
   getAnthropicKey: () => string | undefined;
   getOpenAIKey: () => string | undefined;
   getGeminiKey: () => string | undefined;
-  listOllamaEndpoints: () => Array<{ id: string; label: string; baseUrl: string; token?: string }>;
+  listOllamaEndpoints: () => Array<{ id: string; label: string; baseUrl: string; token?: string; headers?: Record<string, string> }>;
+  /** Defaults to () => [] when omitted. */
+  listOpenAICompatEndpoints?: () => ResolvedOpenAICompatEndpoint[];
   /** Override for tests; defaults to globalThis.fetch. */
   fetch?: typeof fetch;
   /** Per-probe timeout in ms; default 5000. */
@@ -37,7 +41,8 @@ export class AuthStatusService {
     const keyed = wanted.filter((t): t is Exclude<ProviderTransport, 'ollama'> => t !== 'ollama');
     const statuses = await Promise.all(keyed.map((t) => this.probeOne(t)));
     const ollama = wanted.includes('ollama') ? await this.probeOllamaEndpoints() : [];
-    return { statuses, ollama, checkedAt: Date.now() };
+    const openaiCompat = await this.probeOpenAICompatEndpoints();
+    return { statuses, ollama, openaiCompat, checkedAt: Date.now() };
   }
 
   private async probeOne(
@@ -117,10 +122,11 @@ export class AuthStatusService {
     label: string;
     baseUrl: string;
     token?: string;
+    headers?: Record<string, string>;
   }): Promise<OllamaEndpointStatus> {
     const base = { id: ep.id, label: ep.label, fixed: ep.id === 'local' };
     try {
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = { ...(ep.headers ?? {}) };
       if (ep.token) headers.Authorization = `Bearer ${ep.token}`;
       const url = `${ep.baseUrl.replace(/\/$/, '')}/api/tags`;
       const res = await this.fetchWithTimeout(url, { headers });
@@ -129,6 +135,27 @@ export class AuthStatusService {
       }
       const body = (await res.json().catch(() => ({ models: [] }))) as { models?: Array<{ name: string }> };
       const count = body.models?.length ?? 0;
+      return { ...base, state: 'ok', reason: `${count} model${count === 1 ? '' : 's'}` };
+    } catch (err) {
+      return { ...base, state: 'error', reason: shortReason(err), detail: longDetail(err) };
+    }
+  }
+
+  private async probeOpenAICompatEndpoints(): Promise<OpenAICompatEndpointStatus[]> {
+    const eps = (this.deps.listOpenAICompatEndpoints ?? (() => []))();
+    return Promise.all(eps.map((ep) => this.probeOneOpenAICompat(ep)));
+  }
+
+  private async probeOneOpenAICompat(ep: ResolvedOpenAICompatEndpoint): Promise<OpenAICompatEndpointStatus> {
+    const base = { id: ep.id, label: ep.label };
+    try {
+      const url = `${ep.baseUrl.replace(/\/$/, '')}/models`;
+      const res = await this.fetchWithTimeout(url, { headers: ep.headers });
+      if (!res.ok) {
+        return { ...base, state: 'error', reason: String(res.status), detail: res.statusText || `HTTP ${res.status}` };
+      }
+      const body = (await res.json().catch(() => ({ data: [] }))) as { data?: unknown[] };
+      const count = body.data?.length ?? 0;
       return { ...base, state: 'ok', reason: `${count} model${count === 1 ? '' : 's'}` };
     } catch (err) {
       return { ...base, state: 'error', reason: shortReason(err), detail: longDetail(err) };

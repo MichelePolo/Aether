@@ -344,5 +344,7 @@ function mergeReport(prior: AuthStatusReport | null, fresh: AuthStatusReport): A
       .filter((s): s is TransportStatus => Boolean(s)),
     // A targeted refresh that didn't probe Ollama returns ollama:[]; keep prior then.
     ollama: fresh.ollama.length > 0 ? fresh.ollama : prior.ollama,
+    // Always carry the fresh openaiCompat list; prior has no partial-refresh concept for it.
+    openaiCompat: fresh.openaiCompat,
   };
 }

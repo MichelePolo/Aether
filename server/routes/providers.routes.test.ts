@@ -105,6 +105,7 @@ describe('providers routes — auth status', () => {
       { transport: 'gemini', state: 'unconfigured', reason: 'no api key' },
     ],
     ollama: [{ id: 'local', label: 'local', fixed: true, state: 'ok', reason: '3 models' }],
+    openaiCompat: [],
   };
 
   it('GET /api/providers/auth-status returns the full report', async () => {
@@ -135,6 +136,7 @@ describe('providers routes — auth status', () => {
       checkedAt: 9999,
       statuses: [{ transport: 'anthropic', state: 'error', reason: '500', detail: 'oops' }],
       ollama: [],
+      openaiCompat: [],
     };
     let firstCall = true;
     const probeSpy = vi.fn(async (_transports?: string[]) => {
@@ -189,6 +191,7 @@ describe('providers routes — auth status', () => {
       checkedAt: 1,
       statuses: [{ transport: 'anthropic', state: 'ok', reason: 'oauth' }],
       ollama: [],
+      openaiCompat: [],
     };
     const app = createApp({ providers: reg, authStatusService: makeAuthSvc(report) });
 
@@ -216,6 +219,7 @@ describe('providers routes — auth status', () => {
       checkedAt: 1,
       statuses: [{ transport: 'anthropic', state: 'ok', reason: 'oauth' }],
       ollama: [],
+      openaiCompat: [],
     };
     const app = createApp({ providers: reg, authStatusService: makeAuthSvc(report) });
 
@@ -239,6 +243,7 @@ function makeAppWithVault(opts?: { probeOk?: boolean }) {
       reason: opts?.probeOk === false ? 'no api key' : 'api key set',
     }],
     ollama: [],
+    openaiCompat: [],
     checkedAt: Date.now(),
   }));
   const registry = { list: () => [], refresh: refreshSpy, defaultName: () => null } as unknown as Parameters<typeof createProvidersRoutes>[0];
