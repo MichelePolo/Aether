@@ -281,6 +281,7 @@ async function bootstrap() {
     keyVaultHooks,
     buildInfoRowsCtx,
     ollamaEndpointStore,
+    openaiEndpointStore: openAICompatEndpointStore,
     policyStore,
     previewService,
     workspacesStore,

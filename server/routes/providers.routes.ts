@@ -11,6 +11,7 @@ import { VAULT_TRANSPORTS, type VaultTransport } from '@/server/domain/providers
 import { ValidationError } from '@/server/lib/errors';
 import type { OllamaEndpointStore } from '@/server/domain/providers/ollama-endpoints.store';
 import type { OllamaEndpointRecord } from '@/server/domain/providers/ollama-endpoints.types';
+import type { OpenAICompatEndpointStore } from '@/server/domain/providers/openai-endpoints.store';
 
 function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -31,6 +32,7 @@ export function createProvidersRoutes(
   hooks?: KeyVaultHooks,
   buildInfoRowsCtx?: { anthropicCliPresent: boolean; ollamaHost: string },
   ollamaEndpointStore?: OllamaEndpointStore,
+  openaiEndpointStore?: OpenAICompatEndpointStore,
 ): Router {
   const router = Router();
 
@@ -65,6 +67,18 @@ export function createProvidersRoutes(
   const isUniqueViolation = (err: unknown): boolean =>
     typeof (err as { code?: string })?.code === 'string' &&
     (err as { code: string }).code.startsWith('SQLITE_CONSTRAINT');
+
+  const validateHeaders = (h: unknown): Record<string, string> => {
+    if (typeof h !== 'object' || h === null || Array.isArray(h)) {
+      throw new ValidationError('headers must be an object');
+    }
+    for (const [k, v] of Object.entries(h as Record<string, unknown>)) {
+      if (typeof v !== 'string') {
+        throw new ValidationError(`headers["${k}"] must be a string`);
+      }
+    }
+    return h as Record<string, string>;
+  };
 
   // last-known report cached for merge on targeted refresh
   let lastReport: AuthStatusReport | null = null;
@@ -260,9 +274,10 @@ export function createProvidersRoutes(
       const token = typeof req.body?.token === 'string' && req.body.token.trim() !== '' ? req.body.token.trim() : undefined;
       if (!label) throw new ValidationError('label required');
       if (!isHttpUrl(baseUrl)) throw new ValidationError('baseUrl must be a valid http(s) URL');
+      const headers = req.body?.headers !== undefined ? validateHeaders(req.body.headers) : undefined;
       let endpoint: OllamaEndpointRecord;
       try {
-        endpoint = ollamaEndpointStore.create({ label, baseUrl, token });
+        endpoint = ollamaEndpointStore.create({ label, baseUrl, token, headers });
       } catch (err) {
         if (isUniqueViolation(err)) throw new ValidationError(`An endpoint named "${label}" already exists`);
         throw err;
@@ -286,7 +301,7 @@ export function createProvidersRoutes(
         res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Endpoint not found' } });
         return;
       }
-      const patch: { label?: string; baseUrl?: string; token?: string | null } = {};
+      const patch: { label?: string; baseUrl?: string; token?: string | null; headers?: Record<string, string> } = {};
       if (typeof req.body?.label === 'string') {
         const l = req.body.label.trim();
         if (!l) throw new ValidationError('label must not be empty');
@@ -298,6 +313,9 @@ export function createProvidersRoutes(
       }
       if (req.body?.token !== undefined) {
         patch.token = req.body.token === null || req.body.token === '' ? null : String(req.body.token).trim();
+      }
+      if (req.body?.headers !== undefined) {
+        patch.headers = validateHeaders(req.body.headers);
       }
       let endpoint: OllamaEndpointRecord;
       try {
@@ -322,6 +340,100 @@ export function createProvidersRoutes(
       const { id } = req.params;
       if (id === 'local') throw new ValidationError('The local endpoint is fixed and cannot be deleted');
       ollamaEndpointStore.remove(id);
+      await registry.refresh();
+      res.json({ ok: true });
+    }),
+  );
+
+  // ---------------------------------------------------------------------------
+  // OpenAI-compat endpoint CRUD routes
+  // ---------------------------------------------------------------------------
+
+  router.get(
+    '/openai-endpoints',
+    asyncHandler(async (_req, res) => {
+      if (!openaiEndpointStore) {
+        res.status(503).json({ error: { code: 'NO_OPENAI_COMPAT_STORE', message: 'OpenAI-compat endpoint store not configured' } });
+        return;
+      }
+      res.json({ endpoints: openaiEndpointStore.list() });
+    }),
+  );
+
+  router.post(
+    '/openai-endpoints',
+    asyncHandler(async (req, res) => {
+      if (!openaiEndpointStore) {
+        res.status(503).json({ error: { code: 'NO_OPENAI_COMPAT_STORE', message: 'OpenAI-compat endpoint store not configured' } });
+        return;
+      }
+      const label = typeof req.body?.label === 'string' ? req.body.label.trim() : '';
+      const baseUrl = req.body?.baseUrl;
+      const model = typeof req.body?.model === 'string' && req.body.model.trim() !== '' ? req.body.model.trim() : undefined;
+      if (!label) throw new ValidationError('label required');
+      if (!isHttpUrl(baseUrl)) throw new ValidationError('baseUrl must be a valid http(s) URL');
+      const headers = req.body?.headers !== undefined ? validateHeaders(req.body.headers) : undefined;
+      let endpoint;
+      try {
+        endpoint = openaiEndpointStore.create({ label, baseUrl, model, headers });
+      } catch (err) {
+        if (isUniqueViolation(err)) throw new ValidationError(`An endpoint named "${label}" already exists`);
+        throw err;
+      }
+      await registry.refresh();
+      res.status(201).json({ endpoint });
+    }),
+  );
+
+  router.put(
+    '/openai-endpoints/:id',
+    asyncHandler(async (req, res) => {
+      if (!openaiEndpointStore) {
+        res.status(503).json({ error: { code: 'NO_OPENAI_COMPAT_STORE', message: 'OpenAI-compat endpoint store not configured' } });
+        return;
+      }
+      const { id } = req.params;
+      if (!openaiEndpointStore.get(id)) {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Endpoint not found' } });
+        return;
+      }
+      const patch: { label?: string; baseUrl?: string; model?: string | null; headers?: Record<string, string> } = {};
+      if (typeof req.body?.label === 'string') {
+        const l = req.body.label.trim();
+        if (!l) throw new ValidationError('label must not be empty');
+        patch.label = l;
+      }
+      if (req.body?.baseUrl !== undefined) {
+        if (!isHttpUrl(req.body.baseUrl)) throw new ValidationError('baseUrl must be a valid http(s) URL');
+        patch.baseUrl = req.body.baseUrl;
+      }
+      if (req.body?.model !== undefined) {
+        patch.model = req.body.model === null || req.body.model === '' ? null : String(req.body.model).trim();
+      }
+      if (req.body?.headers !== undefined) {
+        patch.headers = validateHeaders(req.body.headers);
+      }
+      let endpoint;
+      try {
+        endpoint = openaiEndpointStore.update(id, patch);
+      } catch (err) {
+        if (isUniqueViolation(err)) throw new ValidationError(`An endpoint with that name already exists`);
+        throw err;
+      }
+      await registry.refresh();
+      res.json({ endpoint });
+    }),
+  );
+
+  router.delete(
+    '/openai-endpoints/:id',
+    asyncHandler(async (req, res) => {
+      if (!openaiEndpointStore) {
+        res.status(503).json({ error: { code: 'NO_OPENAI_COMPAT_STORE', message: 'OpenAI-compat endpoint store not configured' } });
+        return;
+      }
+      const { id } = req.params;
+      openaiEndpointStore.remove(id);
       await registry.refresh();
       res.json({ ok: true });
     }),

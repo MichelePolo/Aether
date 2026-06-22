@@ -33,6 +33,7 @@ import type { BreakpointPolicyStore } from '@/server/domain/mcp/breakpoints/poli
 import type { PreviewService } from '@/server/domain/mcp/breakpoints/preview.service';
 import { createBreakpointsRoutes } from './routes/breakpoints.routes';
 import type { OllamaEndpointStore } from '@/server/domain/providers/ollama-endpoints.store';
+import type { OpenAICompatEndpointStore } from '@/server/domain/providers/openai-endpoints.store';
 import { createSwarmRoutes } from './routes/swarms.routes';
 import { createTddRoutes } from './routes/tdd.routes';
 import { createScheduleRoutes } from './routes/schedules.routes';
@@ -55,6 +56,7 @@ export interface AppDeps {
   keyVaultHooks?: KeyVaultHooks;
   buildInfoRowsCtx?: { anthropicCliPresent: boolean; ollamaHost: string };
   ollamaEndpointStore?: OllamaEndpointStore;
+  openaiEndpointStore?: OpenAICompatEndpointStore;
   policyStore?: BreakpointPolicyStore;
   previewService?: PreviewService;
   swarmStore?: import('./domain/swarms/swarm.store').SwarmStore;
@@ -135,6 +137,7 @@ export function createApp(
         deps.keyVaultHooks,
         deps.buildInfoRowsCtx,
         deps.ollamaEndpointStore,
+        deps.openaiEndpointStore,
       ),
     );
   }
