@@ -25,6 +25,7 @@ export interface OllamaProviderOpts {
   host: string;
   model: string;
   token?: string;
+  headers?: Record<string, string>;
 }
 
 export class OllamaProvider implements AIProvider {
@@ -41,6 +42,7 @@ export class OllamaProvider implements AIProvider {
 
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (this.opts.token) headers.Authorization = `Bearer ${this.opts.token}`;
+    Object.assign(headers, this.opts.headers ?? {});
 
     const res = await fetch(url, {
       method: 'POST',

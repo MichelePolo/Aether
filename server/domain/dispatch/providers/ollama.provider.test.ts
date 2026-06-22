@@ -169,4 +169,46 @@ describe('OllamaProvider', () => {
     const [, init] = fetchMock.mock.calls[0];
     expect((init as RequestInit).headers).toMatchObject({ Authorization: 'Bearer tok-123' });
   });
+
+  it('NRT: con solo token invia Authorization: Bearer e nessun header extra', async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return {
+        ok: true,
+        body: ndjsonStream(['{"done":true}']),
+      } as Response;
+    });
+
+    const p = new OllamaProvider({ host: 'http://h:11434', model: 'm', token: 't' });
+    for await (const _ of p.stream(
+      { systemInstruction: '', history: [], userMessage: 'hi' },
+      new AbortController().signal,
+    )) { /* drain */ }
+
+    expect(calls[0].url).toBe('http://h:11434/api/chat');
+    const h = calls[0].init.headers as Record<string, string>;
+    expect(h.Authorization).toBe('Bearer t');
+  });
+
+  it('fonde headers custom sopra il Bearer token', async () => {
+    const calls: { init: RequestInit }[] = [];
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (_url: string, init: RequestInit) => {
+      calls.push({ init });
+      return {
+        ok: true,
+        body: ndjsonStream(['{"done":true}']),
+      } as Response;
+    });
+
+    const p = new OllamaProvider({ host: 'http://h:11434', model: 'm', token: 't', headers: { 'X-Tenant': 'acme' } });
+    for await (const _ of p.stream(
+      { systemInstruction: '', history: [], userMessage: 'hi' },
+      new AbortController().signal,
+    )) { /* drain */ }
+
+    const h = calls[0].init.headers as Record<string, string>;
+    expect(h.Authorization).toBe('Bearer t');
+    expect(h['X-Tenant']).toBe('acme');
+  });
 });
