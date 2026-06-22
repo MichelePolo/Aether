@@ -12,6 +12,7 @@ const TRANSPORT_LABELS: Record<ProviderTransport, string> = {
   openai: 'OpenAI',
   gemini: 'Gemini',
   ollama: 'Ollama',
+  'openai-compat': 'OpenAI-compat',
 };
 
 function dotClass(state: TransportStatus['state']): string {
