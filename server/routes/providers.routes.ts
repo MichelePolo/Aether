@@ -64,6 +64,14 @@ export function createProvidersRoutes(
     return report.ollama.find((e) => e.id === id) ?? null;
   };
 
+  const openAICompatStatusFor = async (id: string) => {
+    if (!authStatusService) return null;
+    // openai-compat endpoints are probed unconditionally by probe() regardless of
+    // the transport filter, so an empty filter avoids redundant keyed/ollama probes.
+    const report = await authStatusService.probe([]);
+    return report.openaiCompat.find((e) => e.id === id) ?? null;
+  };
+
   const isUniqueViolation = (err: unknown): boolean =>
     typeof (err as { code?: string })?.code === 'string' &&
     (err as { code: string }).code.startsWith('SQLITE_CONSTRAINT');
@@ -381,7 +389,8 @@ export function createProvidersRoutes(
         throw err;
       }
       await registry.refresh();
-      res.status(201).json({ endpoint });
+      const status = await openAICompatStatusFor(endpoint.id);
+      res.status(201).json({ endpoint, status });
     }),
   );
 
@@ -421,7 +430,8 @@ export function createProvidersRoutes(
         throw err;
       }
       await registry.refresh();
-      res.json({ endpoint });
+      const status = await openAICompatStatusFor(id);
+      res.json({ endpoint, status });
     }),
   );
 
