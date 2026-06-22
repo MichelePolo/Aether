@@ -292,4 +292,41 @@ describe('AuthStatusService.probe — openai-compat endpoints', () => {
     expect(report.ollama[0].state).toBe('ok');
     expect(capturedHeaders).toMatchObject({ 'X-Ollama-Key': 'secret' });
   });
+
+  it('custom Authorization header in ep.headers wins over ep.token', async () => {
+    const capturedHeaders: Record<string, string> = {};
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/api/tags')) {
+        Object.assign(capturedHeaders, init?.headers ?? {});
+        return new Response(JSON.stringify({ models: [] }), { status: 200 });
+      }
+      return new Response(null, { status: 599 });
+    }) as unknown as typeof fetch;
+
+    const svc = new AuthStatusService({
+      detectAnthropicAuth: async () => 'none',
+      getAnthropicKey: () => undefined,
+      getOpenAIKey: () => undefined,
+      getGeminiKey: () => undefined,
+      listOllamaEndpoints: () => [
+        {
+          id: 'remote',
+          label: 'remote',
+          baseUrl: 'http://ollama.lan:11434',
+          token: 't',
+          headers: { Authorization: 'Bearer custom' },
+        },
+      ],
+      listOpenAICompatEndpoints: () => [],
+      fetch: fetchMock,
+      timeoutMs: 50,
+    });
+
+    const report = await svc.probe();
+    expect(report.ollama).toHaveLength(1);
+    expect(report.ollama[0].state).toBe('ok');
+    // headers Authorization should win over token
+    expect(capturedHeaders.Authorization).toBe('Bearer custom');
+  });
 });

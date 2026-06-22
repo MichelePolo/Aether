@@ -126,8 +126,10 @@ export class AuthStatusService {
   }): Promise<OllamaEndpointStatus> {
     const base = { id: ep.id, label: ep.label, fixed: ep.id === 'local' };
     try {
-      const headers: Record<string, string> = { ...(ep.headers ?? {}) };
-      if (ep.token) headers.Authorization = `Bearer ${ep.token}`;
+      const headers: Record<string, string> = {
+        ...(ep.token ? { Authorization: `Bearer ${ep.token}` } : {}),
+        ...(ep.headers ?? {}),
+      };
       const url = `${ep.baseUrl.replace(/\/$/, '')}/api/tags`;
       const res = await this.fetchWithTimeout(url, { headers });
       if (!res.ok) {
