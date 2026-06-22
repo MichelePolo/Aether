@@ -15,6 +15,8 @@ export async function buildSingleProviderRegistry(provider: AIProvider): Promise
     ollamaBuilder: (_baseUrl: string, _model: string) => provider,
     anthropicBuilder: () => provider,
     openAIBuilder: () => provider,
+    listOpenAICompatEndpoints: () => [],
+    openAICompatBuilder: (_baseUrl: string, _model: string) => provider,
   });
   await reg.refresh();
   return reg;

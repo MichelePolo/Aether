@@ -36,6 +36,7 @@ import { AuthStatusService } from './domain/providers/auth-status';
 import { KeyVaultService } from './domain/providers/key-vault';
 import { KeyResolver } from './domain/providers/key-resolver';
 import { OllamaEndpointStore } from './domain/providers/ollama-endpoints.store';
+import { OpenAICompatEndpointStore } from './domain/providers/openai-endpoints.store';
 import { SwarmStore } from './domain/swarms/swarm.store';
 import { SwarmApprovalRegistry } from './domain/swarms/swarm.approval';
 import { ScheduleStore } from './domain/schedules/schedules.store';
@@ -132,6 +133,9 @@ async function bootstrap() {
     ...ollamaEndpointStore.listResolved(),
   ];
 
+  const openAICompatEndpointStore = new OpenAICompatEndpointStore(db);
+  const listOpenAICompatEndpoints = () => openAICompatEndpointStore.listResolved();
+
   const providers = new ProviderRegistry({
     resolveKey: (t) => resolver.get(t),
     detectAnthropicAuth,
@@ -160,6 +164,9 @@ async function bootstrap() {
         apiKey: resolver.get('openai') ?? '',
         model: model as 'gpt-5' | 'gpt-5-mini' | 'gpt-4.1' | 'o3',
       }),
+    listOpenAICompatEndpoints,
+    openAICompatBuilder: (baseUrl, model, headers) =>
+      new OpenAIProvider({ apiKey: '', model, baseUrl: `${baseUrl}/chat/completions`, headers }),
     defaultOverride:
       process.env.AETHER_DEFAULT_PROVIDER ||
       (cfg.fakeProvider ? 'fake:default' : 'anthropic:claude-opus-4-8'),

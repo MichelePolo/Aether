@@ -32,6 +32,8 @@ async function makeApp() {
     ollamaBuilder: (_baseUrl: string, model: string) => makeFake(model),
     anthropicBuilder: (model) => makeFake(model),
     openAIBuilder: (model) => makeFake(model),
+    listOpenAICompatEndpoints: () => [],
+    openAICompatBuilder: (_baseUrl: string, model: string) => makeFake(model),
   });
   await reg.refresh();
   const db = makeTestDb();
@@ -176,6 +178,8 @@ describe('providers routes — auth status', () => {
       ollamaBuilder: (_b: string, model: string) => makeFake(model),
       anthropicBuilder: (model) => makeFake(model),
       openAIBuilder: (model) => makeFake(model),
+      listOpenAICompatEndpoints: () => [],
+      openAICompatBuilder: (_baseUrl: string, model: string) => makeFake(model),
     });
     await reg.refresh();
     expect(reg.list().some((p) => p.transport === 'anthropic')).toBe(false);
@@ -203,6 +207,8 @@ describe('providers routes — auth status', () => {
       ollamaBuilder: (_b: string, model: string) => makeFake(model),
       anthropicBuilder: (model) => makeFake(model),
       openAIBuilder: (model) => makeFake(model),
+      listOpenAICompatEndpoints: () => [],
+      openAICompatBuilder: (_baseUrl: string, model: string) => makeFake(model),
     });
     await reg.refresh();
     const refreshSpy = vi.spyOn(reg, 'refresh');
