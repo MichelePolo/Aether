@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.12](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.11...aether-core-v0.1.12) (2026-06-22)
+
+
+### Bug Fixes
+
+* **subagents:** partial edit wiped system instruction + form overflow off-screen ([#86](https://github.com/MichelePolo/Aether/issues/86)) ([fe4ca79](https://github.com/MichelePolo/Aether/commit/fe4ca79f78aedc68c393da1b778dbf6f433998bc))
+
 ## [0.1.11](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.10...aether-core-v0.1.11) (2026-06-20)
 
 
