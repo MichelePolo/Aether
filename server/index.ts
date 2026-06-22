@@ -142,7 +142,8 @@ async function bootstrap() {
     fakeProvider,
     geminiBuilder: (model) => new GeminiProvider({ apiKey: resolver.get('gemini') ?? '', model }),
     listOllamaEndpoints,
-    ollamaBuilder: (baseUrl, model, token) => new OllamaProvider({ host: baseUrl, model, token }),
+    ollamaBuilder: (baseUrl, model, token, headers) =>
+      new OllamaProvider({ host: baseUrl, model, token, headers }),
     anthropicBuilder: (model) =>
       new AnthropicProvider({
         model,
