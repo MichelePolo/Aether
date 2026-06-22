@@ -51,6 +51,7 @@ export function createProvidersRoutes(
     hasToken: false,
     tokenMasked: null,
     fixed: true,
+    headerKeys: [],
     createdAt: null,
     updatedAt: null,
   });
