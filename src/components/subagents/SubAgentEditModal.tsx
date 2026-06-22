@@ -125,7 +125,7 @@ export function SubAgentEditModal() {
                 Edit system instruction
               </button>
             </div>
-            <pre className="p-1.5 rounded bg-zinc-900 border border-border-subtle text-[10px] font-mono text-zinc-400 whitespace-pre-wrap min-h-[40px]">
+            <pre className="p-1.5 rounded bg-zinc-900 border border-border-subtle text-[10px] font-mono text-zinc-400 whitespace-pre-wrap min-h-[40px] max-h-[40vh] overflow-y-auto">
               {record.systemInstruction || <span className="italic text-zinc-600">(empty)</span>}
             </pre>
           </section>

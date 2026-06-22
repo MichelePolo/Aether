@@ -30,4 +30,16 @@ export const SubAgentCreateInputSchema = z.object({
   model: z.string().max(120).optional(),
 });
 
-export const SubAgentUpdateInputSchema = SubAgentCreateInputSchema.partial();
+// A true partial PATCH: every field optional with NO create-defaults. Reusing
+// `SubAgentCreateInputSchema.partial()` would keep the `.default('')`/`.default([])`,
+// so a PATCH omitting a field would parse to `''`/`[]` and the store's
+// `patch.x ?? current` merge would silently wipe systemInstruction/skills/tools
+// on every partial edit (e.g. changing only the model). Keeping fields plain
+// `.optional()` means an omitted field stays `undefined` → the store preserves it.
+export const SubAgentUpdateInputSchema = z.object({
+  name: SubAgentNameSchema.optional(),
+  systemInstruction: z.string().max(8000).optional(),
+  skills: z.array(z.string()).max(50).optional(),
+  tools: z.array(ToolSchema).max(50).optional(),
+  model: z.string().max(120).optional(),
+});

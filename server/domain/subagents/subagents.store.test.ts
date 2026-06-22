@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { SubAgentsStore } from './subagents.store';
+import { SubAgentUpdateInputSchema } from './subagents.schema';
 import { makeTestDb } from '@/server/test/test-db';
 import type { DatabaseHandle } from '@/server/db/database';
 
@@ -85,6 +86,23 @@ describe('SubAgentsStore', () => {
     const rec = await store.read(meta.id);
     expect(rec!.skills).toEqual(['s1']); // untouched
     expect(rec!.systemInstruction).toBe('sys');
+  });
+
+  it('update() through the update schema (model only) preserves systemInstruction, skills, tools', async () => {
+    const meta = await store.create({
+      name: 'sm',
+      systemInstruction: 'KEEP ME',
+      skills: ['s1'],
+      tools: [{ id: 'x', name: 'X', version: '1', status: 'online' }],
+    });
+    // Mirror the route: a partial PATCH carrying only `model` runs through the schema.
+    const patch = SubAgentUpdateInputSchema.parse({ model: 'anthropic:claude-opus-4-8' });
+    await store.update(meta.id, patch);
+    const rec = await store.read(meta.id);
+    expect(rec!.systemInstruction).toBe('KEEP ME');
+    expect(rec!.skills).toEqual(['s1']);
+    expect(rec!.tools.map((t) => t.name)).toEqual(['X']);
+    expect(rec!.model).toBe('anthropic:claude-opus-4-8');
   });
 
   it('update() replaces skills atomically when provided', async () => {
