@@ -44,6 +44,10 @@ interface UiState {
   openOllamaEndpoints(): void;
   closeOllamaEndpoints(): void;
 
+  openaiEndpointsOpen: boolean;
+  openOpenAIEndpoints(): void;
+  closeOpenAIEndpoints(): void;
+
   workspaceBrowserOpen: boolean;
   openWorkspaceBrowser(): void;
   closeWorkspaceBrowser(): void;
@@ -102,6 +106,7 @@ const initial = {
   keyVaultOpen: false,
   keyVaultFocusTransport: null as 'anthropic' | 'openai' | 'gemini' | null,
   ollamaEndpointsOpen: false,
+  openaiEndpointsOpen: false,
   lightboxAttachmentId: null as string | null,
   creatingSkill: false,
   approvalGateState: null as { event: ToolCallRequestEvent; preview: PreviewResult } | null,
@@ -173,6 +178,9 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   openOllamaEndpoints: () => set({ ollamaEndpointsOpen: true }),
   closeOllamaEndpoints: () => set({ ollamaEndpointsOpen: false }),
+
+  openOpenAIEndpoints: () => set({ openaiEndpointsOpen: true }),
+  closeOpenAIEndpoints: () => set({ openaiEndpointsOpen: false }),
 
   openWorkspaceBrowser: () => set({ workspaceBrowserOpen: true }),
   closeWorkspaceBrowser: () => set({ workspaceBrowserOpen: false }),

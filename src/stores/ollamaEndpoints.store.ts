@@ -9,8 +9,8 @@ interface OllamaEndpointsState {
   loading: boolean;
   error: string | null;
   init(): Promise<void>;
-  create(input: { label: string; baseUrl: string; token?: string }): Promise<void>;
-  update(id: string, patch: { label?: string; baseUrl?: string; token?: string | null }): Promise<void>;
+  create(input: { label: string; baseUrl: string; token?: string; headers?: Record<string, string> }): Promise<void>;
+  update(id: string, patch: { label?: string; baseUrl?: string; token?: string | null; headers?: Record<string, string> | null }): Promise<void>;
   remove(id: string): Promise<void>;
   _reset(): void;
 }

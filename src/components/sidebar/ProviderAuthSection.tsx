@@ -6,6 +6,7 @@ import { cn } from '@/src/lib/cn';
 import { useUiStore } from '@/src/stores/ui.store';
 import type { VaultTransport } from '@/src/types/key-vault.types';
 import type { OllamaEndpointStatus } from '@/src/types/ollama-endpoints.types';
+import type { OpenAICompatEndpointStatus } from '@/src/types/openai-endpoints.types';
 
 const TRANSPORT_LABELS: Record<ProviderTransport, string> = {
   anthropic: 'Anthropic',
@@ -26,11 +27,13 @@ const VAULT_SET = new Set<VaultTransport>(['anthropic', 'openai', 'gemini']);
 export function ProviderAuthSection() {
   const statuses = useProviderAuthStore((s) => s.statuses);
   const ollama = useProviderAuthStore((s) => s.ollama);
+  const openaiCompat = useProviderAuthStore((s) => s.openaiCompat);
   const loading = useProviderAuthStore((s) => s.loading);
   const error = useProviderAuthStore((s) => s.error);
   const refresh = useProviderAuthStore((s) => s.refresh);
   const openKeyVault = useUiStore((s) => s.openKeyVault);
   const openOllamaEndpoints = useUiStore((s) => s.openOllamaEndpoints);
+  const openOpenAIEndpoints = useUiStore((s) => s.openOpenAIEndpoints);
 
   const statusMap = Object.fromEntries(statuses.map((s) => [s.transport, s])) as
     Partial<Record<ProviderTransport, TransportStatus>>;
@@ -59,7 +62,7 @@ export function ProviderAuthSection() {
       )}
 
       <div className="space-y-1">
-        {TRANSPORT_ORDER.filter((transport) => transport !== 'ollama').map((transport) => {
+        {TRANSPORT_ORDER.filter((transport) => transport !== 'ollama' && transport !== 'openai-compat').map((transport) => {
           const s = statusMap[transport];
           const state = s?.state ?? 'unconfigured';
           const reason = s?.reason ?? '';
@@ -125,6 +128,38 @@ export function ProviderAuthSection() {
               />
               <span className="flex-shrink-0 text-zinc-300">{ep.label}</span>
               {ep.fixed && ep.label !== 'local' && <span className="text-zinc-600">/ local</span>}
+              {ep.reason && <span className="text-zinc-600 truncate">/ {ep.reason}</span>}
+            </div>
+          ))}
+        </div>
+
+        <div className="pt-1">
+          <button
+            type="button"
+            aria-label="Manage OpenAI-compat endpoints"
+            onClick={openOpenAIEndpoints}
+            className="flex items-center gap-1.5 w-full text-[10px] font-mono px-1 py-1 rounded text-zinc-400 hover:text-white hover:bg-surface-3"
+          >
+            <Settings2 size={10} />
+            <span>OpenAI-compat</span>
+          </button>
+          {openaiCompat.map((ep: OpenAICompatEndpointStatus) => (
+            <div
+              key={ep.id}
+              data-testid="openai-compat-status-row"
+              title={ep.detail ?? ''}
+              className="flex items-center gap-1.5 text-[10px] font-mono px-1 py-1 pl-3 rounded"
+            >
+              <span
+                role="img"
+                aria-label={`OpenAI-compat ${ep.label} status: ${ep.state}`}
+                className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', {
+                  'bg-status-ok': ep.state === 'ok',
+                  'bg-status-error': ep.state === 'error',
+                  'bg-zinc-500': ep.state === 'unconfigured',
+                })}
+              />
+              <span className="flex-shrink-0 text-zinc-300">{ep.label}</span>
               {ep.reason && <span className="text-zinc-600 truncate">/ {ep.reason}</span>}
             </div>
           ))}
