@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.13](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.12...aether-core-v0.1.13) (2026-06-23)
+
+
+### Features
+
+* OpenAI-compatible (vLLM) provider + custom auth headers ([#88](https://github.com/MichelePolo/Aether/issues/88)) ([b5916b5](https://github.com/MichelePolo/Aether/commit/b5916b564513624e2d33c63f586888253b6bc051))
+
 ## [0.1.12](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.11...aether-core-v0.1.12) (2026-06-22)
 
 
