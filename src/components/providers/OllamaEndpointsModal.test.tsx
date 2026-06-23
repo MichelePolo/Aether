@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { OllamaEndpointsModal } from './OllamaEndpointsModal';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useOllamaEndpointsStore } from '@/src/stores/ollamaEndpoints.store';
@@ -58,9 +58,32 @@ describe('OllamaEndpointsModal', () => {
     fireEvent.change(screen.getByLabelText('Edit label gpu'), { target: { value: '  gpu2  ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() =>
-      expect(updateSpy).toHaveBeenCalledWith('abc', { label: 'gpu2', baseUrl: 'http://gpu.lan:11434', token: undefined }),
+      expect(updateSpy).toHaveBeenCalledWith('abc', { label: 'gpu2', baseUrl: 'http://gpu.lan:11434', token: undefined, headers: null }),
     );
     // form closed → edit inputs gone
     await waitFor(() => expect(screen.queryByLabelText('Edit label gpu2')).not.toBeInTheDocument());
+  });
+
+  it('edits an endpoint: adding a header via HeadersEditor includes headers in update call', async () => {
+    const updateSpy = vi.spyOn(providersApi, 'updateOllamaEndpoint')
+      .mockResolvedValue({ endpoint: gpu, status: null });
+    render(<OllamaEndpointsModal />);
+    await screen.findByText('gpu');
+    fireEvent.click(screen.getByLabelText('Edit gpu'));
+    // Scope to the gpu endpoint row to disambiguate from the AddForm's HeadersEditor
+    const rows = screen.getAllByTestId('ollama-endpoint-row');
+    const gpuRow = rows.find((r) => within(r).queryByLabelText('Edit label gpu') !== null)!;
+    fireEvent.click(within(gpuRow).getByRole('button', { name: 'Add header' }));
+    fireEvent.change(within(gpuRow).getByPlaceholderText('Key'), { target: { value: 'X-Custom' } });
+    fireEvent.change(within(gpuRow).getByPlaceholderText('Value'), { target: { value: 'secret' } });
+    fireEvent.click(within(gpuRow).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(updateSpy).toHaveBeenCalledWith('abc', {
+        label: 'gpu',
+        baseUrl: 'http://gpu.lan:11434',
+        token: undefined,
+        headers: { 'X-Custom': 'secret' },
+      }),
+    );
   });
 });

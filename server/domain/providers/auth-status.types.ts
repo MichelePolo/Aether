@@ -17,9 +17,18 @@ export interface OllamaEndpointStatus {
   detail?: string;
 }
 
+export interface OpenAICompatEndpointStatus {
+  id: string;
+  label: string;
+  state: AuthState;
+  reason?: string;
+  detail?: string;
+}
+
 export interface AuthStatusReport {
   statuses: TransportStatus[]; // anthropic, openai, gemini (keyed, fixed order)
   ollama: OllamaEndpointStatus[];
+  openaiCompat: OpenAICompatEndpointStatus[];
   checkedAt: number;
 }
 

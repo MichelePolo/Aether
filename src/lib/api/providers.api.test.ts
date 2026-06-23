@@ -50,6 +50,7 @@ describe('providersApi', () => {
         { transport: 'openai', state: 'unconfigured', reason: 'No API key' },
       ],
       ollama: [],
+      openaiCompat: [],
       checkedAt: 1234567890,
     };
     server.use(
@@ -65,7 +66,7 @@ describe('providersApi', () => {
 
   it('refreshAuthStatus POSTs without transport= query when no transport given', async () => {
     let capturedUrl = '';
-    const report: AuthStatusReport = { statuses: [], ollama: [], checkedAt: 9999 };
+    const report: AuthStatusReport = { statuses: [], ollama: [], openaiCompat: [], checkedAt: 9999 };
     server.use(
       http.post('http://localhost/api/providers/auth-status/refresh', ({ request }) => {
         capturedUrl = request.url;
@@ -82,6 +83,7 @@ describe('providersApi', () => {
     const report: AuthStatusReport = {
       statuses: [{ transport: 'openai', state: 'ok', reason: 'Key found' }],
       ollama: [],
+      openaiCompat: [],
       checkedAt: 8888,
     };
     server.use(

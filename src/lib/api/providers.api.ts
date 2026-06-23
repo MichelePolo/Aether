@@ -9,6 +9,10 @@ import type {
   OllamaEndpoint,
   SaveOllamaEndpointResponse,
 } from '@/src/types/ollama-endpoints.types';
+import type {
+  OpenAICompatEndpoint,
+  SaveOpenAICompatEndpointResponse,
+} from '@/src/types/openai-endpoints.types';
 
 async function jsonRes<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -65,7 +69,7 @@ export const providersApi = {
       .then(jsonRes<{ endpoints: OllamaEndpoint[] }>)
       .then((b) => b.endpoints),
 
-  createOllamaEndpoint: (input: { label: string; baseUrl: string; token?: string }): Promise<SaveOllamaEndpointResponse> =>
+  createOllamaEndpoint: (input: { label: string; baseUrl: string; token?: string; headers?: Record<string, string> }): Promise<SaveOllamaEndpointResponse> =>
     fetch('/api/providers/ollama-endpoints', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -74,7 +78,7 @@ export const providersApi = {
 
   updateOllamaEndpoint: (
     id: string,
-    patch: { label?: string; baseUrl?: string; token?: string | null },
+    patch: { label?: string; baseUrl?: string; token?: string | null; headers?: Record<string, string> | null },
   ): Promise<SaveOllamaEndpointResponse> =>
     fetch(`/api/providers/ollama-endpoints/${encodeURIComponent(id)}`, {
       method: 'PUT',
@@ -84,5 +88,31 @@ export const providersApi = {
 
   deleteOllamaEndpoint: (id: string): Promise<{ ok: boolean }> =>
     fetch(`/api/providers/ollama-endpoints/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      .then(jsonRes<{ ok: boolean }>),
+
+  listOpenAIEndpoints: (): Promise<OpenAICompatEndpoint[]> =>
+    fetch('/api/providers/openai-endpoints')
+      .then(jsonRes<{ endpoints: OpenAICompatEndpoint[] }>)
+      .then((b) => b.endpoints),
+
+  createOpenAIEndpoint: (input: { label: string; baseUrl: string; model?: string; headers?: Record<string, string> }): Promise<SaveOpenAICompatEndpointResponse> =>
+    fetch('/api/providers/openai-endpoints', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    }).then(jsonRes<SaveOpenAICompatEndpointResponse>),
+
+  updateOpenAIEndpoint: (
+    id: string,
+    patch: { label?: string; baseUrl?: string; model?: string | null; headers?: Record<string, string> | null },
+  ): Promise<SaveOpenAICompatEndpointResponse> =>
+    fetch(`/api/providers/openai-endpoints/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }).then(jsonRes<SaveOpenAICompatEndpointResponse>),
+
+  deleteOpenAIEndpoint: (id: string): Promise<{ ok: boolean }> =>
+    fetch(`/api/providers/openai-endpoints/${encodeURIComponent(id)}`, { method: 'DELETE' })
       .then(jsonRes<{ ok: boolean }>),
 };

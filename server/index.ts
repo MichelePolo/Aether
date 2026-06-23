@@ -36,6 +36,7 @@ import { AuthStatusService } from './domain/providers/auth-status';
 import { KeyVaultService } from './domain/providers/key-vault';
 import { KeyResolver } from './domain/providers/key-resolver';
 import { OllamaEndpointStore } from './domain/providers/ollama-endpoints.store';
+import { OpenAICompatEndpointStore } from './domain/providers/openai-endpoints.store';
 import { SwarmStore } from './domain/swarms/swarm.store';
 import { SwarmApprovalRegistry } from './domain/swarms/swarm.approval';
 import { ScheduleStore } from './domain/schedules/schedules.store';
@@ -132,13 +133,17 @@ async function bootstrap() {
     ...ollamaEndpointStore.listResolved(),
   ];
 
+  const openAICompatEndpointStore = new OpenAICompatEndpointStore(db);
+  const listOpenAICompatEndpoints = () => openAICompatEndpointStore.listResolved();
+
   const providers = new ProviderRegistry({
     resolveKey: (t) => resolver.get(t),
     detectAnthropicAuth,
     fakeProvider,
     geminiBuilder: (model) => new GeminiProvider({ apiKey: resolver.get('gemini') ?? '', model }),
     listOllamaEndpoints,
-    ollamaBuilder: (baseUrl, model, token) => new OllamaProvider({ host: baseUrl, model, token }),
+    ollamaBuilder: (baseUrl, model, token, headers) =>
+      new OllamaProvider({ host: baseUrl, model, token, headers }),
     anthropicBuilder: (model) =>
       new AnthropicProvider({
         model,
@@ -160,6 +165,9 @@ async function bootstrap() {
         apiKey: resolver.get('openai') ?? '',
         model: model as 'gpt-5' | 'gpt-5-mini' | 'gpt-4.1' | 'o3',
       }),
+    listOpenAICompatEndpoints,
+    openAICompatBuilder: (baseUrl, model, headers) =>
+      new OpenAIProvider({ apiKey: '', model, baseUrl: `${baseUrl}/chat/completions`, headers }),
     defaultOverride:
       process.env.AETHER_DEFAULT_PROVIDER ||
       (cfg.fakeProvider ? 'fake:default' : 'anthropic:claude-opus-4-8'),
@@ -187,6 +195,7 @@ async function bootstrap() {
     getOpenAIKey: () => resolver.get('openai'),
     getGeminiKey: () => resolver.get('gemini'),
     listOllamaEndpoints,
+    listOpenAICompatEndpoints,
   });
 
   // Detect whether the claude CLI is present (for the info row label).
@@ -273,6 +282,7 @@ async function bootstrap() {
     keyVaultHooks,
     buildInfoRowsCtx,
     ollamaEndpointStore,
+    openaiEndpointStore: openAICompatEndpointStore,
     policyStore,
     previewService,
     workspacesStore,

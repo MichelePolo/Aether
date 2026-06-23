@@ -16,12 +16,14 @@ export interface AnthropicDiscovery {
   error: string | null;
 }
 
-export async function discoverOllama(host: string, token?: string): Promise<string[]> {
+export async function discoverOllama(host: string, token?: string, headers?: Record<string, string>): Promise<string[]> {
   try {
-    const headers: Record<string, string> = {};
-    if (token) headers.Authorization = `Bearer ${token}`;
+    const headersMerged: Record<string, string> = {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(headers ?? {}),
+    };
     const res = await fetch(`${host.replace(/\/$/, '')}/api/tags`, {
-      headers,
+      headers: headersMerged,
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return [];
@@ -29,6 +31,20 @@ export async function discoverOllama(host: string, token?: string): Promise<stri
     const parsed = TagsResponse.safeParse(body);
     if (!parsed.success) return [];
     return parsed.data.models.map((m) => m.name);
+  } catch {
+    return [];
+  }
+}
+
+export async function discoverOpenAICompat(baseUrl: string, headers?: Record<string, string>): Promise<string[]> {
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/$/, '')}/models`, {
+      headers: headers ?? {},
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return [];
+    const body = await res.json() as { data?: Array<{ id?: string }> };
+    return (body.data ?? []).map((m) => m.id).filter((id): id is string => typeof id === 'string');
   } catch {
     return [];
   }

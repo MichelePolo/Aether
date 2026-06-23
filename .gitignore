@@ -20,5 +20,8 @@ data/*
 # superpowers brainstorm visual companion
 .superpowers/
 
+# Claude Code agent worktrees (local, never commit)
+.claude/worktrees/
+
 # Local preview/integration data dirs (never commit DBs)
 data-preview/

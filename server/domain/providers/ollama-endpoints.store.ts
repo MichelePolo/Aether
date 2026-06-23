@@ -16,6 +16,9 @@ interface Row {
   token_ciphertext: Buffer | null;
   token_iv: Buffer | null;
   token_auth_tag: Buffer | null;
+  headers_ciphertext: Buffer | null;
+  headers_iv: Buffer | null;
+  headers_auth_tag: Buffer | null;
   created_at: number;
   updated_at: number;
 }
@@ -39,6 +42,7 @@ export class OllamaEndpointStore {
         label: r.label,
         baseUrl: r.base_url,
         token: this.decryptToken(r) ?? undefined,
+        headers: this.decryptHeaders(r) ?? {},
       }));
   }
 
@@ -53,11 +57,13 @@ export class OllamaEndpointStore {
     const id = randomUUID();
     const now = Date.now();
     const tok = input.token ? encrypt(input.token) : null;
+    const hdrs = this.encryptHeaders(input.headers ?? {});
     this.db
       .prepare(
         `INSERT INTO ollama_endpoints
-           (id, label, base_url, token_ciphertext, token_iv, token_auth_tag, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, label, base_url, token_ciphertext, token_iv, token_auth_tag,
+            headers_ciphertext, headers_iv, headers_auth_tag, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         id,
@@ -66,6 +72,9 @@ export class OllamaEndpointStore {
         tok?.ciphertext ?? null,
         tok?.iv ?? null,
         tok?.authTag ?? null,
+        hdrs?.ciphertext ?? null,
+        hdrs?.iv ?? null,
+        hdrs?.authTag ?? null,
         now,
         now,
       );
@@ -97,13 +106,26 @@ export class OllamaEndpointStore {
       }
     }
 
+    let hCipher = existing.headers_ciphertext;
+    let hIv = existing.headers_iv;
+    let hTag = existing.headers_auth_tag;
+    if (patch.headers !== undefined) {
+      const blob = this.encryptHeaders(patch.headers);
+      hCipher = blob?.ciphertext ?? null;
+      hIv = blob?.iv ?? null;
+      hTag = blob?.authTag ?? null;
+    }
+
     this.db
       .prepare(
         `UPDATE ollama_endpoints
-           SET label = ?, base_url = ?, token_ciphertext = ?, token_iv = ?, token_auth_tag = ?, updated_at = ?
+           SET label = ?, base_url = ?,
+               token_ciphertext = ?, token_iv = ?, token_auth_tag = ?,
+               headers_ciphertext = ?, headers_iv = ?, headers_auth_tag = ?,
+               updated_at = ?
          WHERE id = ?`,
       )
-      .run(label, baseUrl, cipher, iv, tag, Date.now(), id);
+      .run(label, baseUrl, cipher, iv, tag, hCipher, hIv, hTag, Date.now(), id);
 
     return this.get(id)!;
   }
@@ -117,7 +139,27 @@ export class OllamaEndpointStore {
     try {
       return decrypt({ ciphertext: r.token_ciphertext, iv: r.token_iv, authTag: r.token_auth_tag });
     } catch {
-      console.warn(`[ollama-endpoints] decrypt failed for ${r.id}: auth-tag mismatch`);
+      console.warn(`[ollama-endpoints] decrypt token failed for ${r.id}: auth-tag mismatch`);
+      return null;
+    }
+  }
+
+  private encryptHeaders(headers: Record<string, string>) {
+    if (Object.keys(headers).length === 0) return null;
+    return encrypt(JSON.stringify(headers));
+  }
+
+  private decryptHeaders(r: Row): Record<string, string> | null {
+    if (!r.headers_ciphertext || !r.headers_iv || !r.headers_auth_tag) return null;
+    try {
+      const plain = decrypt({
+        ciphertext: r.headers_ciphertext,
+        iv: r.headers_iv,
+        authTag: r.headers_auth_tag,
+      });
+      return JSON.parse(plain) as Record<string, string>;
+    } catch {
+      console.warn(`[ollama-endpoints] decrypt headers failed for ${r.id}: auth-tag mismatch`);
       return null;
     }
   }
@@ -125,6 +167,7 @@ export class OllamaEndpointStore {
   private toRecord(r: Row): OllamaEndpointRecord {
     const hasCipher = r.token_ciphertext !== null;
     const token = hasCipher ? this.decryptToken(r) : null;
+    const headers = this.decryptHeaders(r);
     return {
       id: r.id,
       label: r.label,
@@ -132,6 +175,7 @@ export class OllamaEndpointStore {
       hasToken: token !== null,
       tokenMasked: token !== null ? mask(token) : null,
       fixed: false,
+      headerKeys: headers ? Object.keys(headers) : [],
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     };

@@ -40,6 +40,39 @@ afterEach(() => {
 });
 
 describe('OpenAIProvider', () => {
+  it('NRT: senza baseUrl/headers usa api.openai.com + Bearer apiKey', async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (url: string, init?: RequestInit) => {
+      calls.push({ url: url as string, init: init as RequestInit });
+      return new Response(streamFromString(ssePayload([
+        JSON.stringify({ choices: [{ delta: { content: 'hi' } }] }),
+      ])), { status: 200 });
+    });
+    const p = new OpenAIProvider({ apiKey: 'k', model: 'gpt-5' });
+    await collect(p.stream(baseReq(), new AbortController().signal));
+    expect(calls[0].url).toBe('https://api.openai.com/v1/chat/completions');
+    const h = calls[0].init.headers as Record<string, string>;
+    expect(h.authorization).toBe('Bearer k');
+  });
+
+  it('usa baseUrl e headers custom quando forniti', async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (url: string, init?: RequestInit) => {
+      calls.push({ url: url as string, init: init as RequestInit });
+      return new Response(streamFromString(ssePayload([])), { status: 200 });
+    });
+    const p = new OpenAIProvider({
+      apiKey: '', model: 'qwen2.5-coder',
+      baseUrl: 'https://vllm.corp.example/v1/chat/completions',
+      headers: { 'X-API-Key': 'secret', 'Authorization': 'Bearer tok' },
+    });
+    await collect(p.stream(baseReq(), new AbortController().signal));
+    expect(calls[0].url).toBe('https://vllm.corp.example/v1/chat/completions');
+    const h = calls[0].init.headers as Record<string, string>;
+    expect(h['X-API-Key']).toBe('secret');
+    expect(h['Authorization']).toBe('Bearer tok');
+  });
+
   it('reports model and capability per-model (o3 thinks, others do not)', () => {
     expect(new OpenAIProvider({ apiKey: 'sk-x', model: 'gpt-5' }).capabilities).toEqual({
       thinking: false,

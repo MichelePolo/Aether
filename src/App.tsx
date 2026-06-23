@@ -28,6 +28,7 @@ import { ReasoningDrawer } from '@/src/components/reasoning/ReasoningDrawer';
 import { ProfilesModal } from '@/src/components/profiles/ProfilesModal';
 import { KeyVaultModal } from '@/src/components/profiles/KeyVaultModal';
 import { OllamaEndpointsModal } from '@/src/components/providers/OllamaEndpointsModal';
+import { OpenAIEndpointsModal } from '@/src/components/providers/OpenAIEndpointsModal';
 import { SubAgentEditModal } from '@/src/components/subagents/SubAgentEditModal';
 import { CreateSkillModal } from '@/src/components/skills/CreateSkillModal';
 import { TddRunModal } from '@/src/components/tdd/TddRunModal';
@@ -136,6 +137,7 @@ export default function App() {
       <ProfilesModal />
       <KeyVaultModal />
       <OllamaEndpointsModal />
+      <OpenAIEndpointsModal />
       <SubAgentEditModal />
       <CreateSkillModal />
       <TddRunModal />

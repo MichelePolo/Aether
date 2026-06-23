@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ProviderRegistry } from './registry';
 import type { AIProvider } from '@/server/domain/dispatch/providers/provider.types';
+import { OpenAIProvider } from '@/server/domain/dispatch/providers/openai.provider';
 
 function makeFake(model: string): AIProvider {
   return {
@@ -22,6 +23,8 @@ function baseDeps(
     ollamaBuilder: (_baseUrl: string, model: string) => makeFake(model),
     anthropicBuilder: (model: string) => makeFake(model),
     openAIBuilder: (model: string) => makeFake(model),
+    listOpenAICompatEndpoints: () => [],
+    openAICompatBuilder: (_baseUrl: string, model: string) => makeFake(model),
     ...overrides,
   };
 }
@@ -207,6 +210,35 @@ describe('ProviderRegistry', () => {
     expect(reg.get('ollama:llama3')).not.toBeNull();
     expect(reg.get('ollama:abc:llama3')).not.toBeNull();
     expect(reg.describe('ollama:abc:llama3')?.displayName).toBe('Ollama (gpu) / llama3');
+    vi.unstubAllGlobals();
+  });
+
+  it('NRT: senza openai-compat endpoints, le chiavi ollama e defaultName non cambiano', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, json: () => Promise.resolve({ models: [{ name: 'llama3:latest' }] }),
+    } as Response));
+    const reg = new ProviderRegistry(baseDeps({
+      listOpenAICompatEndpoints: () => [],
+      listOllamaEndpoints: () => [{ id: 'local', label: 'local', baseUrl: 'http://localhost:11434' }],
+    }));
+    await reg.refresh();
+    expect(reg.list().some((d) => d.transport === 'openai-compat')).toBe(false);
+    expect(reg.get('ollama:llama3:latest')).not.toBeNull();
+    expect(reg.defaultName()).toBe('ollama:llama3:latest');
+    vi.unstubAllGlobals();
+  });
+
+  it('registra provider openai-compat per ogni model scoperto', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/v1/models')) return new Response(JSON.stringify({ data: [{ id: 'qwen' }] }), { status: 200 });
+      return new Response('{}', { status: 200 });
+    }));
+    const reg = new ProviderRegistry(baseDeps({
+      listOpenAICompatEndpoints: () => [{ id: 'corp', label: 'corp', baseUrl: 'https://v/v1', model: null, headers: { Authorization: 'Bearer t' } }],
+      openAICompatBuilder: (baseUrl, model, headers) => new OpenAIProvider({ apiKey: '', model, baseUrl: `${baseUrl}/chat/completions`, headers }),
+    }));
+    await reg.refresh();
+    expect(reg.list().some((d) => d.name === 'openai-compat:corp:qwen')).toBe(true);
     vi.unstubAllGlobals();
   });
 });

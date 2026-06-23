@@ -11,6 +11,7 @@ import { KeyVaultService } from '@/server/domain/providers/key-vault';
 import type { TransportStatus } from '@/server/domain/providers/auth-status.types';
 import { makeTestDb } from '@/server/test/test-db';
 import { OllamaEndpointStore } from '@/server/domain/providers/ollama-endpoints.store';
+import { OpenAICompatEndpointStore } from '@/server/domain/providers/openai-endpoints.store';
 import { isAppError } from '@/server/lib/errors';
 import { createProvidersRoutes } from './providers.routes';
 
@@ -32,14 +33,18 @@ async function makeApp() {
     ollamaBuilder: (_baseUrl: string, model: string) => makeFake(model),
     anthropicBuilder: (model) => makeFake(model),
     openAIBuilder: (model) => makeFake(model),
+    listOpenAICompatEndpoints: () => [],
+    openAICompatBuilder: (_baseUrl: string, model: string) => makeFake(model),
   });
   await reg.refresh();
   const db = makeTestDb();
   const ollamaEndpointStore = new OllamaEndpointStore(db);
+  const openaiEndpointStore = new OpenAICompatEndpointStore(db);
   return {
     app: createApp({
       providers: reg,
       ollamaEndpointStore,
+      openaiEndpointStore,
       buildInfoRowsCtx: { anthropicCliPresent: false, ollamaHost: 'http://localhost:11434' },
     }),
     reg,
@@ -103,6 +108,7 @@ describe('providers routes — auth status', () => {
       { transport: 'gemini', state: 'unconfigured', reason: 'no api key' },
     ],
     ollama: [{ id: 'local', label: 'local', fixed: true, state: 'ok', reason: '3 models' }],
+    openaiCompat: [],
   };
 
   it('GET /api/providers/auth-status returns the full report', async () => {
@@ -133,6 +139,7 @@ describe('providers routes — auth status', () => {
       checkedAt: 9999,
       statuses: [{ transport: 'anthropic', state: 'error', reason: '500', detail: 'oops' }],
       ollama: [],
+      openaiCompat: [],
     };
     let firstCall = true;
     const probeSpy = vi.fn(async (_transports?: string[]) => {
@@ -176,6 +183,8 @@ describe('providers routes — auth status', () => {
       ollamaBuilder: (_b: string, model: string) => makeFake(model),
       anthropicBuilder: (model) => makeFake(model),
       openAIBuilder: (model) => makeFake(model),
+      listOpenAICompatEndpoints: () => [],
+      openAICompatBuilder: (_baseUrl: string, model: string) => makeFake(model),
     });
     await reg.refresh();
     expect(reg.list().some((p) => p.transport === 'anthropic')).toBe(false);
@@ -185,6 +194,7 @@ describe('providers routes — auth status', () => {
       checkedAt: 1,
       statuses: [{ transport: 'anthropic', state: 'ok', reason: 'oauth' }],
       ollama: [],
+      openaiCompat: [],
     };
     const app = createApp({ providers: reg, authStatusService: makeAuthSvc(report) });
 
@@ -203,6 +213,8 @@ describe('providers routes — auth status', () => {
       ollamaBuilder: (_b: string, model: string) => makeFake(model),
       anthropicBuilder: (model) => makeFake(model),
       openAIBuilder: (model) => makeFake(model),
+      listOpenAICompatEndpoints: () => [],
+      openAICompatBuilder: (_baseUrl: string, model: string) => makeFake(model),
     });
     await reg.refresh();
     const refreshSpy = vi.spyOn(reg, 'refresh');
@@ -210,6 +222,7 @@ describe('providers routes — auth status', () => {
       checkedAt: 1,
       statuses: [{ transport: 'anthropic', state: 'ok', reason: 'oauth' }],
       ollama: [],
+      openaiCompat: [],
     };
     const app = createApp({ providers: reg, authStatusService: makeAuthSvc(report) });
 
@@ -233,6 +246,7 @@ function makeAppWithVault(opts?: { probeOk?: boolean }) {
       reason: opts?.probeOk === false ? 'no api key' : 'api key set',
     }],
     ollama: [],
+    openaiCompat: [],
     checkedAt: Date.now(),
   }));
   const registry = { list: () => [], refresh: refreshSpy, defaultName: () => null } as unknown as Parameters<typeof createProvidersRoutes>[0];
@@ -409,5 +423,160 @@ describe('ollama-endpoints routes', () => {
       .put('/api/providers/ollama-endpoints/00000000-0000-0000-0000-000000000000')
       .send({ label: 'x' });
     expect(res.status).toBe(404);
+  });
+
+  it('POST with headers stores them and returns headerKeys (no values)', async () => {
+    const { app } = await makeApp();
+    const res = await request(app)
+      .post('/api/providers/ollama-endpoints')
+      .send({ label: 'hdr', baseUrl: 'http://hdr.lan:11434', headers: { Authorization: 'Bearer tok' } });
+    expect(res.status).toBe(201);
+    expect(res.body.endpoint.headerKeys).toEqual(['Authorization']);
+    expect(JSON.stringify(res.body)).not.toContain('Bearer tok');
+  });
+
+  it('POST with headers=non-object returns 400', async () => {
+    const { app } = await makeApp();
+    const res = await request(app)
+      .post('/api/providers/ollama-endpoints')
+      .send({ label: 'bad', baseUrl: 'http://a.lan', headers: 'not-an-object' });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('POST with headers value not a string returns 400', async () => {
+    const { app } = await makeApp();
+    const res = await request(app)
+      .post('/api/providers/ollama-endpoints')
+      .send({ label: 'bad2', baseUrl: 'http://a.lan', headers: { X: 42 } });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// openai-endpoints routes
+// ---------------------------------------------------------------------------
+
+describe('openai-endpoints routes', () => {
+  it('GET returns empty list initially', async () => {
+    const { app } = await makeApp();
+    const res = await request(app).get('/api/providers/openai-endpoints');
+    expect(res.status).toBe(200);
+    expect(res.body.endpoints).toEqual([]);
+  });
+
+  it('POST creates an endpoint and returns masked record (201)', async () => {
+    const { app } = await makeApp();
+    const res = await request(app)
+      .post('/api/providers/openai-endpoints')
+      .send({ label: 'vllm', baseUrl: 'http://vllm.lan:8000', model: 'mistral-7b' });
+    expect(res.status).toBe(201);
+    expect(res.body.endpoint).toMatchObject({ label: 'vllm', baseUrl: 'http://vllm.lan:8000', model: 'mistral-7b' });
+    expect(res.body.endpoint.headerKeys).toEqual([]);
+  });
+
+  it('POST with headers stores them and returns headerKeys (no values)', async () => {
+    const { app } = await makeApp();
+    const res = await request(app)
+      .post('/api/providers/openai-endpoints')
+      .send({ label: 'auth-ep', baseUrl: 'http://vllm.lan:8000', headers: { Authorization: 'Bearer secret' } });
+    expect(res.status).toBe(201);
+    expect(res.body.endpoint.headerKeys).toEqual(['Authorization']);
+    expect(JSON.stringify(res.body)).not.toContain('Bearer secret');
+  });
+
+  it('POST with headers=non-object returns 400 ValidationError', async () => {
+    const { app } = await makeApp();
+    const res = await request(app)
+      .post('/api/providers/openai-endpoints')
+      .send({ label: 'bad', baseUrl: 'http://vllm.lan:8000', headers: 'not-an-object' });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('POST with headers value not a string returns 400 ValidationError', async () => {
+    const { app } = await makeApp();
+    const res = await request(app)
+      .post('/api/providers/openai-endpoints')
+      .send({ label: 'bad2', baseUrl: 'http://vllm.lan:8000', headers: { X: 42 } });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('POST rejects an invalid base URL', async () => {
+    const { app } = await makeApp();
+    const res = await request(app)
+      .post('/api/providers/openai-endpoints')
+      .send({ label: 'bad', baseUrl: 'not-a-url' });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST rejects missing label', async () => {
+    const { app } = await makeApp();
+    const res = await request(app)
+      .post('/api/providers/openai-endpoints')
+      .send({ baseUrl: 'http://vllm.lan:8000' });
+    expect(res.status).toBe(400);
+  });
+
+  it('GET list includes newly created endpoint', async () => {
+    const { app } = await makeApp();
+    await request(app)
+      .post('/api/providers/openai-endpoints')
+      .send({ label: 'ep1', baseUrl: 'http://ep1.lan' });
+    const res = await request(app).get('/api/providers/openai-endpoints');
+    expect(res.status).toBe(200);
+    expect(res.body.endpoints).toHaveLength(1);
+    expect(res.body.endpoints[0]).toMatchObject({ label: 'ep1' });
+  });
+
+  it('POST rejects a duplicate label', async () => {
+    const { app } = await makeApp();
+    await request(app).post('/api/providers/openai-endpoints').send({ label: 'dup', baseUrl: 'http://a' });
+    const res = await request(app).post('/api/providers/openai-endpoints').send({ label: 'dup', baseUrl: 'http://b' });
+    expect(res.status).toBe(400);
+  });
+
+  it('PUT updates an endpoint', async () => {
+    const { app } = await makeApp();
+    const created = await request(app)
+      .post('/api/providers/openai-endpoints')
+      .send({ label: 'ep-put', baseUrl: 'http://ep-put.lan' });
+    const id = created.body.endpoint.id as string;
+    const res = await request(app)
+      .put(`/api/providers/openai-endpoints/${id}`)
+      .send({ label: 'ep-put-renamed' });
+    expect(res.status).toBe(200);
+    expect(res.body.endpoint.label).toBe('ep-put-renamed');
+  });
+
+  it('PUT returns 404 for a non-existent id', async () => {
+    const { app } = await makeApp();
+    const res = await request(app)
+      .put('/api/providers/openai-endpoints/00000000-0000-0000-0000-000000000000')
+      .send({ label: 'x' });
+    expect(res.status).toBe(404);
+  });
+
+  it('DELETE removes an endpoint', async () => {
+    const { app } = await makeApp();
+    const created = await request(app)
+      .post('/api/providers/openai-endpoints')
+      .send({ label: 'tmp', baseUrl: 'http://tmp.lan' });
+    const id = created.body.endpoint.id as string;
+    const del = await request(app).delete(`/api/providers/openai-endpoints/${id}`);
+    expect(del.status).toBe(200);
+    expect(del.body.ok).toBe(true);
+  });
+
+  it('returns 503 when openaiEndpointStore is absent', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 } as Response));
+    const { reg } = await makeApp();
+    const app = createApp({ providers: reg }); // no openaiEndpointStore
+    const res = await request(app).get('/api/providers/openai-endpoints');
+    expect(res.status).toBe(503);
+    expect(res.body.error.code).toBe('NO_OPENAI_COMPAT_STORE');
+    vi.unstubAllGlobals();
   });
 });

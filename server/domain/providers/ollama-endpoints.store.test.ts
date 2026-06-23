@@ -81,4 +81,38 @@ describe('OllamaEndpointStore', () => {
     expect(rec.hasToken).toBe(false);
     expect(rec.tokenMasked).toBeNull();
   });
+
+  // NRT: additive headers capability — existing rows without headers keep working
+  it('row created without headers has headerKeys=[] and listResolved().headers={}, token still works', () => {
+    db = makeTestDb();
+    const store = new OllamaEndpointStore(db);
+    const c = store.create({ label: 'no-headers', baseUrl: 'http://a', token: 'tok-12345678' });
+    // public record: headerKeys is empty
+    expect(c.headerKeys).toEqual([]);
+    const pub = store.list().find((e) => e.id === c.id)!;
+    expect(pub.headerKeys).toEqual([]);
+    // resolved: headers is empty object, token still decrypts
+    const resolved = store.listResolved().find((e) => e.id === c.id)!;
+    expect(resolved.headers).toEqual({});
+    expect(resolved.token).toBe('tok-12345678');
+  });
+
+  it('encrypts headers and exposes only keys in list(), decrypts in listResolved()', () => {
+    db = makeTestDb();
+    const store = new OllamaEndpointStore(db);
+    const c = store.create({
+      label: 'with-headers',
+      baseUrl: 'http://b',
+      token: 'tok-87654321',
+      headers: { Authorization: 'Bearer s3cret', 'X-Foo': 'bar' },
+    });
+    const pub = store.list().find((e) => e.id === c.id)!;
+    expect(pub.headerKeys).toContain('Authorization');
+    expect(pub.headerKeys).toContain('X-Foo');
+    expect(JSON.stringify(pub)).not.toContain('s3cret');
+    const resolved = store.listResolved().find((e) => e.id === c.id)!;
+    expect(resolved.headers.Authorization).toBe('Bearer s3cret');
+    expect(resolved.headers['X-Foo']).toBe('bar');
+    expect(resolved.token).toBe('tok-87654321');
+  });
 });

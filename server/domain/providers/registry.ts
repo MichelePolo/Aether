@@ -1,7 +1,8 @@
 import type { AIProvider, ProviderCapabilities } from '@/server/domain/dispatch/providers/provider.types';
-import { discoverOllama, geminiHardcodedModels, anthropicHardcodedModels, openAIHardcodedModels, discoverAnthropic } from './discovery';
+import { discoverOllama, discoverOpenAICompat, geminiHardcodedModels, anthropicHardcodedModels, openAIHardcodedModels, discoverAnthropic } from './discovery';
+import type { ResolvedOpenAICompatEndpoint } from './openai-endpoints.types';
 
-export type ProviderTransport = 'fake' | 'gemini' | 'ollama' | 'anthropic' | 'openai';
+export type ProviderTransport = 'fake' | 'gemini' | 'ollama' | 'anthropic' | 'openai' | 'openai-compat';
 
 export interface ProviderDescriptor {
   name: string;
@@ -21,18 +22,21 @@ export interface ProviderRegistryDeps {
   detectAnthropicAuth: () => Promise<'oauth' | 'apikey' | 'none'>;
   fakeProvider: AIProvider;
   geminiBuilder: (model: string) => AIProvider;
-  listOllamaEndpoints: () => Array<{ id: string; label: string; baseUrl: string; token?: string }>;
-  ollamaBuilder: (baseUrl: string, model: string, token?: string) => AIProvider;
+  listOllamaEndpoints: () => Array<{ id: string; label: string; baseUrl: string; token?: string; headers?: Record<string, string> }>;
+  ollamaBuilder: (baseUrl: string, model: string, token?: string, headers?: Record<string, string>) => AIProvider;
   anthropicBuilder: (model: string) => AIProvider;
   openAIBuilder: (model: string) => AIProvider;
+  listOpenAICompatEndpoints: () => ResolvedOpenAICompatEndpoint[];
+  openAICompatBuilder: (baseUrl: string, model: string, headers?: Record<string, string>) => AIProvider;
   defaultOverride?: string;
 }
 
-function displayNameFor(transport: ProviderTransport, model: string): string {
+function displayNameFor(transport: ProviderTransport, model: string, label?: string): string {
   if (transport === 'fake') return 'Fake (default)';
   if (transport === 'gemini') return `Gemini / ${model}`;
   if (transport === 'anthropic') return `Anthropic / ${model}`;
   if (transport === 'openai') return `OpenAI / ${model}`;
+  if (transport === 'openai-compat') return label ? `${label} / ${model}` : `OpenAI Compat / ${model}`;
   return `Ollama / ${model}`;
 }
 
@@ -139,11 +143,11 @@ export class ProviderRegistry {
     // for backward-compatibility with sessions saved before multi-endpoint.
     const ollamaEndpoints = this.deps.listOllamaEndpoints();
     const discovered = await Promise.all(
-      ollamaEndpoints.map(async (ep) => ({ ep, tags: await discoverOllama(ep.baseUrl, ep.token) })),
+      ollamaEndpoints.map(async (ep) => ({ ep, tags: await discoverOllama(ep.baseUrl, ep.token, ep.headers) })),
     );
     for (const { ep, tags } of discovered) {
       for (const tag of tags) {
-        const provider = this.deps.ollamaBuilder(ep.baseUrl, tag, ep.token);
+        const provider = this.deps.ollamaBuilder(ep.baseUrl, tag, ep.token, ep.headers);
         const name = ep.id === 'local' ? `ollama:${tag}` : `ollama:${ep.id}:${tag}`;
         next.set(name, {
           provider,
@@ -153,6 +157,32 @@ export class ProviderRegistry {
             model: tag,
             capabilities: provider.capabilities,
             displayName: `Ollama (${ep.label}) / ${tag}`,
+          },
+        });
+      }
+    }
+
+    // OpenAI-compat (per-endpoint discovery). Never auto-default; manually selected only.
+    const openAICompatEndpoints = this.deps.listOpenAICompatEndpoints();
+    const discoveredCompat = await Promise.all(
+      openAICompatEndpoints.map(async (ep) => ({
+        ep,
+        models: await discoverOpenAICompat(ep.baseUrl, ep.headers),
+      })),
+    );
+    for (const { ep, models } of discoveredCompat) {
+      const tags = models.length > 0 ? models : (ep.model ? [ep.model] : []);
+      for (const model of tags) {
+        const provider = this.deps.openAICompatBuilder(ep.baseUrl, model, ep.headers);
+        const name = `openai-compat:${ep.id}:${model}`;
+        next.set(name, {
+          provider,
+          descriptor: {
+            name,
+            transport: 'openai-compat',
+            model,
+            capabilities: provider.capabilities,
+            displayName: displayNameFor('openai-compat', model, ep.label),
           },
         });
       }

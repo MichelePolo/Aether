@@ -4,10 +4,12 @@ import type {
   AuthStatusReport, ProviderTransport, TransportStatus,
 } from '@/src/types/provider-auth.types';
 import type { OllamaEndpointStatus } from '@/src/types/ollama-endpoints.types';
+import type { OpenAICompatEndpointStatus } from '@/src/types/openai-endpoints.types';
 
 interface ProviderAuthState {
   statuses: TransportStatus[];
   ollama: OllamaEndpointStatus[];
+  openaiCompat: OpenAICompatEndpointStatus[];
   checkedAt: number | null;
   loading: boolean;
   error: string | null;
@@ -19,6 +21,7 @@ interface ProviderAuthState {
 const initial = {
   statuses: [] as TransportStatus[],
   ollama: [] as OllamaEndpointStatus[],
+  openaiCompat: [] as OpenAICompatEndpointStatus[],
   checkedAt: null as number | null,
   loading: false,
   error: null as string | null,
@@ -38,7 +41,14 @@ export const useProviderAuthStore = create<ProviderAuthState>((set) => ({
     set({ loading: true, error: null });
     try {
       const report = await providersApi.fetchAuthStatus();
-      set({ statuses: report.statuses, ollama: report.ollama, checkedAt: report.checkedAt, loading: false, error: null });
+      set({
+        statuses: report.statuses,
+        ollama: report.ollama,
+        openaiCompat: report.openaiCompat ?? [],
+        checkedAt: report.checkedAt,
+        loading: false,
+        error: null,
+      });
     } catch (e) {
       set({ loading: false, error: errMsg(e) });
     }
@@ -55,6 +65,7 @@ export const useProviderAuthStore = create<ProviderAuthState>((set) => ({
       set((s) => ({
         statuses: report.statuses.length ? report.statuses : s.statuses,
         ollama: report.ollama.length ? report.ollama : s.ollama,
+        openaiCompat: (report.openaiCompat ?? []).length ? (report.openaiCompat ?? []) : s.openaiCompat,
         checkedAt: report.checkedAt,
         loading: false,
         error: null,

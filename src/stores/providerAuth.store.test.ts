@@ -14,6 +14,7 @@ const makeReport = (overrides: Partial<{ checkedAt: number }> = {}) => ({
     { transport: 'openai' as const, state: 'unconfigured' as const, reason: 'No key' },
   ],
   ollama: [] as import('@/src/types/ollama-endpoints.types').OllamaEndpointStatus[],
+  openaiCompat: [] as import('@/src/types/openai-endpoints.types').OpenAICompatEndpointStatus[],
   checkedAt: overrides.checkedAt ?? 1000,
 });
 
@@ -88,6 +89,7 @@ describe('useProviderAuthStore', () => {
     vi.spyOn(providersApi, 'fetchAuthStatus').mockResolvedValue({
       statuses: [],
       ollama: [{ id: 'local', label: 'local', fixed: true, state: 'ok', reason: '2 models' }],
+      openaiCompat: [],
       checkedAt: 1,
     });
     await useProviderAuthStore.getState().init();
@@ -98,6 +100,7 @@ describe('useProviderAuthStore', () => {
     vi.spyOn(providersApi, 'refreshAuthStatus').mockResolvedValue({
       statuses: [],
       ollama: [{ id: 'abc', label: 'gpu', fixed: false, state: 'error', reason: '401' }],
+      openaiCompat: [],
       checkedAt: 2,
     });
     await useProviderAuthStore.getState().refresh('ollama');
@@ -109,6 +112,7 @@ describe('useProviderAuthStore', () => {
     vi.spyOn(providersApi, 'fetchAuthStatus').mockResolvedValue({
       statuses: [{ transport: 'anthropic', state: 'ok', reason: 'oauth' }],
       ollama: [],
+      openaiCompat: [],
       checkedAt: 1,
     });
     await useProviderAuthStore.getState().init();
@@ -117,6 +121,7 @@ describe('useProviderAuthStore', () => {
     vi.spyOn(providersApi, 'refreshAuthStatus').mockResolvedValue({
       statuses: [],
       ollama: [{ id: 'local', label: 'local', fixed: true, state: 'ok', reason: '1 model' }],
+      openaiCompat: [],
       checkedAt: 2,
     });
     await useProviderAuthStore.getState().refresh('ollama');
