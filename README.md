@@ -10,7 +10,7 @@ A local-first, multi-provider **agentic LLM dev studio**. Aether pairs a React s
 
 ## Features
 
-- **Multi-provider runtime** — switch between **Gemini**, **Anthropic (Claude)**, **OpenAI**, and **Ollama** (local). Selection is sticky per session and survives reloads; concurrent dispatches on different providers run independently. A built-in **Fake provider** powers tests and offline dev.
+- **Multi-provider runtime** — switch between **Gemini**, **Anthropic (Claude)**, **OpenAI**, **OpenAI-compatible** endpoints (**vLLM** and any `/v1` server, with encrypted custom auth headers), and **Ollama** (local). Selection is sticky per session and survives reloads; concurrent dispatches on different providers run independently. A built-in **Fake provider** powers tests and offline dev.
 - **Secure credential KeyVault** — store API keys encrypted in SQLite via the in-app Provider Auth pane, or supply them through environment variables. `KeyResolver` prefers env vars (12-factor) and falls back to the vault.
 - **MCP tools** — connect any Model Context Protocol server, plus **1-click built-ins** (filesystem, terminal) you can toggle on/off without touching the CLI.
 - **Agentic breakpoints** — let the agent run freely, but pause for an approval gate (with diff/preview) before irreversible actions.
@@ -82,6 +82,8 @@ These are the environment variables the code actually reads:
 | `NODE_ENV` | `production` serves the prebuilt SPA from `dist/` instead of Vite | — |
 
 A provider only appears in the picker when its credential is present (or, for Ollama, when the daemon is reachable). Keys set in the in-app KeyVault are used when the matching env var is absent.
+
+**OpenAI-compatible (vLLM) endpoints** are added from the **Provider Auth** pane, not via env vars: give a `/v1` base URL plus any custom auth headers (e.g. `Authorization: Bearer …`, `X-API-Key: …`). Headers are encrypted at rest (AES-256-GCM) and never returned in plaintext by the API. Models are auto-discovered from `/v1/models`; each becomes selectable as `openai-compat:<endpoint>:<model>`. The same custom-header support is also available on Ollama endpoints.
 
 ## Scripts
 
