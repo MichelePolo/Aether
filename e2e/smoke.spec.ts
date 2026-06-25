@@ -551,6 +551,10 @@ test('workspaces: Add modal opens with browse entries', async ({ page }) => {
   // Modal: "Add this folder" button visible.
   await expect(page.getByText('Add this folder')).toBeVisible({ timeout: 3000 });
 
-  // Cancel out.
+  // Cancel out — and the modal must actually disappear. Regression guard for a
+  // CSS bug where the Modal's unconditional `flex` utility overrode the UA
+  // `dialog:not([open]) { display:none }` rule, so a logically-closed <dialog>
+  // (position:fixed, inset-0) stayed on screen covering the sidebar.
   await page.getByRole('button', { name: /^cancel$/i }).click();
+  await expect(page.getByText('Add this folder')).not.toBeVisible({ timeout: 3000 });
 });

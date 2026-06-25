@@ -4,22 +4,11 @@ import { TopBar } from '@/src/components/layout/TopBar';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { DialogHost } from '@/src/components/layout/DialogHost';
 import { HiddenImportInput } from '@/src/components/layout/HiddenImportInput';
-import { SessionsSection } from '@/src/components/sidebar/SessionsSection';
-import { SystemProtocolSection } from '@/src/components/sidebar/SystemProtocolSection';
-import { SkillsSection } from '@/src/components/sidebar/SkillsSection';
-import { ToolsSection } from '@/src/components/sidebar/ToolsSection';
-import { McpServersSection } from '@/src/components/sidebar/McpServersSection';
-import { BuiltinMcpToggles } from '@/src/components/sidebar/BuiltinMcpToggles';
-import { BreakpointsSection } from '@/src/components/sidebar/BreakpointsSection';
-import { WorkspacesSection } from '@/src/components/sidebar/WorkspacesSection';
+import { SidebarGroups } from '@/src/components/sidebar/SidebarGroups';
 import { WorkspaceBrowserModal } from '@/src/components/workspaces/WorkspaceBrowserModal';
 import { ApprovalGate } from '@/src/components/chat/ApprovalGate';
 import { useBreakpointsStore } from '@/src/stores/breakpoints.store';
 import { useBuiltinMcpStore } from '@/src/stores/builtinMcp.store';
-import { SubAgentsSection } from '@/src/components/sidebar/SubAgentsSection';
-import { SwarmsSection } from '@/src/components/sidebar/SwarmsSection';
-import { SchedulesSection } from '@/src/components/sidebar/SchedulesSection';
-import { ProviderAuthSection } from '@/src/components/sidebar/ProviderAuthSection';
 import { ConnectionFooter } from '@/src/components/sidebar/ConnectionFooter';
 import { ChatView } from '@/src/components/chat/ChatView';
 import { ToolCallBanner } from '@/src/components/chat/ToolCallBanner';
@@ -104,18 +93,7 @@ export default function App() {
             }
             footer={<ConnectionFooter />}
           >
-            <SessionsSection />
-            <SystemProtocolSection />
-            <SkillsSection />
-            <ToolsSection />
-            <BuiltinMcpToggles />
-            <BreakpointsSection />
-            <WorkspacesSection />
-            <McpServersSection />
-            <SubAgentsSection />
-            <SwarmsSection />
-            <SchedulesSection />
-            <ProviderAuthSection />
+            <SidebarGroups />
           </Sidebar>
         }
       >

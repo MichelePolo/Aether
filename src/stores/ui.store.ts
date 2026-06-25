@@ -8,6 +8,29 @@ const SIDEBAR_KEY = 'aether.sidebarOpen';
 const MAINVIEW_KEY = 'aether.mainView';
 const GITTAB_KEY = 'aether.gitTab';
 const AETHER_MODE_KEY = 'aether.aetherMode';
+const SIDEBAR_GROUPS_KEY = 'aether.sidebarGroups';
+
+export const SIDEBAR_GROUP_DEFAULTS: Record<string, boolean> = {
+  sessions: true,
+  systemProtocol: false,
+  skillsAgents: true,
+  tools: false,
+  workspaces: false,
+  providers: true,
+};
+
+function readSidebarGroups(): Record<string, boolean> {
+  try {
+    const v = localStorage.getItem(SIDEBAR_GROUPS_KEY);
+    const parsed = v ? (JSON.parse(v) as Record<string, unknown>) : {};
+    const filtered = Object.fromEntries(
+      Object.entries(parsed).filter(([, val]) => typeof val === 'boolean')
+    ) as Record<string, boolean>;
+    return { ...SIDEBAR_GROUP_DEFAULTS, ...filtered };
+  } catch {
+    return { ...SIDEBAR_GROUP_DEFAULTS };
+  }
+}
 
 export type MainView = 'chat' | 'git';
 export type GitTab = 'history' | 'changes';
@@ -25,6 +48,7 @@ interface UiState {
   searchQuery: string;
   searchResults: SessionHits[];
   sidebarOpen: boolean;
+  sidebarGroups: Record<string, boolean>;
   editingSubAgentId: string | null;
   messageContextMenu: { x: number; y: number; messageId: string; role: 'user' | 'model' } | null;
   lightboxAttachmentId: string | null;
@@ -81,6 +105,7 @@ interface UiState {
   setSearchResults: (results: SessionHits[]) => void;
   setSidebarOpen: (v: boolean) => void;
   toggleSidebar: () => void;
+  toggleSidebarGroup: (id: string) => void;
   setMainView: (v: MainView) => void;
   toggleMainView: () => void;
   setGitTab: (v: GitTab) => void;
@@ -101,6 +126,7 @@ const initial = {
   searchQuery: '',
   searchResults: [] as SessionHits[],
   sidebarOpen: true,
+  sidebarGroups: { ...SIDEBAR_GROUP_DEFAULTS },
   editingSubAgentId: null as string | null,
   messageContextMenu: null as { x: number; y: number; messageId: string; role: 'user' | 'model' } | null,
   keyVaultOpen: false,
@@ -221,6 +247,16 @@ export const useUiStore = create<UiState>((set, get) => ({
     set({ sidebarOpen: next });
   },
 
+  toggleSidebarGroup: (id) => {
+    const next = { ...get().sidebarGroups, [id]: !get().sidebarGroups[id] };
+    try {
+      localStorage.setItem(SIDEBAR_GROUPS_KEY, JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+    set({ sidebarGroups: next });
+  },
+
   setMainView: (v) => {
     try {
       localStorage.setItem(MAINVIEW_KEY, v);
@@ -248,6 +284,7 @@ export const useUiStore = create<UiState>((set, get) => ({
       thinkingEnabled: readBool(THINKING_KEY, false),
       aetherMode: readBool(AETHER_MODE_KEY, false),
       sidebarOpen: readBool(SIDEBAR_KEY, true),
+      sidebarGroups: readSidebarGroups(),
       mainView: readMainView(),
       gitTab: (() => {
         try { return localStorage.getItem(GITTAB_KEY) === 'changes' ? 'changes' : 'history'; }
