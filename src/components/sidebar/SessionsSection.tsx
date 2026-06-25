@@ -111,11 +111,6 @@ export function SessionsSection() {
 
   return (
     <section>
-      <div className="flex items-center justify-between mb-2">
-        <div className="mono-label">Sessions</div>
-        <span className="text-[10px] text-zinc-600">[{sessions.length}]</span>
-      </div>
-
       {error && (
         <div role="alert" className="mb-2 p-1.5 rounded bg-status-error/10 border border-status-error/40 text-status-error text-[10px] flex items-center gap-2">
           <span className="flex-1">⚠ {error}</span>

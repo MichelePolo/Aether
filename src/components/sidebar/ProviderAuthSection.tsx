@@ -1,4 +1,4 @@
-import { RefreshCw, Settings2 } from 'lucide-react';
+import { Settings2 } from 'lucide-react';
 import { useProviderAuthStore } from '@/src/stores/providerAuth.store';
 import { TRANSPORT_ORDER } from '@/src/types/provider-auth.types';
 import type { ProviderTransport, TransportStatus } from '@/src/types/provider-auth.types';
@@ -28,9 +28,7 @@ export function ProviderAuthSection() {
   const statuses = useProviderAuthStore((s) => s.statuses);
   const ollama = useProviderAuthStore((s) => s.ollama);
   const openaiCompat = useProviderAuthStore((s) => s.openaiCompat);
-  const loading = useProviderAuthStore((s) => s.loading);
   const error = useProviderAuthStore((s) => s.error);
-  const refresh = useProviderAuthStore((s) => s.refresh);
   const openKeyVault = useUiStore((s) => s.openKeyVault);
   const openOllamaEndpoints = useUiStore((s) => s.openOllamaEndpoints);
   const openOpenAIEndpoints = useUiStore((s) => s.openOpenAIEndpoints);
@@ -40,21 +38,6 @@ export function ProviderAuthSection() {
 
   return (
     <section>
-      <div className="flex items-center justify-between mb-2">
-        <div className="mono-label">Providers</div>
-        <button
-          type="button"
-          aria-label="Refresh provider auth"
-          onClick={() => refresh().catch(() => {})}
-          className={cn(
-            'text-zinc-400 hover:text-white transition-colors',
-            loading && 'animate-spin',
-          )}
-        >
-          <RefreshCw size={10} />
-        </button>
-      </div>
-
       {error && (
         <div className="mb-2 text-[10px] font-mono text-status-error bg-status-error/10 rounded px-2 py-1">
           {error}

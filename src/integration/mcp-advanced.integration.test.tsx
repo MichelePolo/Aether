@@ -21,6 +21,8 @@ beforeEach(() => {
   useMcpStore.getState()._reset();
   useProvidersStore.getState()._reset();
   localStorage.clear();
+  // Pre-seed sidebarGroups so initFromStorage opens the Tools group (McpServersSection)
+  localStorage.setItem('aether.sidebarGroups', JSON.stringify({ sessions: true, systemProtocol: false, skillsAgents: true, tools: true, workspaces: false, providers: true }));
 });
 
 describe('mcp advanced integration', () => {

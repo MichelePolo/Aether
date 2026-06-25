@@ -27,12 +27,6 @@ describe('WorkspacesSection', () => {
     expect(screen.getByText('proj-2')).toBeInTheDocument();
   });
 
-  it('clicking + Add workspace… opens the browser modal', () => {
-    render(<WorkspacesSection />);
-    fireEvent.click(screen.getByRole('button', { name: /add workspace/i }));
-    expect(useUiStore.getState().workspaceBrowserOpen).toBe(true);
-  });
-
   it('shows a delete button per row that calls remove (via confirm)', async () => {
     useWorkspacesStore.setState({
       workspaces: [{ id: 'w1', name: 'p', rootPath: '/tmp/p', addedAt: 0 }],

@@ -1,7 +1,6 @@
 import { Pencil, Trash2 } from 'lucide-react';
 import { useWorkspacesStore } from '@/src/stores/workspaces.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
-import { useUiStore } from '@/src/stores/ui.store';
 import { useDialog } from '@/src/hooks/useDialog';
 import { cn } from '@/src/lib/cn';
 
@@ -9,7 +8,6 @@ export function WorkspacesSection() {
   const workspaces = useWorkspacesStore((s) => s.workspaces);
   const remove = useWorkspacesStore((s) => s.remove);
   const rename = useWorkspacesStore((s) => s.rename);
-  const openBrowser = useUiStore((s) => s.openWorkspaceBrowser);
   const dialog = useDialog();
 
   const activeWorkspaceId = useSessionsStore((s) => {
@@ -38,16 +36,6 @@ export function WorkspacesSection() {
 
   return (
     <section>
-      <div className="flex items-center justify-between mb-2">
-        <span className="mono-label">Workspaces</span>
-        <button
-          type="button"
-          onClick={openBrowser}
-          className="text-[10px] text-manipulation hover:underline"
-        >
-          + Add workspace…
-        </button>
-      </div>
       <div className="space-y-1">
         {workspaces.map((w) => {
           const isActive = w.id === activeWorkspaceId;

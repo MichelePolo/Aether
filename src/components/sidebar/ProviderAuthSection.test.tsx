@@ -27,15 +27,6 @@ describe('ProviderAuthSection', () => {
     expect(rows[2].textContent).toContain('Gemini');
   });
 
-  it('clicking the refresh button calls useProviderAuthStore.refresh', async () => {
-    const refreshSpy = vi.fn().mockResolvedValue(undefined);
-    useProviderAuthStore.setState({ refresh: refreshSpy });
-    const user = userEvent.setup();
-    render(<ProviderAuthSection />);
-    await user.click(screen.getByRole('button', { name: /refresh provider auth/i }));
-    expect(refreshSpy).toHaveBeenCalledTimes(1);
-  });
-
   it('title= attribute equals detail when present, empty string when absent', () => {
     useProviderAuthStore.setState({ statuses: allStatuses });
     render(<ProviderAuthSection />);

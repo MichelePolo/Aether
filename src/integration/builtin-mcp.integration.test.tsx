@@ -29,6 +29,8 @@ beforeEach(() => {
   useProviderAuthStore.getState()._reset();
   useBuiltinMcpStore.getState()._reset();
   localStorage.clear();
+  // Pre-seed sidebarGroups so initFromStorage opens the Tools group (BuiltinMcpToggles, McpServersSection)
+  localStorage.setItem('aether.sidebarGroups', JSON.stringify({ sessions: true, systemProtocol: false, skillsAgents: true, tools: true, workspaces: false, providers: true }));
 });
 
 afterEach(() => {
