@@ -38,6 +38,7 @@ describe('SessionsSection', () => {
   it('renders empty state-aware list', () => {
     useSessionsStore.setState({ sessions: [], activeSessionId: null, hydrated: true });
     renderWithDialog();
+    expect(screen.getByRole('button', { name: /new session/i })).toBeInTheDocument();
   });
 
   it('renders one row per session, highlights active', () => {
