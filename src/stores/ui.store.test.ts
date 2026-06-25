@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useUiStore } from './ui.store';
+import { useUiStore, SIDEBAR_GROUP_DEFAULTS } from './ui.store';
 
 beforeEach(() => {
   useUiStore.getState()._reset();
@@ -323,5 +323,36 @@ describe('ui.store aetherMode', () => {
     localStorage.setItem('aether.aetherMode', '1');
     useUiStore.getState().initFromStorage();
     expect(useUiStore.getState().aetherMode).toBe(true);
+  });
+});
+
+describe('sidebarGroups', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useUiStore.getState()._reset();
+  });
+
+  it('initial state equals the defaults', () => {
+    expect(useUiStore.getState().sidebarGroups).toEqual(SIDEBAR_GROUP_DEFAULTS);
+  });
+
+  it('toggleSidebarGroup flips the value and persists it', () => {
+    useUiStore.getState().toggleSidebarGroup('tools'); // default false -> true
+    expect(useUiStore.getState().sidebarGroups.tools).toBe(true);
+    expect(JSON.parse(localStorage.getItem('aether.sidebarGroups')!).tools).toBe(true);
+  });
+
+  it('initFromStorage merges persisted values over defaults', () => {
+    localStorage.setItem('aether.sidebarGroups', JSON.stringify({ sessions: false }));
+    useUiStore.getState().initFromStorage();
+    const g = useUiStore.getState().sidebarGroups;
+    expect(g.sessions).toBe(false);        // persisted override
+    expect(g.providers).toBe(true);        // missing key -> default
+  });
+
+  it('initFromStorage falls back to defaults on corrupt JSON', () => {
+    localStorage.setItem('aether.sidebarGroups', '{not json');
+    useUiStore.getState().initFromStorage();
+    expect(useUiStore.getState().sidebarGroups).toEqual(SIDEBAR_GROUP_DEFAULTS);
   });
 });
