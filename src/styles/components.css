@@ -31,6 +31,15 @@
   @media (prefers-reduced-motion: reduce) { .glow-manip, .glow-disc { transition: none; } }
 }
 
+/* Native <dialog> hide-when-closed. UA `dialog:not([open]) { display:none }` is
+   user-agent origin and loses to ANY author rule — and our Modal applies the
+   `flex` utility unconditionally, so a closed dialog would otherwise stay
+   `display:flex` (position:fixed, inset-0) and keep covering the page even
+   after it was logically closed (open attr removed). `!important` overrides the
+   utilities-layer `.flex` (same precedent as `.glass` above). When open, [open]
+   is present so this rule doesn't match and `flex` applies normally. */
+dialog:not([open]) { display: none !important; }
+
 /* Custom scrollbar (global, subtle) */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }

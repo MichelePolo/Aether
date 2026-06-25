@@ -25,3 +25,6 @@ data/*
 
 # Local preview/integration data dirs (never commit DBs)
 data-preview/
+
+# Playwright MCP browser scratch (screenshots/snapshots/console logs)
+.playwright-mcp/
