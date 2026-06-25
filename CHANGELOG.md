@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.14](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.13...aether-core-v0.1.14) (2026-06-25)
+
+
+### Features
+
+* **web:** sidebar redesign — 6 collapsible accordion groups ([#90](https://github.com/MichelePolo/Aether/issues/90)) ([9b27363](https://github.com/MichelePolo/Aether/commit/9b27363dc445fe82fe3685d6d1502192e41179e3))
+
 ## [0.1.13](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.12...aether-core-v0.1.13) (2026-06-23)
 
 
