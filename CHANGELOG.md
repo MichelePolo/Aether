@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.15](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.14...aether-core-v0.1.15) (2026-06-30)
+
+
+### Features
+
+* **install:** prebuilt-tarball installer (fixes npm -g global-leak) ([#94](https://github.com/MichelePolo/Aether/issues/94)) ([380d605](https://github.com/MichelePolo/Aether/commit/380d605ba65b8a95cac5a69f4f27204dba966621))
+* one-line installer (curl/powershell/npm/pnpm/bun) ([#92](https://github.com/MichelePolo/Aether/issues/92)) ([60a641e](https://github.com/MichelePolo/Aether/commit/60a641e37e7d3974c199dbf8b4656f179636adf2))
+
 ## [0.1.0](https://github.com/MichelePolo/Aether/compare/v0.1.14...v0.1.0) (2026-06-30)
 
 
