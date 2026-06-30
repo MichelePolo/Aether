@@ -3,7 +3,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/MichelePolo/Aether/main/scripts/install/install.sh | bash
 set -e
 
-REPO="github:MichelePolo/Aether#semver:*"
+TARBALL="https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz"
 MIN_NODE=20
 
 err() { printf 'aether-install: %s\n' "$1" >&2; }
@@ -20,9 +20,9 @@ if [ "$NODE_MAJOR" -lt "$MIN_NODE" ]; then
   exit 1
 fi
 
-# 2. Install globally from the latest release tag
-echo "Installing Aether (${REPO}) ..."
-npm install -g "$REPO"
+# 2. Install the latest prebuilt release tarball (no build on the client)
+echo "Installing Aether ..."
+npm install -g "$TARBALL"
 
 # 3. Start the daemon and open the browser
 echo "Starting Aether ..."
