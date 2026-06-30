@@ -46,8 +46,12 @@ jobs:
           fail_ci_if_error: false
 
   prod-bundle:
-    name: prod-bundle
-    runs-on: ubuntu-latest
+    name: prod-bundle (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v5
 
