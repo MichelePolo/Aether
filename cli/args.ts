@@ -1,5 +1,6 @@
 export interface CliFlags {
   json: boolean;
+  open: boolean;
   provider?: string;
   session?: string;
   port?: number;
@@ -15,13 +16,15 @@ export interface ParsedArgs {
 const VALUE_FLAGS = new Set(['--provider', '--session', '--port']);
 
 export function parseArgs(argv: string[]): ParsedArgs {
-  const flags: CliFlags = { json: false };
+  const flags: CliFlags = { json: false, open: false };
   const positionals: string[] = [];
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--json') {
       flags.json = true;
+    } else if (arg === '--open') {
+      flags.open = true;
     } else if (VALUE_FLAGS.has(arg)) {
       const value = argv[++i];
       if (arg === '--provider') flags.provider = value;

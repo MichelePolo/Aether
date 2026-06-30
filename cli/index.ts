@@ -4,6 +4,7 @@ import { createSession, dispatch, rejectDecision } from './client';
 import { handleEvent } from './output';
 import { startDaemon, stopDaemon, statusDaemon } from './daemon';
 import { defaultDeps } from './runtime';
+import { openBrowser } from './open';
 
 const writer = {
   out: (s: string) => process.stdout.write(s),
@@ -22,7 +23,7 @@ function helpText(): string {
     'aether — headless CLI for the Aether daemon',
     '',
     'Usage:',
-    '  aether daemon start|stop|status|restart',
+    '  aether daemon start [--open] | stop | status | restart',
     '  aether [--provider P] [--session ID] [--port N] [--json] "<prompt>"',
     '  cat file | aether "<prompt>"',
     '',
@@ -87,6 +88,11 @@ async function main(): Promise<number> {
             ? `already running on port ${r.port}\n`
             : `started (pid ${r.pid}) on port ${r.port}\n`,
         );
+        if (args.flags.open) {
+          const url = `http://127.0.0.1:${r.port}`;
+          writer.out(`opening ${url}\n`);
+          openBrowser(url);
+        }
         return 0;
       }
       case 'stop': {

@@ -37,4 +37,15 @@ describe('parseArgs', () => {
     const r = parseArgs(['daemon']);
     expect(r).toMatchObject({ command: 'daemon', daemonAction: 'status' });
   });
+
+  it('parses --open as a boolean flag', () => {
+    const a = parseArgs(['daemon', 'start', '--open']);
+    expect(a.command).toBe('daemon');
+    expect(a.daemonAction).toBe('start');
+    expect(a.flags.open).toBe(true);
+  });
+
+  it('defaults open to false', () => {
+    expect(parseArgs(['daemon', 'status']).flags.open).toBe(false);
+  });
 });
