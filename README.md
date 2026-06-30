@@ -47,6 +47,30 @@ Express API  ──►  Domain layer
 
 Server entrypoint: [`server/index.ts`](server/index.ts). Frontend entrypoint: [`src/main.tsx`](src/main.tsx).
 
+## Install (one-liner)
+
+**Prerequisite:** Node.js 20+ (the install builds from source; `better-sqlite3`
+fetches a prebuilt native binary on most platforms).
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/MichelePolo/Aether/main/scripts/install/install.sh | bash
+
+# Windows (PowerShell)
+powershell -c "irm https://raw.githubusercontent.com/MichelePolo/Aether/main/scripts/install/install.ps1 | iex"
+
+# npm / pnpm / bun  (then: aether daemon start --open)
+npm  i   -g github:MichelePolo/Aether#semver:*
+pnpm add -g github:MichelePolo/Aether#semver:*
+bun  add -g github:MichelePolo/Aether#semver:*
+```
+
+The curl/PowerShell scripts check Node, install the latest release globally, then
+run `aether daemon start --open` (starts the local server and opens the browser).
+The npm/pnpm/bun commands install the same release tag (`#semver:*`); afterwards
+run `aether daemon start --open` yourself. To build from a clone instead, see
+**Run locally** below.
+
 ## Run locally
 
 **Prerequisites:** Node.js 20+ (better-sqlite3 needs a native build) and npm.
