@@ -49,8 +49,9 @@ Server entrypoint: [`server/index.ts`](server/index.ts). Frontend entrypoint: [`
 
 ## Install (one-liner)
 
-**Prerequisite:** Node.js 20+ (the install builds from source; `better-sqlite3`
-fetches a prebuilt native binary on most platforms).
+**Prerequisite:** Node.js 20+ (the install downloads a prebuilt tarball;
+`better-sqlite3` fetches a prebuilt native binary on most platforms — no build
+toolchain needed).
 
 ```bash
 # macOS / Linux
@@ -60,15 +61,15 @@ curl -fsSL https://raw.githubusercontent.com/MichelePolo/Aether/main/scripts/ins
 powershell -c "irm https://raw.githubusercontent.com/MichelePolo/Aether/main/scripts/install/install.ps1 | iex"
 
 # npm / pnpm / bun  (then: aether daemon start --open)
-npm  i   -g github:MichelePolo/Aether#semver:*
-pnpm add -g github:MichelePolo/Aether#semver:*
-bun  add -g github:MichelePolo/Aether#semver:*
+npm  i   -g https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz
+pnpm add -g https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz
+bun  add -g https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz
 ```
 
-The curl/PowerShell scripts check Node, install the latest release globally, then
+The curl/PowerShell scripts check Node, install the latest prebuilt release, then
 run `aether daemon start --open` (starts the local server and opens the browser).
-The npm/pnpm/bun commands install the same release tag (`#semver:*`); afterwards
-run `aether daemon start --open` yourself. To build from a clone instead, see
+The npm/pnpm/bun commands install the same tarball; afterwards run
+`aether daemon start --open` yourself. To build from a clone instead, see
 **Run locally** below.
 
 ## Run locally

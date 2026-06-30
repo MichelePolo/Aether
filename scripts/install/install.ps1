@@ -2,7 +2,7 @@
 # Aether installer (Windows). Usage:
 #   powershell -c "irm https://raw.githubusercontent.com/MichelePolo/Aether/main/scripts/install/install.ps1 | iex"
 $ErrorActionPreference = 'Stop'
-$Repo = 'github:MichelePolo/Aether#semver:*'
+$Tarball = 'https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz'
 $MinNode = 20
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
@@ -15,8 +15,8 @@ if ($major -lt $MinNode) {
   exit 1
 }
 
-Write-Host "Installing Aether ($Repo) ..."
-npm install -g "$Repo"
+Write-Host "Installing Aether ..."
+npm install -g $Tarball
 if ($LASTEXITCODE -ne 0) { Write-Error "aether-install: npm install failed."; exit 1 }
 
 Write-Host "Starting Aether ..."
