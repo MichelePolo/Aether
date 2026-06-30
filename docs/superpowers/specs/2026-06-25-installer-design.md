@@ -12,6 +12,7 @@ Offrire l'installazione di Aether con comandi copia-incolla in stile pi.dev, su 
 - **Nessun registry**: il repo è pubblico, quindi si installa da **git URL** (`github:MichelePolo/Aether`). `private: true` resta in `package.json` (blocca solo `npm publish`, non l'install da git).
 - **5 canali, 1 meccanismo** (Approccio A): il vero installer è `<pm> i -g github:MichelePolo/Aether#semver:*`, dove lo script `prepare` builda `dist/` durante l'install. curl/powershell sono wrapper sottili (check Node → quel comando → avvio).
 - `#semver:*` aggancia il **tag di release** con versione più alta (coerente con "data una release", evita `main` instabile).
+- **Formato tag → semver puro.** I tag attuali sono `aether-core-v0.1.14` (componente incluso), che il resolver git di npm NON riconosce come semver → `#semver:*` ripiegherebbe su `main`. Fix: `"include-component-in-tag": false` in `release-please-config.json`, così i prossimi tag sono `v0.1.15` (semver). **Transizione:** i canali npm/pnpm/bun via `#semver:*` si attivano dal **primo rilascio col nuovo formato**; i vecchi tag `aether-core-v*` restano in storia, ignorati dal resolver. Fino ad allora i canali npm/pnpm/bun non hanno un tag semver da agganciare (curl/powershell non sono affetti — possono risolvere comunque, ma per semplicità anch'essi usano `#semver:*`).
 - **Post-install** (curl/powershell): `aether daemon start --open` → avvia il daemon e apre il browser.
 - **Build cross-platform** è prerequisito abilitante: oggi il `build` usa coreutils POSIX (`rm -rf`, `mkdir -p`, `cp -R`) e quoting di shell fragile, che rompe su Windows nudo. Va reso portabile perché `prepare` lo esegue sulla macchina di ogni utente.
 
@@ -119,4 +120,4 @@ bun  add -g github:MichelePolo/Aether#semver:*
 ## File toccati (riepilogo)
 
 - **Create:** `scripts/build.mjs`, `scripts/install/install.sh`, `scripts/install/install.ps1`, test per copy-asset e `openBrowser`.
-- **Modify:** `package.json` (`build`/`clean` → node, `prepare`, `files`, `engines`), `cli/index.ts` (+ `--open`, helper `openBrowser`), `cli/daemon.ts` se serve esporre la porta, `.github/workflows/ci.yml` (matrix OS), `README.md` (sezione Install).
+- **Modify:** `package.json` (`build`/`clean` → node, `prepare`, `files`, `engines`), `cli/index.ts` (+ `--open`, helper `openBrowser`), `cli/daemon.ts` se serve esporre la porta, `release-please-config.json` (`include-component-in-tag: false` → tag semver), `.github/workflows/ci.yml` (matrix OS), `README.md` (sezione Install).
