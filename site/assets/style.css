@@ -1,0 +1,157 @@
+/* Aether presentation site — palette & layout (mirrors src/styles/theme.css) */
+:root {
+  --surface-0:#09090B; --surface-1:#09090B; --surface-2:#18181B; --surface-3:#1F1F23; --surface-4:#27272A;
+  --border-subtle:#27272A; --border-default:#3F3F46;
+  --disclosure:#B388FF;   /* reveal the invisible */
+  --manipulation:#FF6D00; /* act / alter state */
+  --cli:#00E676;          /* raw CLI/tool output ONLY */
+  --online:#22c55e; --error:#ef4444;
+  --text:#e4e4e7; --text-dim:#a1a1aa; --text-faint:#71717a;
+  --font-sans:"Inter",system-ui,-apple-system,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,monospace;
+}
+
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  margin:0; background:var(--surface-0); color:var(--text);
+  font-family:var(--font-sans); line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+/* subtle aurora backdrop — the "invisible spectrum" */
+body::before {
+  content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(60rem 40rem at 15% -5%, rgba(179,136,255,.10), transparent 60%),
+    radial-gradient(50rem 35rem at 95% 10%, rgba(255,109,0,.07), transparent 60%),
+    radial-gradient(40rem 30rem at 50% 110%, rgba(0,230,118,.05), transparent 60%);
+}
+
+a { color:var(--disclosure); text-decoration:none; }
+a:hover { text-decoration:underline; }
+h1,h2,h3 { line-height:1.2; font-weight:700; }
+p { color:var(--text-dim); }
+
+.wrap { max-width:1060px; margin:0 auto; padding:0 1.25rem; }
+.mono-label {
+  font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.2em;
+  font-size:.7rem; color:var(--text-faint);
+}
+.c-disc { color:var(--disclosure); } .c-manip { color:var(--manipulation); } .c-cli { color:var(--cli); }
+
+/* ---- top nav ---- */
+.nav {
+  position:sticky; top:0; z-index:20; height:3.25rem;
+  display:flex; align-items:center; gap:1.25rem;
+  padding:0 1.25rem; border-bottom:1px solid var(--border-subtle);
+  background:color-mix(in oklab, var(--surface-2) 80%, transparent); backdrop-filter:blur(8px);
+}
+.nav .brand { font-family:var(--font-mono); font-weight:700; letter-spacing:.12em; color:#fff; }
+.nav .brand .dot { color:var(--disclosure); }
+.nav .links { margin-left:auto; display:flex; gap:1.25rem; align-items:center; }
+.nav .links a { color:var(--text-dim); font-size:.9rem; }
+.nav .links a:hover { color:#fff; text-decoration:none; }
+
+/* ---- buttons ---- */
+.btn {
+  display:inline-block; padding:.7rem 1.25rem; border-radius:.55rem; font-weight:600;
+  font-size:.95rem; border:1px solid var(--border-default); transition:transform .12s, box-shadow .12s;
+}
+.btn:hover { text-decoration:none; transform:translateY(-1px); }
+.btn-primary { background:var(--manipulation); color:#180c00; border-color:transparent; box-shadow:0 0 24px -8px var(--manipulation); }
+.btn-ghost { color:var(--disclosure); border-color:var(--disclosure); }
+.btn-ghost:hover { box-shadow:0 0 24px -10px var(--disclosure); }
+
+/* ---- hero ---- */
+.hero { padding:3.5rem 0 2.5rem; text-align:center; }
+.hero img { width:100%; max-width:760px; border-radius:1rem; border:1px solid var(--border-subtle); }
+.hero h1 { font-size:2.4rem; margin:1.5rem 0 .25rem; letter-spacing:-.01em; }
+.hero .tag { color:var(--text-dim); font-size:1.1rem; margin:.25rem 0 1.5rem; }
+.hero .cta { display:flex; gap:.75rem; justify-content:center; flex-wrap:wrap; }
+
+/* ---- sections ---- */
+section { padding:2.5rem 0; border-top:1px solid var(--border-subtle); }
+section h2 { font-size:1.5rem; margin:.4rem 0 1.25rem; }
+.lead { font-size:1.05rem; max-width:70ch; }
+
+/* ---- cards / grids ---- */
+.card { background:var(--surface-2); border:1px solid var(--border-subtle); border-radius:.85rem; padding:1.25rem 1.4rem; }
+.triplet { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-top:1.25rem; }
+.triplet .card h3 { margin:.2rem 0 .4rem; font-size:1.05rem; }
+.triplet .card.disc { border-color:color-mix(in oklab,var(--disclosure) 45%, var(--border-subtle)); }
+.triplet .card.manip { border-color:color-mix(in oklab,var(--manipulation) 45%, var(--border-subtle)); }
+.triplet .card.cli { border-color:color-mix(in oklab,var(--cli) 40%, var(--border-subtle)); }
+
+.shot { background:var(--surface-2); border:1px solid var(--border-subtle); border-radius:.85rem; overflow:hidden; }
+
+/* carousel for the big, full-width screenshots */
+.carousel { position:relative; margin-top:1.25rem; }
+.carousel-track {
+  display:flex; overflow-x:auto; scroll-snap-type:x mandatory;
+  border-radius:.85rem; scrollbar-width:none;
+}
+.carousel-track::-webkit-scrollbar { display:none; }
+.carousel-track .shot { flex:0 0 100%; scroll-snap-align:center; }
+.carousel-btn {
+  position:absolute; top:42%; transform:translateY(-50%);
+  width:2.6rem; height:2.6rem; border-radius:50%; cursor:pointer; font-size:1.1rem; line-height:1;
+  display:flex; align-items:center; justify-content:center; color:#fff;
+  background:color-mix(in oklab,var(--surface-3) 80%, transparent);
+  border:1px solid var(--border-default); backdrop-filter:blur(6px);
+}
+.carousel-btn:hover { border-color:var(--disclosure); color:var(--disclosure); }
+.carousel-btn.prev { left:.6rem; } .carousel-btn.next { right:.6rem; }
+.carousel-dots { display:flex; gap:.5rem; justify-content:center; margin-top:.9rem; }
+.carousel-dots button { width:.55rem; height:.55rem; border-radius:50%; border:none; background:var(--surface-5); cursor:pointer; padding:0; }
+.carousel-dots button.active { background:var(--manipulation); }
+.shot img { width:100%; display:block; border-bottom:1px solid var(--border-subtle); }
+.shot figcaption { padding:.7rem 1rem; font-size:.85rem; color:var(--text-dim); margin:0; }
+
+/* detail crops: narrow UI panels — keep near natural size, never stretched full-width */
+.details { display:flex; flex-wrap:wrap; gap:1.25rem; justify-content:center; align-items:flex-start; margin-top:1.25rem; }
+.details .shot { flex:0 1 340px; max-width:340px; }
+@media (max-width:720px) { .details .shot { flex-basis:100%; max-width:420px; } }
+
+/* ---- manifesto ---- */
+.manifesto p { color:var(--text); max-width:74ch; }
+.manifesto .intro { font-size:1.15rem; }
+.manifesto strong { color:#fff; }
+
+/* ---- command blocks ---- */
+.tabs { display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:.6rem; }
+.tab {
+  font-family:var(--font-mono); font-size:.8rem; padding:.4rem .8rem; border-radius:.45rem;
+  background:var(--surface-3); color:var(--text-dim); border:1px solid var(--border-subtle); cursor:pointer;
+}
+.tab.active { color:var(--manipulation); border-color:var(--manipulation); }
+.cmd-block { position:relative; }
+.cmd {
+  font-family:var(--font-mono); font-size:.85rem; background:#0c0c0f; color:var(--cli);
+  border:1px solid var(--border-subtle); border-radius:.55rem; padding:.85rem 3.5rem .85rem 1rem;
+  overflow-x:auto; white-space:pre; margin:0;
+}
+.cmd .prompt { color:var(--text-faint); }
+.copy {
+  position:absolute; top:.5rem; right:.5rem; font-family:var(--font-mono); font-size:.7rem;
+  padding:.3rem .55rem; border-radius:.4rem; background:var(--surface-4); color:var(--text-dim);
+  border:1px solid var(--border-default); cursor:pointer;
+}
+.copy:hover { color:#fff; }
+.prereq { font-size:.9rem; color:var(--text-dim); margin:0 0 1rem; }
+.prereq code { color:var(--disclosure); }
+
+/* ---- troubleshooting ---- */
+.tshoot { display:grid; gap:1rem; margin-top:1.25rem; }
+.tshoot .card h3 { margin:0 0 .5rem; font-size:1rem; color:#fff; }
+.tshoot code { font-family:var(--font-mono); background:#0c0c0f; border:1px solid var(--border-subtle); border-radius:.35rem; padding:.1rem .4rem; color:var(--cli); font-size:.85em; }
+
+/* ---- footer ---- */
+footer { border-top:1px solid var(--border-subtle); padding:2rem 0 3rem; margin-top:1rem; text-align:center; }
+footer .links { margin:.5rem 0; display:flex; gap:1rem; justify-content:center; }
+footer .credit { color:var(--text-faint); font-size:.8rem; }
+
+/* ---- responsive ---- */
+@media (max-width:720px) {
+  .triplet, .gallery { grid-template-columns:1fr; }
+  .nav .links { gap:.85rem; }
+  .hero h1 { font-size:1.9rem; }
+}

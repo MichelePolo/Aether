@@ -115,15 +115,15 @@ Struttura (palette semantica + manifesto verbatim dalla spec Appendice A):
 - **Install**: prerequisito "Node.js 20+". Tab dei 5 canali (curl/powershell/npm/pnpm/bun); ogni pannello un `.cmd` con bottone "copia". Comandi verbatim:
   - `curl -fsSL https://raw.githubusercontent.com/MichelePolo/Aether/main/scripts/install/install.sh | bash`
   - `powershell -c "irm https://raw.githubusercontent.com/MichelePolo/Aether/main/scripts/install/install.ps1 | iex"`
-  - `npm i -g github:MichelePolo/Aether#semver:*`
-  - `pnpm add -g github:MichelePolo/Aether#semver:*`
-  - `bun add -g github:MichelePolo/Aether#semver:*`
+  - `npm i -g https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz`
+  - `pnpm add -g https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz`
+  - `bun add -g https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz`
 - **Primo avvio**: `.cmd` `aether daemon start --open` → apre `http://localhost:3000`; `aether daemon status` / `aether daemon stop`.
 - **Troubleshooting** (una `.card` per voce, contenuti verbatim dalla spec):
   - Porta 3000 occupata → `PORT=3001 aether daemon start --open` / `aether --port 3001 daemon start --open` / dev `PORT=3001 npm run dev`.
   - Node mancante o < 20 → installa Node ≥ 20 (winget `OpenJS.NodeJS.LTS` / `brew install node` / nodejs.org).
   - Errore build `better-sqlite3` → build tools (VS Build Tools C++ + Python / Xcode CLT / build-essential+python3).
-  - npm/pnpm/bun installano `main` invece della release → `#semver:*` aggancia il primo tag `v0.1.x`; nota transitoria; curl/powershell non affetti.
+  - `EACCES`/permesso negato sull'install `-g` → il prefix globale npm è root-owned; usa un prefix utente (`npm config set prefix ~/.local`, aggiungi `~/.local/bin` al PATH) e ri-esegui. Caveat di permessi, non un bug.
   - Browser non si apre (SSH/headless) → apri manualmente `http://localhost:3000`.
 - Footer (Step 4).
 

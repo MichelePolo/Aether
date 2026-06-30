@@ -56,15 +56,15 @@ Ogni unità ha una responsabilità chiara: `style.css` = tema+layout (nessun JS)
 - **Install** — i 5 comandi con tab (curl / powershell / npm / pnpm / bun) e bottone "copia". Prerequisito: **Node.js 20+**. Comandi (verbatim):
   - curl: `curl -fsSL https://raw.githubusercontent.com/MichelePolo/Aether/main/scripts/install/install.sh | bash`
   - powershell: `powershell -c "irm https://raw.githubusercontent.com/MichelePolo/Aether/main/scripts/install/install.ps1 | iex"`
-  - npm: `npm i -g github:MichelePolo/Aether#semver:*`
-  - pnpm: `pnpm add -g github:MichelePolo/Aether#semver:*`
-  - bun: `bun add -g github:MichelePolo/Aether#semver:*`
+  - npm: `npm i -g https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz`
+  - pnpm: `pnpm add -g https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz`
+  - bun: `bun add -g https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz`
 - **Primo avvio** — `aether daemon start --open` apre `http://localhost:3000`; `aether daemon status` / `aether daemon stop`. (curl/powershell avviano e aprono il browser automaticamente.)
 - **Troubleshooting** (contenuti accurati, derivati dal codice):
   - **Porta 3000 occupata** → `PORT=3001 aether daemon start --open`, oppure `aether --port 3001 daemon start --open`; in dev da clone: `PORT=3001 npm run dev`. (Il server fa bind su `PORT`, default 3000.)
   - **Node mancante o < 20** → installa Node ≥ 20 (winget `OpenJS.NodeJS.LTS` / `brew install node` / nodejs.org). Gli script di install lo verificano e si fermano con un messaggio chiaro.
   - **Errore di build di `better-sqlite3`** (nessun prebuilt per la piattaforma) → servono build tools: Windows = "Visual Studio Build Tools" (workload C++) + Python; macOS = Xcode Command Line Tools; Linux = `build-essential` + python3.
-  - **npm/pnpm/bun installano `main` invece della release** → `#semver:*` aggancia un tag semver; finché non esce il primo tag `v0.1.x` puro, ripiega su `main`. Nota transitoria; curl/powershell non sono affetti.
+  - **`EACCES`/permesso negato sull'install `-g`** → il prefix globale di npm è di proprietà di root; usa un prefix utente: `npm config set prefix ~/.local`, aggiungi `~/.local/bin` al PATH, poi ri-esegui. È un caveat di permessi del sistema, non un bug dell'installer.
   - **Il browser non si apre** (SSH/headless) → apri manualmente l'URL stampato (`http://localhost:3000`).
 
 ## Footer & meta (comune alle due pagine)

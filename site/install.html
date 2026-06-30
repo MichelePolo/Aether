@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aether — Install &amp; Troubleshooting</title>
+  <meta name="description" content="Installa Aether con un comando (curl, powershell, npm, pnpm, bun). Primo avvio e troubleshooting: porta occupata, Node, better-sqlite3." />
+  <meta property="og:title" content="Aether — Install & Troubleshooting" />
+  <meta property="og:description" content="Un comando per installare Aether. Più primo avvio e risoluzione problemi." />
+  <meta property="og:image" content="assets/img/hero.png" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <nav class="nav">
+    <a class="brand" href="index.html" style="text-decoration:none">AETHER<span class="dot">_</span>CORE</a>
+    <div class="links">
+      <a href="index.html#manifesto">Manifesto</a>
+      <a href="install.html">Install</a>
+      <a href="https://github.com/MichelePolo/Aether">GitHub</a>
+    </div>
+  </nav>
+
+  <main>
+    <section class="wrap">
+      <p class="mono-label">Install</p>
+      <h2>Un comando, e sei dentro</h2>
+      <p class="prereq">Prerequisito: <strong>Node.js 20+</strong> — l'installazione scarica un <strong>tarball precompilato</strong> (niente build sul client); <code>better-sqlite3</code> scarica un binario nativo precompilato sulla maggior parte delle piattaforme.</p>
+
+      <div class="tabs">
+        <button class="tab" data-tab="curl">curl · macOS/Linux</button>
+        <button class="tab" data-tab="powershell">PowerShell · Windows</button>
+        <button class="tab" data-tab="npm">npm</button>
+        <button class="tab" data-tab="pnpm">pnpm</button>
+        <button class="tab" data-tab="bun">bun</button>
+      </div>
+
+      <div class="cmd-block" data-panel="curl">
+        <pre class="cmd"><span class="prompt">$ </span>curl -fsSL https://raw.githubusercontent.com/MichelePolo/Aether/main/scripts/install/install.sh | bash</pre>
+        <button class="copy" data-copy>copia</button>
+      </div>
+      <div class="cmd-block" data-panel="powershell">
+        <pre class="cmd"><span class="prompt">&gt; </span>powershell -c "irm https://raw.githubusercontent.com/MichelePolo/Aether/main/scripts/install/install.ps1 | iex"</pre>
+        <button class="copy" data-copy>copia</button>
+      </div>
+      <div class="cmd-block" data-panel="npm">
+        <pre class="cmd"><span class="prompt">$ </span>npm i -g https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz</pre>
+        <button class="copy" data-copy>copia</button>
+      </div>
+      <div class="cmd-block" data-panel="pnpm">
+        <pre class="cmd"><span class="prompt">$ </span>pnpm add -g https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz</pre>
+        <button class="copy" data-copy>copia</button>
+      </div>
+      <div class="cmd-block" data-panel="bun">
+        <pre class="cmd"><span class="prompt">$ </span>bun add -g https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz</pre>
+        <button class="copy" data-copy>copia</button>
+      </div>
+
+      <p class="prereq" style="margin-top:1rem">curl e PowerShell verificano Node, installano l'ultima release e avviano Aether aprendo il browser. Con npm/pnpm/bun, dopo l'install lancia tu <code>aether daemon start --open</code>.</p>
+    </section>
+
+    <section class="wrap">
+      <p class="mono-label">Primo avvio</p>
+      <h2>Avvia e apri</h2>
+      <div class="cmd-block">
+        <pre class="cmd"><span class="prompt">$ </span>aether daemon start --open   <span class="prompt"># avvia il server e apre http://localhost:3000</span>
+<span class="prompt">$ </span>aether daemon status         <span class="prompt"># running/stopped + pid + porta</span>
+<span class="prompt">$ </span>aether daemon stop</pre>
+        <button class="copy" data-copy>copia</button>
+      </div>
+    </section>
+
+    <section class="wrap">
+      <p class="mono-label">Troubleshooting</p>
+      <h2>Se qualcosa non torna</h2>
+      <div class="tshoot">
+        <div class="card">
+          <h3>La porta 3000 è già occupata</h3>
+          <p>Aether fa bind sulla variabile <code>PORT</code> (default 3000). Scegline un'altra:</p>
+          <div class="cmd-block">
+            <pre class="cmd"><span class="prompt">$ </span>PORT=3001 aether daemon start --open
+<span class="prompt">$ </span>aether --port 3001 daemon start --open
+<span class="prompt"># da clone, in dev:</span>
+<span class="prompt">$ </span>PORT=3001 npm run dev</pre>
+            <button class="copy" data-copy>copia</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Node assente o &lt; 20</h3>
+          <p>Serve Node.js ≥ 20. Installalo e ri-esegui: <code>winget install OpenJS.NodeJS.LTS</code> (Windows), <code>brew install node</code> (macOS), oppure da <a href="https://nodejs.org">nodejs.org</a>. Gli script di install lo verificano e si fermano con un messaggio chiaro.</p>
+        </div>
+
+        <div class="card">
+          <h3>Errore di build di <code>better-sqlite3</code></h3>
+          <p>Se non esiste un binario precompilato per la tua piattaforma, viene compilato e servono i build tools: <strong>Windows</strong> = "Visual Studio Build Tools" (workload C++) + Python; <strong>macOS</strong> = Xcode Command Line Tools (<code>xcode-select --install</code>); <strong>Linux</strong> = <code>build-essential</code> + <code>python3</code>.</p>
+        </div>
+
+        <div class="card">
+          <h3><code>EACCES</code> / permesso negato sull'install globale</h3>
+          <p>Se il prefix globale di npm è di proprietà di root, l'install <code>-g</code> può fallire con <code>EACCES</code>. Usa un prefix utente (nessun sudo):</p>
+          <div class="cmd-block">
+            <pre class="cmd"><span class="prompt">$ </span>npm config set prefix ~/.local
+<span class="prompt"># aggiungi ~/.local/bin al PATH, poi ri-esegui l'install</span></pre>
+            <button class="copy" data-copy>copia</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Il browser non si apre (SSH/headless)</h3>
+          <p>L'apertura del browser è best-effort. Se non parte, apri manualmente l'URL stampato: <code>http://localhost:3000</code> (o la porta che hai scelto).</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p class="mono-label"><span class="c-disc">Disclosure</span> &amp; <span class="c-manip">Manipulation</span></p>
+      <div class="links">
+        <a href="https://github.com/MichelePolo/Aether">GitHub</a>
+        <a href="index.html">Manifesto</a>
+        <a href="https://michelepolo.github.io/Journey/">Blog</a>
+      </div>
+      <p class="credit">Aether — Osservazione e controllo degli LLM.</p>
+    </div>
+  </footer>
+
+  <script src="assets/main.js"></script>
+</body>
+</html>
