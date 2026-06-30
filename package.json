@@ -1,9 +1,13 @@
 {
   "name": "aether-core",
   "private": true,
-  "version": "0.1.14",
-  "files": ["dist"],
-  "engines": { "node": ">=20" },
+  "version": "0.1.0",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "bin": {
     "aether": "dist/cli.cjs"
