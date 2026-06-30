@@ -19,8 +19,8 @@ Stato attuale di `package.json` su main (0.1.0): `files:["dist"]`, `bin:{aether:
 - **Approccio A — tarball asset** (non branch con `dist` committato): repo pulito, CI minima.
 - **CI minima:** un workflow che gira **solo `on: release: published`** (a ogni rilascio), niente carico su PR/push.
 - **`prepare` resta** in `package.json` (serve alla CI per buildare `dist/` durante `npm pack`; non viene eseguito quando si installa il tarball).
-- **Versioning:** riportare il manifest a `0.1.14` → prossima release `0.1.15`.
-- Il **sito** ([[aether-pages-site]]) e il README adottano i comandi finali; il sito si pubblica dopo.
+- **Versioning:** riportare il manifest a `0.1.14` → prossima release `0.1.15`, considerata la **prima release installabile**. Le versioni precedenti sono **alpha**, mai distribuite (solo l'autore): **nessun riferimento** ad esse in docs/sito/README.
+- Il **sito** ([[aether-pages-site]]) e il README adottano i comandi finali e si pubblicano **da 0.1.15 in poi** (quando l'asset esiste).
 
 ## Architettura
 
@@ -83,7 +83,7 @@ bun  add -g https://github.com/MichelePolo/Aether/releases/latest/download/aethe
 
 - **Prefix globale root-owned** (`/usr/local`): `npm i -g` richiede sudo, oppure prefix utente (`npm config set prefix ~/.npm-global`). Documentato nel troubleshooting (non è il nostro bug, è la classica permission del prefix).
 - **`better-sqlite3` senza prebuilt** per la piattaforma → compila (servono build tools). Documentato (già nel troubleshooting esistente).
-- **Release senza asset** (prima del primo rilascio col workflow): `latest/download/aether-core.tgz` 404. Mitigazione: documentare il percorso manuale (clone + `npm install` + `npm i -g .`) come fallback finché 0.1.15 non esce. La release `v0.1.0` esistente non ha l'asset.
+- **Prima della 0.1.15:** l'asset non esiste ancora, quindi i comandi vanno resi pubblici (sito/README) **contestualmente al rilascio 0.1.15**. Non si documentano versioni precedenti né workaround "transitori": 0.1.15 è la prima release installabile.
 - **`gh release upload --clobber`**: sovrascrive se l'asset esiste già (re-run idempotente).
 
 ## Testing
