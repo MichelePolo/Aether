@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.19](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.18...aether-core-v0.1.19) (2026-07-01)
+
+
+### Bug Fixes
+
+* **deps:** better-sqlite3 12.x (Node 24/26 prebuilds); Node floor 20 -&gt; 22 ([#105](https://github.com/MichelePolo/Aether/issues/105)) ([cc19f76](https://github.com/MichelePolo/Aether/commit/cc19f76865e54b6902248836b11b3a9d74bca8c8))
+
 ## [0.1.18](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.17...aether-core-v0.1.18) (2026-07-01)
 
 
