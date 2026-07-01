@@ -34,7 +34,10 @@ async function run() {
     bundle: true, platform: 'node', format: 'cjs',
     packages: 'external', sourcemap: true,
     outfile: 'dist/cli.cjs',
-    banner: { js: '#!/usr/bin/env node' },
+    // Shebang first, then the import.meta.url shim so runtime.ts can resolve the
+    // sibling server.cjs relative to the installed bundle (not the cwd).
+    banner: { js: "#!/usr/bin/env node\nconst import_meta_url=require('url').pathToFileURL(__filename).href" },
+    define: { 'import.meta.url': 'import_meta_url' },
   });
 
   // 3. Runtime assets the bundles read at runtime (no shell: node:fs only).
