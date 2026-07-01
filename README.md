@@ -49,7 +49,7 @@ Server entrypoint: [`server/index.ts`](server/index.ts). Frontend entrypoint: [`
 
 ## Install (one-liner)
 
-**Prerequisite:** Node.js 20+ (the install downloads a prebuilt tarball;
+**Prerequisite:** Node.js 22+ (the install downloads a prebuilt tarball;
 `better-sqlite3` fetches a prebuilt native binary on most platforms — no build
 toolchain needed).
 
@@ -74,7 +74,7 @@ The npm/pnpm/bun commands install the same tarball; afterwards run
 
 ## Run locally
 
-**Prerequisites:** Node.js 20+ (better-sqlite3 needs a native build) and npm.
+**Prerequisites:** Node.js 22+ (better-sqlite3 fetches a prebuilt native binary) and npm.
 
 1. Install dependencies:
    ```bash
