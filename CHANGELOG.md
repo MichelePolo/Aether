@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.17](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.16...aether-core-v0.1.17) (2026-07-01)
+
+
+### Bug Fixes
+
+* **cli:** daemon serves the built SPA from any cwd ([#101](https://github.com/MichelePolo/Aether/issues/101)) ([8a8d4e3](https://github.com/MichelePolo/Aether/commit/8a8d4e3716ebd2a9d6879a54da74e7278de8cb14))
+
 ## [0.1.16](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.15...aether-core-v0.1.16) (2026-07-01)
 
 
