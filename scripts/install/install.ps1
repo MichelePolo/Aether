@@ -3,7 +3,7 @@
 #   powershell -c "irm https://raw.githubusercontent.com/MichelePolo/Aether/main/scripts/install/install.ps1 | iex"
 $ErrorActionPreference = 'Stop'
 $Tarball = 'https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz'
-$MinNode = 20
+$MinNode = 22
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
   Write-Error "aether-install: Node.js >= $MinNode is required but was not found. Install it (e.g. 'winget install OpenJS.NodeJS.LTS') then re-run."

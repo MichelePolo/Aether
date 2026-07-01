@@ -4,7 +4,7 @@
 set -e
 
 TARBALL="https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz"
-MIN_NODE=20
+MIN_NODE=22
 
 err() { printf 'aether-install: %s\n' "$1" >&2; }
 
