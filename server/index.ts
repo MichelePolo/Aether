@@ -303,7 +303,10 @@ async function bootstrap() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    // The built SPA sits next to this bundle (dist/index.html is a sibling of
+    // dist/server.cjs), so resolve it relative to the bundle — not process.cwd(),
+    // which breaks when the daemon is launched from any other directory.
+    const distPath = __dirname;
     app.use(express.static(distPath));
     app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
