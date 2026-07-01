@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.18](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.17...aether-core-v0.1.18) (2026-07-01)
+
+
+### Bug Fixes
+
+* **build:** ship the CLI bin executable (0755) in the tarball ([#103](https://github.com/MichelePolo/Aether/issues/103)) ([c50b8cb](https://github.com/MichelePolo/Aether/commit/c50b8cb8cb7c091a7c7cb22c76755df9b81a2732))
+
 ## [0.1.17](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.16...aether-core-v0.1.17) (2026-07-01)
 
 
