@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.16](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.15...aether-core-v0.1.16) (2026-07-01)
+
+
+### Bug Fixes
+
+* **cli:** resolve server bundle relative to the CLI bundle, not cwd ([#99](https://github.com/MichelePolo/Aether/issues/99)) ([dee91bf](https://github.com/MichelePolo/Aether/commit/dee91bf7a40352024cc0abc04adc539ac3867400))
+
 ## [0.1.15](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.14...aether-core-v0.1.15) (2026-06-30)
 
 
