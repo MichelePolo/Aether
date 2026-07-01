@@ -111,7 +111,10 @@ p { color:var(--text-dim); }
 
 /* ---- sections ---- */
 main { padding-top:1rem; }
-section { padding:3rem 0; }
+/* section.wrap beats .wrap's `padding:0 1.25rem`; keep the horizontal padding,
+   set generous vertical rhythm — more above the divider than below, so the rule
+   reads as belonging to the section that follows it. */
+section.wrap { padding-top:3rem; padding-bottom:4.25rem; }
 section + section { border-top:1px solid var(--border-subtle); }
 section h2 { font-size:1.6rem; margin:.4rem 0 1.1rem; }
 .lead { font-size:1.05rem; max-width:70ch; }
@@ -149,13 +152,12 @@ section h2 { font-size:1.6rem; margin:.4rem 0 1.1rem; }
                         background:rgba(255,255,255,.18); cursor:pointer; padding:0; transition:background .2s; }
 .carousel-dots button.active { background:var(--manipulation); box-shadow:0 0 12px -2px var(--manipulation); }
 
-/* detail crops: narrow UI panels — keep near natural size, never stretched full-width */
-.details { display:flex; flex-wrap:wrap; gap:1.25rem; justify-content:center; align-items:flex-start; margin-top:1.25rem; }
-.details .shot { flex:0 1 340px; max-width:340px; }
-@media (max-width:720px) { .details .shot { flex-basis:100%; max-width:420px; } }
+/* detail crops carousel: one centered portrait panel per view (reuses the carousel JS) */
+.details-carousel .slide { flex:0 0 100%; scroll-snap-align:center; display:flex; justify-content:center; padding:.5rem 0 1.5rem; }
+.details-carousel .slide .shot { flex:0 1 auto; width:100%; max-width:440px; }
 
 /* ---- manifesto ---- */
-.manifesto p { color:var(--text); max-width:74ch; }
+.manifesto p { color:var(--text); max-width:none; } /* fill the wrap like the rest of the page */
 .manifesto .intro { font-size:1.15rem; }
 .manifesto strong { color:#fff; }
 
@@ -188,9 +190,31 @@ footer { border-top:1px solid var(--border-subtle); padding:2.5rem 0 3rem; margi
 footer .links { margin:.5rem 0; display:flex; gap:1rem; justify-content:center; }
 footer .credit { color:var(--text-faint); font-size:.8rem; }
 
+/* ---- "Cosa capisci" concept grid (2x2) ---- */
+.concepts { display:grid; grid-template-columns:repeat(2,1fr); gap:1.1rem; margin-top:1.25rem; }
+.concepts .card h3 { margin:.25rem 0 .5rem; font-size:1.08rem; }
+.concepts .card::before { content:""; position:absolute; inset:0 0 auto 0; height:3px; }
+.concepts .card.c1::before, .concepts .card.c4::before { background:var(--disclosure); box-shadow:0 0 22px -1px var(--disclosure); }
+.concepts .card.c2::before { background:var(--manipulation); box-shadow:0 0 22px -1px var(--manipulation); }
+.concepts .card.c3::before { background:var(--cli); box-shadow:0 0 22px -1px var(--cli); }
+
+/* ---- "Lezioni dal campo" — quiet numbered notes (not glass) ---- */
+.lessons { list-style:none; counter-reset:l; margin:1.25rem 0 0; padding:0; display:grid; gap:.9rem; }
+.lessons li { counter-increment:l; position:relative; padding:.2rem 0 .2rem 2.6rem; color:var(--text-dim); max-width:72ch; }
+.lessons li::before { content:counter(l,decimal-leading-zero); position:absolute; left:0; top:.15rem;
+                     font-family:var(--font-mono); font-size:.85rem; color:var(--text-faint); }
+.lessons strong { color:#fff; }
+
+/* ---- "Cosa ancora manca" — honest roadmap (unchecked todos) ---- */
+.roadmap { list-style:none; margin:1.25rem 0 0; padding:0; display:grid; gap:.75rem; }
+.roadmap li { position:relative; padding:.15rem 0 .15rem 2.5rem; color:var(--text-dim); max-width:74ch; }
+.roadmap li::before { content:"[ ]"; position:absolute; left:0; top:.05rem; font-family:var(--font-mono); font-size:.85rem; color:var(--text-faint); letter-spacing:-.05em; }
+.roadmap strong { font-family:var(--font-mono); font-weight:500; font-size:.92rem; color:var(--disclosure); }
+.roadmap-quote { font-style:italic; color:var(--text-faint); margin:1.5rem 0 0; }
+
 /* ---- responsive ---- */
 @media (max-width:720px) {
-  .triplet { grid-template-columns:1fr; }
+  .concepts { grid-template-columns:1fr; }
   .nav .links { gap:.9rem; }
   .nav .links a:first-child { display:none; } /* drop "Manifesto" to keep the pill tidy on phones */
 }

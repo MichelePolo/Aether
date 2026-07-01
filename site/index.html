@@ -25,13 +25,14 @@
       <a href="#manifesto">Manifesto</a>
       <a href="install.html">Install</a>
       <a href="https://github.com/MichelePolo/Aether">GitHub</a>
+      <a href="https://michelepolo.github.io/Journey/">Blog</a>
     </div>
   </nav>
 
   <header class="hero wrap">
     <img src="assets/img/hero.png" alt="Aether — Disclosure & Manipulation for LLMs" />
     <h1>Aether <span class="c-disc">Disclosure</span> &amp; <span class="c-manip">Manipulation</span></h1>
-    <p class="tag">Osservazione e controllo degli LLM. Local-first, multi-provider, agentico.</p>
+    <p class="tag">Uno studio local-first per vedere come lavorano davvero gli agenti LLM — e imparare mettendoci le mani.</p>
     <div class="cta">
       <a class="btn btn-primary" href="install.html">Installa</a>
       <a class="btn btn-ghost" href="https://github.com/MichelePolo/Aether">GitHub</a>
@@ -41,45 +42,70 @@
   <main>
     <section id="manifesto" class="wrap manifesto">
       <p class="mono-label">Manifesto</p>
-      <h2>Benvenuti in Aether: <span class="c-disc">Disclosure</span> &amp; <span class="c-manip">Manipulation</span></h2>
+      <h2><span class="c-disc">Disclosure</span> &amp; <span class="c-manip">Manipulation</span></h2>
 
-      <p class="intro"><strong>Come l'etere in natura</strong>, una sostanza sottile e onnipresente che pervade lo spazio, Aether è l'interfaccia invisibile che si intreccia con i tuoi agenti LLM, portando alla luce i loro processi più profondi e nascosti.</p>
+      <p class="intro">La maggior parte degli strumenti AI ti mostra la risposta e nasconde tutto il resto. Aether fa il contrario.</p>
 
-      <p><strong>Come l'etere in filosofia</strong>, il quinto elemento puro e immutabile che unisce e dà forma, Aether è il ponte che connette il tuo controllo con il vasto potenziale dell'intelligenza artificiale, rivelando il contesto e permettendoti di manipolarlo.</p>
+      <p>È uno studio agentico <strong>local-first</strong> e <strong>multi-provider</strong> (Anthropic, OpenAI, Gemini, Ollama e endpoint compatibili), pensato per una cosa sola: <strong>capire come lavora davvero un agente LLM</strong> — e imparare usandolo.</p>
 
-      <p>Il cuore di Aether risiede nel nostro motto: <strong class="c-disc">Disclosure</strong> e <strong class="c-manip">Manipulation</strong>. Non ci limitiamo a mostrarti le risposte; ti sveliamo il "perché" e ti diamo i mezzi per intervenire. Con Aether, il "pensiero" dell'agente diventa trasparente, permettendoti di esplorare il contesto, i system prompt, i token in elaborazione e i metadati con una chiarezza senza precedenti.</p>
+      <p><strong class="c-disc">Disclosure.</strong> Di solito un agente è una scatola nera: vedi l'output, non il perché. Aether apre la scatola — il <em>system prompt assemblato</em> di ogni richiesta, il contesto, gli step di ragionamento, ogni tool call con il suo output, i token. Non indovini più cosa guida le risposte: lo osservi.</p>
 
-      <p>Ma non ci fermiamo qui. Aether ti conferisce un potere di <strong class="c-manip">manipolazione</strong> completo. Puoi iniettare contesti personalizzati, sovrascrivere variabili, impostare breakpoint e persino prendere il controllo diretto tramite l'interfaccia a riga di comando integrata. Il controllo è nelle tue mani.</p>
+      <p><strong class="c-manip">Manipulation.</strong> Si capisce facendo. Breakpoint sui tool, gate con preview prima delle azioni irreversibili, iniezione di contesto, controllo dalla CLI. Cambi una variabile e vedi l'effetto: è così che si impara.</p>
 
-      <p>Uniamo le funzionalità di una riga di comando (<span class="c-cli">CLI</span>) con la fluidità di una chat web moderna. L'output grezzo del terminale è chiaramente distinguibile, onorando l'heritage CLI per la sua efficienza e precisione, mentre i pannelli di ragionamento e pensiero sono evidenziati visivamente per un'analisi approfondita. È la perfetta fusione tra controllo di basso livello ed esperienza utente intuitiva.</p>
-
-      <p>Il nostro design non è solo estetico, è semantico. La palette "Spettro Invisibile" usa il <strong class="c-disc">viola</strong> per svelare l'invisibile (Disclosure), l'<strong class="c-manip">arancione</strong> per indicare l'azione (Manipulation) e il <strong class="c-cli">verde</strong> per l'eredità CLI. È un'interfaccia pensata per chi non si accontenta delle superfici, ma vuole scendere in profondità.</p>
-
-      <p>Aether è più di un semplice strumento di osservazione: è l'etere che rende visibile e manipolabile l'invisibile mondo dell'intelligenza artificiale. È il controllo che hai sempre desiderato sul tuo potenziale.</p>
-
-      <p class="intro"><strong>Benvenuto in Aether. Osservazione e controllo degli LLM.</strong></p>
+      <p>Aether è per chi lavora con l'AI e vuole smettere di tirare a indovinare coi prompt — per capire <em>sul serio</em> System Prompt, Tools, Skills e Gate, e le best practice che emergono costruendo software agentico.</p>
     </section>
 
     <section class="wrap">
-      <p class="mono-label">Spettro Invisibile</p>
-      <h2>Una palette semantica</h2>
-      <div class="triplet">
-        <div class="card disc">
-          <p class="mono-label c-disc">Disclosure</p>
-          <h3 class="c-disc">Viola — svelare l'invisibile</h3>
-          <p>Contesto, system prompt, token, ragionamento e metadati resi trasparenti. Vedi il "perché", non solo la risposta.</p>
+      <p class="mono-label">Cosa capisci con Aether</p>
+      <h2>Gli agenti, smontati</h2>
+      <div class="concepts">
+        <div class="card c1">
+          <p class="mono-label c-disc">System Prompt</p>
+          <h3>Cosa riceve il modello</h3>
+          <p>Le istruzioni, il contesto e i tool che il modello riceve davvero — di solito invisibili. In Aether vedi il <em>system prompt assemblato</em> di ogni dispatch: capisci come il framing cambia le risposte.</p>
         </div>
-        <div class="card manip">
-          <p class="mono-label c-manip">Manipulation</p>
-          <h3 class="c-manip">Arancione — l'azione</h3>
-          <p>Inietta contesti, sovrascrivi variabili, imposta breakpoint, approva o blocca i tool. Qui hai il controllo.</p>
+        <div class="card c2">
+          <p class="mono-label c-manip">Tools · MCP</p>
+          <h3>Cosa può fare</h3>
+          <p>Le funzioni che l'agente può chiamare: filesystem, shell, qualunque server MCP. Le colleghi a 1 clic e vedi ogni tool call con il suo output, distinti dal resto: capisci <em>quando</em> e <em>perché</em> usa uno strumento.</p>
         </div>
-        <div class="card cli">
-          <p class="mono-label c-cli">CLI heritage</p>
-          <h3 class="c-cli">Verde — l'output grezzo</h3>
-          <p>L'output del terminale e dei tool è chiaramente distinguibile: l'efficienza della CLI nella fluidità di una chat moderna.</p>
+        <div class="card c3">
+          <p class="mono-label c-cli">Skills &amp; agenti</p>
+          <h3>Come si compone</h3>
+          <p>Competenze e procedure riutilizzabili. Componi skill, sub-agent e swarm — c'è persino <code>skill-smith</code>, un agente che ti aiuta a scriverne di nuove. Impari a strutturare capacità invece di ripetere prompt.</p>
+        </div>
+        <div class="card c4">
+          <p class="mono-label c-disc">Gate &amp; approvazioni</p>
+          <h3>Chi tiene il controllo</h3>
+          <p>Il controllo sulle azioni irreversibili. Metti i tool in auto o gate e approvi con la preview del diff: impari a far correre l'agente senza perderne il controllo.</p>
         </div>
       </div>
+    </section>
+
+    <section class="wrap">
+      <p class="mono-label">Lezioni dal campo</p>
+      <h2>Best practice, non teoria</h2>
+      <ol class="lessons">
+        <li><strong>Brainstorm prima del codice.</strong> Un piano concordato e guidato dai test batte l'intuizione. Usare le skill Superpowers di Obra non è più un'opzione: gli agenti di Aether stessi vorrebbero partire da questa regola, e tutta Aether è implementata così.</li>
+        <li><strong>Sub-agent isolati.</strong> Compito stretto, contesto stretto: il lavoro in parallelo è affidabile quando non si condivide troppo contesto — tutto ciò che entra in più è rumore in sessione.</li>
+        <li><strong>Gate prima di toccare il mondo.</strong> File, shell e git sono tool embedded di default (integrati via MCP) e passano da un'approvazione con preview: l'LLM è libero fino a lì.</li>
+        <li><strong>Il contesto è una risorsa.</strong> Rooting per-workspace, fork delle conversazioni e tool mirati — invece di dare tutto a tutti e dappertutto.</li>
+      </ol>
+    </section>
+
+    <section class="wrap">
+      <p class="mono-label">Cosa ancora manca</p>
+      <h2>La roadmap</h2>
+      <ul class="roadmap">
+        <li><strong>AST</strong> — leggere il codice come albero sintattico, non come testo: ragionare sulla struttura del programma, non sulle stringhe.</li>
+        <li><strong>LSP</strong> — agganciare i Language Server: diagnostica, definizioni e riferimenti da IDE, dati direttamente all'agente.</li>
+        <li><strong>Ingestione &amp; RAG</strong> — indicizzare documenti e codebase e recuperarne solo i pezzi pertinenti come contesto, invece di incollare tutto.</li>
+        <li><strong>Tools aggiuntivi</strong> — più strumenti embedded oltre a filesystem, shell e git.</li>
+        <li><strong>Test di integrazione multi-provider</strong> — prove end-to-end su più provider LLM, per garantire parità di comportamento.</li>
+        <li><strong>Controllo remoto</strong> — pilotare il daemon e le sessioni da remoto, non solo da localhost.</li>
+        <li><strong>Autenticazione LDAP</strong> — login via directory aziendale, per l'uso in team.</li>
+      </ul>
+      <p class="roadmap-quote">L'appetito vien mangiando.</p>
     </section>
 
     <section class="wrap">
@@ -118,23 +144,42 @@
     <section class="wrap">
       <p class="mono-label">Uno sguardo da vicino</p>
       <h2>Dettagli</h2>
-      <div class="details">
-        <figure class="shot">
-          <img src="assets/img/detail-prompt.png" alt="Reasoning drawer: context, system prompt assemblato e tool" />
-          <figcaption><span class="c-disc">Disclosure</span>: il system prompt assemblato, svelato — context, prompt e tool.</figcaption>
-        </figure>
-        <figure class="shot">
-          <img src="assets/img/detail-tools.png" alt="Tools: coding tools, breakpoints auto/gate e session approvals" />
-          <figcaption><span class="c-manip">Manipulation</span>: breakpoint (auto/gate) e session approvals — decidi tu cosa l'agente può fare.</figcaption>
-        </figure>
-        <figure class="shot">
-          <img src="assets/img/detail-skills.png" alt="Skills & Agents: skill, sub-agent, swarm e schedule" />
-          <figcaption>Skills, sub-agent, swarm e schedule: l'agente componibile.</figcaption>
-        </figure>
-        <figure class="shot">
-          <img src="assets/img/detail-providers.png" alt="Selettore provider: Anthropic Opus/Sonnet/Haiku e modelli Ollama locali" />
-          <figcaption>Multi-provider: <span class="c-disc">Anthropic</span> (Opus/Sonnet/Haiku) e <span class="c-cli">Ollama</span> locale in un clic.</figcaption>
-        </figure>
+      <div class="carousel details-carousel">
+        <div class="carousel-track">
+          <div class="slide">
+            <figure class="shot">
+              <img src="assets/img/detail-skill-smith.png" alt="Editor del sub-agent skill-smith: nome, system instruction, modello, skill e tool" />
+              <figcaption><span class="c-cli">Skills &amp; agenti</span>: <code>skill-smith</code> — un sub-agent che scrive skill con te. Ne vedi (e modifichi) la <span class="c-disc">system instruction</span>: sub-agent → system prompt → skill.</figcaption>
+            </figure>
+          </div>
+          <div class="slide">
+            <figure class="shot">
+              <img src="assets/img/detail-prompt.png" alt="Reasoning drawer: context, system prompt assemblato e tool" />
+              <figcaption><span class="c-disc">Disclosure</span>: il system prompt assemblato, svelato — context, prompt e tool.</figcaption>
+            </figure>
+          </div>
+          <div class="slide">
+            <figure class="shot">
+              <img src="assets/img/detail-tools.png" alt="Tools: coding tools, breakpoints auto/gate e session approvals" />
+              <figcaption><span class="c-manip">Manipulation</span>: breakpoint (auto/gate) e session approvals — decidi tu cosa l'agente può fare.</figcaption>
+            </figure>
+          </div>
+          <div class="slide">
+            <figure class="shot">
+              <img src="assets/img/detail-skills.png" alt="Skills & Agents: skill, sub-agent, swarm e schedule" />
+              <figcaption>Skills, sub-agent, swarm e schedule: l'agente componibile.</figcaption>
+            </figure>
+          </div>
+          <div class="slide">
+            <figure class="shot">
+              <img src="assets/img/detail-providers.png" alt="Selettore provider: Anthropic Opus/Sonnet/Haiku e modelli Ollama locali" />
+              <figcaption>Multi-provider: <span class="c-disc">Anthropic</span> (Opus/Sonnet/Haiku) e <span class="c-cli">Ollama</span> locale in un clic.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <button class="carousel-btn prev" aria-label="Precedente">‹</button>
+        <button class="carousel-btn next" aria-label="Successivo">›</button>
+        <div class="carousel-dots" aria-label="Slide"></div>
       </div>
     </section>
   </main>
