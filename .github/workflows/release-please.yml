@@ -3,6 +3,15 @@ name: release-please
 # Reads conventional commits on main, maintains a rolling "release PR" that bumps
 # the version in package.json + updates CHANGELOG.md, and on merge tags the
 # release and publishes a GitHub Release. No manual version bumping needed.
+#
+# When a release is created it ALSO builds the prebuilt tarball and attaches it
+# as `aether-core.tgz`, so installs can use the stable URL
+# https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz
+#
+# The tarball is built in THIS job on purpose: a release created with
+# GITHUB_TOKEN does NOT trigger other workflows, so a standalone
+# `on: release: published` workflow would never fire. Running it here (gated on
+# release-please's `release_created` output) avoids that trap entirely.
 on:
   push:
     branches: [main]
@@ -20,7 +29,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@v4
+        id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      # --- Attach the prebuilt tarball when a release was just created ---
+      - uses: actions/checkout@v5
+        if: ${{ steps.release.outputs.release_created }}
+
+      - uses: actions/setup-node@v5
+        if: ${{ steps.release.outputs.release_created }}
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Build & attach prebuilt tarball
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag_name }}
+        run: |
+          npm ci
+          npm pack
+          mv aether-core-*.tgz aether-core.tgz
+          gh release upload "$TAG" aether-core.tgz --clobber
