@@ -75,6 +75,17 @@
     </section>
 
     <section class="wrap">
+      <p class="mono-label">Disinstallare</p>
+      <h2>Rimuovere Aether</h2>
+      <div class="cmd-block">
+        <pre class="cmd"><span class="prompt">$ </span>aether daemon stop            <span class="prompt"># ferma il server, se attivo</span>
+<span class="prompt">$ </span>npm  rm -g aether-core        <span class="prompt"># pnpm: pnpm rm -g · bun: bun rm -g</span></pre>
+        <button class="copy" data-copy>copia</button>
+      </div>
+      <p class="prereq" style="margin-top:1rem">Rimosso il pacchetto, il comando <code>aether</code> sparisce. I dati locali (sessioni, DB SQLite, chiavi cifrate) vivono nella cartella <code>data/</code> da cui hai avviato il daemon — o in <code>$AETHER_DATA_DIR</code> se l'hai impostata. Per cancellarli del tutto: <code>rm -rf data</code> in quella cartella.</p>
+    </section>
+
+    <section class="wrap">
       <p class="mono-label">Troubleshooting</p>
       <h2>Se qualcosa non torna</h2>
       <div class="tshoot">
