@@ -1,6 +1,6 @@
 import { build as esbuildBuild } from 'esbuild';
 import { build as viteBuild } from 'vite';
-import { rmSync, mkdirSync, cpSync } from 'node:fs';
+import { rmSync, mkdirSync, cpSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = process.cwd();
@@ -39,6 +39,10 @@ async function run() {
     banner: { js: "#!/usr/bin/env node\nconst import_meta_url=require('url').pathToFileURL(__filename).href" },
     define: { 'import.meta.url': 'import_meta_url' },
   });
+  // Ship the CLI bin already executable: esbuild writes 0644, and some npm
+  // setups (e.g. a user-set global prefix) don't chmod the bin on `-g` install,
+  // leaving `aether` as "Permission denied". Baking +x into the tarball avoids it.
+  chmodSync(p('dist/cli.cjs'), 0o755);
 
   // 3. Runtime assets the bundles read at runtime (no shell: node:fs only).
   rmSync(p('dist/db/migrations'), { recursive: true, force: true });
