@@ -4,12 +4,13 @@ import type { DatabaseHandle } from '@/server/db/database';
 import { OpenAICompatEndpointStore } from './openai-endpoints.store';
 
 let db: DatabaseHandle;
+const TEST_KEY = Buffer.alloc(32, 1);
 afterEach(() => db?.close());
 
 describe('OpenAICompatEndpointStore', () => {
   it('creates an endpoint and lists it (no headers, no model)', () => {
     db = makeTestDb();
-    const store = new OpenAICompatEndpointStore(db);
+    const store = new OpenAICompatEndpointStore(db, TEST_KEY);
     const created = store.create({ label: 'vllm-plain', baseUrl: 'http://gpu.lan:8000/v1' });
     expect(created.id).toMatch(/[0-9a-f-]{36}/);
     expect(created.model).toBeNull();
@@ -21,7 +22,7 @@ describe('OpenAICompatEndpointStore', () => {
 
   it('create/list cifra gli header e li maschera in list()', () => {
     db = makeTestDb();
-    const store = new OpenAICompatEndpointStore(db);
+    const store = new OpenAICompatEndpointStore(db, TEST_KEY);
     const created = store.create({
       label: 'vllm',
       baseUrl: 'https://v/v1',
@@ -37,7 +38,7 @@ describe('OpenAICompatEndpointStore', () => {
 
   it('listResolved() returns decrypted headers for internal use', () => {
     db = makeTestDb();
-    const store = new OpenAICompatEndpointStore(db);
+    const store = new OpenAICompatEndpointStore(db, TEST_KEY);
     const c = store.create({
       label: 'multi-header',
       baseUrl: 'https://x/v1',
@@ -50,7 +51,7 @@ describe('OpenAICompatEndpointStore', () => {
 
   it('stores model and returns it', () => {
     db = makeTestDb();
-    const store = new OpenAICompatEndpointStore(db);
+    const store = new OpenAICompatEndpointStore(db, TEST_KEY);
     const c = store.create({ label: 'with-model', baseUrl: 'https://x/v1', model: 'llama3' });
     expect(c.model).toBe('llama3');
     expect(store.get(c.id)!.model).toBe('llama3');
@@ -58,7 +59,7 @@ describe('OpenAICompatEndpointStore', () => {
 
   it('update() changes label/url/model and can clear headers', () => {
     db = makeTestDb();
-    const store = new OpenAICompatEndpointStore(db);
+    const store = new OpenAICompatEndpointStore(db, TEST_KEY);
     const c = store.create({
       label: 'a',
       baseUrl: 'http://a/v1',
@@ -75,7 +76,7 @@ describe('OpenAICompatEndpointStore', () => {
 
   it('update() leaves headers untouched when headers is undefined', () => {
     db = makeTestDb();
-    const store = new OpenAICompatEndpointStore(db);
+    const store = new OpenAICompatEndpointStore(db, TEST_KEY);
     const c = store.create({
       label: 'a',
       baseUrl: 'http://a/v1',
@@ -88,7 +89,7 @@ describe('OpenAICompatEndpointStore', () => {
 
   it('remove() deletes the endpoint', () => {
     db = makeTestDb();
-    const store = new OpenAICompatEndpointStore(db);
+    const store = new OpenAICompatEndpointStore(db, TEST_KEY);
     const c = store.create({ label: 'a', baseUrl: 'http://a/v1' });
     store.remove(c.id);
     expect(store.list()).toHaveLength(0);
@@ -96,7 +97,7 @@ describe('OpenAICompatEndpointStore', () => {
 
   it('throws on duplicate label (UNIQUE constraint)', () => {
     db = makeTestDb();
-    const store = new OpenAICompatEndpointStore(db);
+    const store = new OpenAICompatEndpointStore(db, TEST_KEY);
     store.create({ label: 'dup', baseUrl: 'http://a/v1' });
     expect(() => store.create({ label: 'dup', baseUrl: 'http://b/v1' })).toThrow();
   });

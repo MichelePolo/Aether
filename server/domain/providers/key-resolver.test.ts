@@ -5,6 +5,7 @@ import { KeyVaultService } from './key-vault';
 import { KeyResolver } from './key-resolver';
 
 let db: DatabaseHandle;
+const TEST_KEY = Buffer.alloc(32, 1);
 
 afterEach(() => {
   db?.close();
@@ -15,7 +16,7 @@ function makeResolver(
   env: Partial<{ ANTHROPIC_API_KEY: string; OPENAI_API_KEY: string; GEMINI_API_KEY: string }> = {},
 ): KeyResolver {
   db = makeTestDb();
-  const vault = new KeyVaultService(db);
+  const vault = new KeyVaultService(db, TEST_KEY);
   for (const [transport, key] of Object.entries(vaultKeys) as [
     'anthropic' | 'openai' | 'gemini',
     string,

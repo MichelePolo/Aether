@@ -52,6 +52,8 @@ import { seedSkillSmith } from './domain/subagents/skill-smith';
 import { defaultsDir, skillsDirFor, agentsDirFor } from './domain/skills/skills.paths';
 import { relocateSkillsDir } from './domain/skills/relocate';
 import { assertWritableDir } from './lib/library-dir';
+import { loadOrCreateVaultKey } from './lib/key-crypto';
+import { migrateVaultToRandomKey } from './lib/vault-migrate';
 
 dotenv.config();
 
@@ -63,6 +65,12 @@ async function bootstrap() {
   if (migrated.applied.length > 0) {
     console.log(`[db] applied migrations: ${migrated.applied.join(', ')}`);
   }
+
+  // Random per-install vault key (falls back to AETHER_VAULT_KEY override) +
+  // one-time re-encryption of any rows still under the legacy hostname-derived
+  // key. Must run before any store that reads/writes encrypted columns.
+  const vaultKey = loadOrCreateVaultKey(cfg.dataDir);
+  migrateVaultToRandomKey(db, cfg.dataDir);
 
   assertWritableDir(cfg.libraryDir);
   if (relocateSkillsDir(cfg.dataDir, cfg.libraryDir)) {
@@ -108,7 +116,7 @@ async function bootstrap() {
     console.log('[aether] Using FakeProvider (AETHER_FAKE_PROVIDER=1)');
   }
 
-  const keyVault = new KeyVaultService(db);
+  const keyVault = new KeyVaultService(db, vaultKey);
 
   // Cold-start anthropic env priming: if vault has an anthropic key and env doesn't,
   // set process.env.ANTHROPIC_API_KEY BEFORE detectAnthropicAuth() runs so the SDK sees it.
@@ -128,13 +136,13 @@ async function bootstrap() {
 
   const ollamaHost = process.env.OLLAMA_HOST ?? 'http://localhost:11434';
 
-  const ollamaEndpointStore = new OllamaEndpointStore(db);
+  const ollamaEndpointStore = new OllamaEndpointStore(db, vaultKey);
   const listOllamaEndpoints = () => [
     { id: 'local', label: 'local', baseUrl: ollamaHost },
     ...ollamaEndpointStore.listResolved(),
   ];
 
-  const openAICompatEndpointStore = new OpenAICompatEndpointStore(db);
+  const openAICompatEndpointStore = new OpenAICompatEndpointStore(db, vaultKey);
   const listOpenAICompatEndpoints = () => openAICompatEndpointStore.listResolved();
 
   const providers = new ProviderRegistry({

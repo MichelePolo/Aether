@@ -24,7 +24,10 @@ interface Row {
 }
 
 export class OllamaEndpointStore {
-  constructor(private readonly db: DatabaseHandle) {}
+  constructor(
+    private readonly db: DatabaseHandle,
+    private readonly key: Buffer,
+  ) {}
 
   list(): OllamaEndpointRecord[] {
     return this.db
@@ -56,7 +59,7 @@ export class OllamaEndpointStore {
   create(input: CreateOllamaEndpointInput): OllamaEndpointRecord {
     const id = randomUUID();
     const now = Date.now();
-    const tok = input.token ? encrypt(input.token) : null;
+    const tok = input.token ? encrypt(input.token, this.key) : null;
     const hdrs = this.encryptHeaders(input.headers ?? {});
     this.db
       .prepare(
@@ -99,7 +102,7 @@ export class OllamaEndpointStore {
         iv = null;
         tag = null;
       } else {
-        const blob = encrypt(patch.token);
+        const blob = encrypt(patch.token, this.key);
         cipher = blob.ciphertext;
         iv = blob.iv;
         tag = blob.authTag;
@@ -137,7 +140,7 @@ export class OllamaEndpointStore {
   private decryptToken(r: Row): string | null {
     if (!r.token_ciphertext || !r.token_iv || !r.token_auth_tag) return null;
     try {
-      return decrypt({ ciphertext: r.token_ciphertext, iv: r.token_iv, authTag: r.token_auth_tag });
+      return decrypt({ ciphertext: r.token_ciphertext, iv: r.token_iv, authTag: r.token_auth_tag }, this.key);
     } catch {
       console.warn(`[ollama-endpoints] decrypt token failed for ${r.id}: auth-tag mismatch`);
       return null;
@@ -146,17 +149,20 @@ export class OllamaEndpointStore {
 
   private encryptHeaders(headers: Record<string, string>) {
     if (Object.keys(headers).length === 0) return null;
-    return encrypt(JSON.stringify(headers));
+    return encrypt(JSON.stringify(headers), this.key);
   }
 
   private decryptHeaders(r: Row): Record<string, string> | null {
     if (!r.headers_ciphertext || !r.headers_iv || !r.headers_auth_tag) return null;
     try {
-      const plain = decrypt({
-        ciphertext: r.headers_ciphertext,
-        iv: r.headers_iv,
-        authTag: r.headers_auth_tag,
-      });
+      const plain = decrypt(
+        {
+          ciphertext: r.headers_ciphertext,
+          iv: r.headers_iv,
+          authTag: r.headers_auth_tag,
+        },
+        this.key,
+      );
       return JSON.parse(plain) as Record<string, string>;
     } catch {
       console.warn(`[ollama-endpoints] decrypt headers failed for ${r.id}: auth-tag mismatch`);

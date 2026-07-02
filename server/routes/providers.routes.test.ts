@@ -15,6 +15,8 @@ import { OpenAICompatEndpointStore } from '@/server/domain/providers/openai-endp
 import { isAppError } from '@/server/lib/errors';
 import { createProvidersRoutes } from './providers.routes';
 
+const TEST_KEY = Buffer.alloc(32, 1);
+
 function makeFake(model: string): AIProvider {
   return {
     model,
@@ -38,8 +40,8 @@ async function makeApp() {
   });
   await reg.refresh();
   const db = makeTestDb();
-  const ollamaEndpointStore = new OllamaEndpointStore(db);
-  const openaiEndpointStore = new OpenAICompatEndpointStore(db);
+  const ollamaEndpointStore = new OllamaEndpointStore(db, TEST_KEY);
+  const openaiEndpointStore = new OpenAICompatEndpointStore(db, TEST_KEY);
   return {
     app: createApp({
       providers: reg,
@@ -237,7 +239,7 @@ describe('providers routes — auth status', () => {
 
 function makeAppWithVault(opts?: { probeOk?: boolean }) {
   const db = makeTestDb();
-  const vault = new KeyVaultService(db);
+  const vault = new KeyVaultService(db, TEST_KEY);
   const refreshSpy = vi.fn(async () => {});
   const probeSpy = vi.fn(async (transports?: string[]) => ({
     statuses: [{
@@ -343,7 +345,7 @@ describe('providers routes — key vault', () => {
 
   it('refuses key reveal from a non-loopback peer', async () => {
     const db = makeTestDb();
-    const vault = new KeyVaultService(db);
+    const vault = new KeyVaultService(db, TEST_KEY);
     vault.setKey('anthropic', 'sk-plaintext-key');
     const registry = { list: () => [], refresh: vi.fn(async () => {}), defaultName: () => null } as unknown as Parameters<typeof createProvidersRoutes>[0];
     const app = express();

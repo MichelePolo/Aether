@@ -18,11 +18,14 @@ interface ProviderKeyRow {
 }
 
 export class KeyVaultService {
-  constructor(private readonly db: DatabaseHandle) {}
+  constructor(
+    private readonly db: DatabaseHandle,
+    private readonly key: Buffer,
+  ) {}
 
   setKey(transport: VaultTransport, plaintext: string): void {
     if (!plaintext) throw new Error('[key-vault] plaintext must not be empty');
-    const blob: EncryptedBlob = encrypt(plaintext);
+    const blob: EncryptedBlob = encrypt(plaintext, this.key);
     this.db
       .prepare(
         `INSERT INTO provider_keys (transport, ciphertext, iv, auth_tag, updated_at)
@@ -52,11 +55,14 @@ export class KeyVaultService {
     if (!row) return null;
 
     try {
-      return decrypt({
-        ciphertext: row.ciphertext,
-        iv: row.iv,
-        authTag: row.auth_tag,
-      });
+      return decrypt(
+        {
+          ciphertext: row.ciphertext,
+          iv: row.iv,
+          authTag: row.auth_tag,
+        },
+        this.key,
+      );
     } catch (err) {
       console.warn(`[key-vault] decrypt failed for ${transport}: auth-tag mismatch`);
       return null;
