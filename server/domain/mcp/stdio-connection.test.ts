@@ -89,4 +89,45 @@ describe('StdioMcpConnection', () => {
     await new Promise((r) => setTimeout(r, 100));
     expect(closed).toBe(true);
   });
+
+  it('does not crash when writing to a dead child stdin', async () => {
+    let uncaught: unknown;
+    const onUncaught = (err: unknown): void => {
+      uncaught = err;
+    };
+    process.on('uncaughtException', onUncaught);
+    try {
+      const dead = new StdioMcpConnection({
+        command: process.execPath,
+        args: ['-e', 'process.exit(0)'],
+        env: {},
+      }) as unknown as {
+        initialize(): Promise<void>;
+        notify(method: string): void;
+        close(): Promise<void>;
+        proc: { stdin: { destroyed: boolean } } | null;
+      };
+      const initP = dead.initialize().catch(() => {});
+      // Race writes against the child's own exit: a write can hit the OS pipe
+      // after its read end has closed but before Node marks the JS-level
+      // stream 'destroyed', producing an async EPIPE 'error' on the stream.
+      let iterations = 0;
+      const iv = setInterval(() => {
+        const stdin = dead.proc?.stdin;
+        if (!stdin || stdin.destroyed || iterations > 10_000) {
+          clearInterval(iv);
+          return;
+        }
+        dead.notify('notifications/ping');
+        iterations++;
+      }, 0);
+      await initP;
+      await new Promise((r) => setTimeout(r, 200));
+      clearInterval(iv);
+      expect(uncaught).toBeUndefined();
+      await dead.close();
+    } finally {
+      process.off('uncaughtException', onUncaught);
+    }
+  });
 });
