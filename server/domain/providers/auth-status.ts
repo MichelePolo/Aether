@@ -99,10 +99,8 @@ export class AuthStatusService {
     if (!apiKey) {
       return { transport: 'gemini', state: 'unconfigured', reason: 'no api key' };
     }
-    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(
-      apiKey,
-    )}`;
-    const res = await this.fetchWithTimeout(url);
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models';
+    const res = await this.fetchWithTimeout(url, { headers: { 'x-goog-api-key': apiKey } });
     if (res.ok) return { transport: 'gemini', state: 'ok', reason: 'api key set' };
     return {
       transport: 'gemini',

@@ -168,6 +168,25 @@ describe('AuthStatusService.probe — per-endpoint Ollama', () => {
   });
 });
 
+describe('AuthStatusService.probeGemini — key transport', () => {
+  it('sends the Gemini key as a header, never in the URL', async () => {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ url: String(input), init });
+      return new Response(null, { status: 200 });
+    }) as unknown as typeof fetch;
+    const svc = makeService({
+      getGeminiKey: () => 'gem-secret',
+      fetch: fetchMock,
+    });
+    const report = await svc.probe(['gemini']);
+    expect(report.statuses[0]).toMatchObject({ transport: 'gemini', state: 'ok' });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).not.toContain('key=');
+    expect((calls[0].init?.headers as Record<string, string>)['x-goog-api-key']).toBe('gem-secret');
+  });
+});
+
 describe('AuthStatusService.probeAnthropic — apikey', () => {
   it('reports unconfigured when apikey auth is detected but no key resolves', async () => {
     const svc = makeService({
