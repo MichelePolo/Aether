@@ -24,7 +24,7 @@
 
 ## Phase A — Security
 
-### Task A1: Loopback-by-default bind + `AETHER_HOST` opt-in + loopback-only key reveal (S1)
+### Task 1 (A1): Loopback-by-default bind + `AETHER_HOST` opt-in + loopback-only key reveal (S1)
 
 **Files:**
 - Modify: `server/index.ts:313-314` (host computation), `server/index.ts:316-326` (bind log)
@@ -125,7 +125,7 @@ git add server/lib/net.ts server/lib/net.test.ts server/index.ts server/routes/p
 git commit -m "fix(security): bind loopback by default (AETHER_HOST opt-in), restrict key reveal to localhost"
 ```
 
-### Task A2: Random per-install vault key + boot migration (S2)
+### Task 2 (A2): Random per-install vault key + boot migration (S2)
 
 **Files:**
 - Modify: `server/lib/key-crypto.ts` (whole file)
@@ -353,7 +353,7 @@ git add server/lib/key-crypto.ts server/lib/key-crypto.test.ts server/lib/vault-
 git commit -m "fix(security): random per-install vault key + boot migration; fixes cross-machine key loss"
 ```
 
-### Task A3: Gemini auth probe uses header, not URL (S3)
+### Task 3 (A3): Gemini auth probe uses header, not URL (S3)
 
 **Files:** Modify `server/domain/providers/auth-status.ts:102-105`
 
@@ -393,7 +393,7 @@ git commit -m "fix(security): send Gemini auth-probe key via x-goog-api-key head
 
 ## Phase B — Crash & leak safety
 
-### Task B1: MCP child stdin `'error'` listener (R1)
+### Task 4 (B1): MCP child stdin `'error'` listener (R1)
 
 **Files:** Modify `server/domain/mcp/stdio-connection.ts` (after spawn, ~line 44-52)
 
@@ -430,7 +430,7 @@ git add server/domain/mcp/stdio-connection.ts server/domain/mcp/stdio-connection
 git commit -m "fix(mcp): attach stdin 'error' listener so a dead child pipe can't crash the server"
 ```
 
-### Task B2: SSE emitter learns about disconnects (R2)
+### Task 5 (B2): SSE emitter learns about disconnects (R2)
 
 **Files:** Modify `server/lib/sse.ts`, `server/routes/dispatch.routes.ts`
 
@@ -477,7 +477,7 @@ git add server/lib/sse.ts server/lib/sse.test.ts server/routes/dispatch.routes.t
 git commit -m "fix(sse): mark emitter closed + swallow response errors on client disconnect"
 ```
 
-### Task B3: Don't execute a tool call after the client aborts (R3)
+### Task 6 (B3): Don't execute a tool call after the client aborts (R3)
 
 **Files:** Modify `server/domain/dispatch/dispatch.service.ts` (~line 354-368, and the Anthropic in-process tool path)
 
@@ -512,7 +512,7 @@ git add server/domain/dispatch/dispatch.service.ts server/domain/dispatch/dispat
 git commit -m "fix(dispatch): re-check abort before executing a tool call (client-disconnect safety)"
 ```
 
-### Task B4: Abort the http-MCP SSE reader on timeout/close (R4)
+### Task 7 (B4): Abort the http-MCP SSE reader on timeout/close (R4)
 
 **Files:** Modify `server/domain/mcp/http-connection.ts` (`openSseStream`, `close`, per-call timeout)
 
@@ -531,7 +531,7 @@ git add server/domain/mcp/http-connection.ts server/domain/mcp/http-connection.t
 git commit -m "fix(mcp): abort the http SSE fetch/reader on timeout and close (socket leak)"
 ```
 
-### Task B5: Close the spawned child when MCP connect fails (R5)
+### Task 8 (B5): Close the spawned child when MCP connect fails (R5)
 
 **Files:** Modify `server/domain/mcp/registry.ts` (connect path ~72-98, reconnect ~350-372, ~429-450)
 
@@ -568,7 +568,7 @@ git commit -m "fix(mcp): close spawned child when initialize/listTools fails (zo
 
 ## Phase C — Async correctness
 
-### Task C1: Shared SSE-run helper; fix swarm/tdd stuck-forever (C1)
+### Task 9 (C1): Shared SSE-run helper; fix swarm/tdd stuck-forever (C1)
 
 **Files:**
 - Create: `src/lib/run-sse.ts`, `src/lib/run-sse.test.ts`
@@ -664,7 +664,7 @@ git add src/lib/run-sse.ts src/lib/run-sse.test.ts src/hooks/useSwarmRun.ts src/
 git commit -m "fix(swarm/tdd): shared consumeRun helper — check res.ok, always reset running (no more stuck UI)"
 ```
 
-### Task C2: Cancel-during-fetch persists as interrupted; resume works (C3)
+### Task 10 (C2-fix/C3): Cancel-during-fetch persists as interrupted; resume works (C3)
 
 **Files:** Modify `server/domain/dispatch/dispatch.service.ts` (error branches in `handle()` ~594-609 and `resume()` ~783-798, plus a small `isAbort` helper near `classifyError`)
 
@@ -691,7 +691,7 @@ git add server/domain/dispatch/dispatch.service.ts server/domain/dispatch/dispat
 git commit -m "fix(dispatch): treat cancel-during-fetch as interrupted so resume() works"
 ```
 
-### Task C3: Freshness guards in the git stores (C4)
+### Task 11 (C3-fix/C4): Freshness guards in the git stores (C4)
 
 **Files:** Modify `src/stores/git.store.ts` (`load`), `src/stores/gitChanges.store.ts` (`load`, `refresh`)
 
@@ -729,7 +729,7 @@ git add src/stores/git.store.ts src/stores/gitChanges.store.ts src/stores/git.st
 git commit -m "fix(git-store): ignore out-of-order loads on rapid workspace switch"
 ```
 
-### Task C4: SwarmEditModal load has error handling (SwarmEditModal)
+### Task 12 (C4-modal): SwarmEditModal load has error handling (SwarmEditModal)
 
 **Files:** Modify `src/components/swarms/SwarmEditModal.tsx` (~13-20)
 
@@ -764,7 +764,7 @@ git commit -m "fix(swarms): handle load failure in edit modal (no blank-overwrit
 
 ## Phase D — Data & performance
 
-### Task D1: Workspace-delete cascade + scheduler skips orphans (C2)
+### Task 13 (D1): Workspace-delete cascade + scheduler skips orphans (C2)
 
 **Files:** Modify `server/domain/workspaces/workspaces.store.ts` (`delete`), `server/domain/schedules/scheduler.service.ts` (run path)
 
@@ -800,7 +800,7 @@ git add server/domain/workspaces/workspaces.store.ts server/domain/schedules/sch
 git commit -m "fix(workspaces): null dependent workspace_id on delete; scheduler skips dangling refs"
 ```
 
-### Task D2: Cheap provider-name read on the dispatch hot path (P1a)
+### Task 14 (D2): Cheap provider-name read on the dispatch hot path (P1a)
 
 **Files:** Modify `server/domain/history/history.store.ts` (add `getProviderName`), `server/domain/dispatch/dispatch.service.ts:417-419`
 
@@ -836,7 +836,7 @@ git add server/domain/history/history.store.ts server/domain/dispatch/dispatch.s
 git commit -m "perf(dispatch): read provider_name with a scalar query instead of full history"
 ```
 
-### Task D3: Batch reasoning/tool-trace reads; hoist prepared statements (P1b)
+### Task 15 (D3): Batch reasoning/tool-trace reads; hoist prepared statements (P1b)
 
 **Files:** Modify `server/domain/history/history.store.ts` (`readMessages`, `readReasoningSteps`, `readToolCallTrace`)
 
@@ -859,7 +859,7 @@ git add server/domain/history/history.store.ts server/domain/history/history.sto
 git commit -m "perf(history): batch reasoning/tool-trace reads, hoist prepared statements (kill N+1)"
 ```
 
-### Task D4: openai-compat defaults to `vision:false` (P2)
+### Task 16 (D4): openai-compat defaults to `vision:false` (P2)
 
 **Files:** Modify `server/index.ts` (`openAICompatBuilder`, ~169-170)
 
@@ -890,7 +890,7 @@ git commit -m "fix(providers): openai-compat defaults vision:false (image to tex
 
 ## Phase E — CLI & hygiene
 
-### Task E1: `--help` and `--port` validation (C6)
+### Task 17 (E1): `--help` and `--port` validation (C6)
 
 **Files:** Modify `cli/args.ts`; test `cli/args.test.ts`
 
@@ -941,7 +941,7 @@ git add cli/args.ts cli/args.test.ts
 git commit -m "fix(cli): recognize --help/-h and validate --port"
 ```
 
-### Task E2: Resolve server bundle from `__dirname` + `windowsHide` (C5 + hygiene)
+### Task 18 (E2): Resolve server bundle from `__dirname` + `windowsHide` (C5 + hygiene)
 
 **Files:** Modify `cli/runtime.ts:22-37`
 
@@ -970,7 +970,7 @@ git add cli/runtime.ts cli/runtime.test.ts
 git commit -m "fix(cli): resolve server bundle from module dir (global install) + windowsHide on spawn"
 ```
 
-### Task E3: Ctrl+C exits in non-daemon mode
+### Task 19 (E3): Ctrl+C exits in non-daemon mode
 
 **Files:** Modify `server/index.ts:328-340`
 
@@ -1006,7 +1006,7 @@ git add server/index.ts
 git commit -m "fix(server): Ctrl+C/SIGTERM cleanly shuts down in non-daemon mode too"
 ```
 
-### Task E4: `stopDaemon` liveness check before kill
+### Task 20 (E4): `stopDaemon` liveness check before kill
 
 **Files:** Modify `cli/daemon.ts:66-76`
 
@@ -1036,7 +1036,7 @@ git add cli/daemon.ts cli/runtime.ts cli/daemon.test.ts
 git commit -m "fix(cli): check daemon pid liveness before SIGTERM (reused-PID hazard)"
 ```
 
-### Task E5: `listLiveTools` shows builtin fs/git tools in the policy UI
+### Task 21 (E5): `listLiveTools` shows builtin fs/git tools in the policy UI
 
 **Files:** Modify `server/routes/mcp.routes.ts:86` (+ `registry.listLiveTools` filter if needed)
 
@@ -1064,7 +1064,7 @@ git add server/domain/mcp/registry.ts server/routes/mcp.routes.ts server/domain/
 git commit -m "fix(mcp): don't hide builtin fs/git tools from the policy list when no root is given"
 ```
 
-### Task E6: Dependency CVE bumps
+### Task 22 (E6): Dependency CVE bumps
 
 **Files:** `package.json`, `package-lock.json`
 
