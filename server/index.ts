@@ -2,6 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdirSync } from 'node:fs';
 import { writeDaemonFile, clearDaemonFile } from './lib/daemon-file';
+import { isLoopbackAddress } from '@/server/lib/net';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
@@ -314,10 +315,18 @@ async function bootstrap() {
   }
 
   const isDaemon = process.env.AETHER_DAEMON === '1';
-  const host = isDaemon ? '127.0.0.1' : '0.0.0.0';
+  // Default to loopback for BOTH daemon and non-daemon. Opting into LAN
+  // exposure is deliberate via AETHER_HOST (e.g. '0.0.0.0'). See spec D1.
+  const host = process.env.AETHER_HOST ?? '127.0.0.1';
 
   app.listen(cfg.port, host, () => {
     console.log(`Aether server running on http://localhost:${cfg.port}`);
+    if (!isLoopbackAddress(host) && host !== '127.0.0.1') {
+      console.warn(
+        `[aether] WARNING: API bound to ${host} — reachable on the network. ` +
+          `Anyone on your LAN can drive dispatch and tools. Unset AETHER_HOST for loopback-only.`,
+      );
+    }
     if (isDaemon) {
       writeDaemonFile(cfg.dataDir, {
         pid: process.pid,

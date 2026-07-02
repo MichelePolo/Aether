@@ -341,6 +341,39 @@ describe('providers routes — key vault', () => {
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
+  it('refuses key reveal from a non-loopback peer', async () => {
+    const db = makeTestDb();
+    const vault = new KeyVaultService(db);
+    vault.setKey('anthropic', 'sk-plaintext-key');
+    const registry = { list: () => [], refresh: vi.fn(async () => {}), defaultName: () => null } as unknown as Parameters<typeof createProvidersRoutes>[0];
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => {
+      Object.defineProperty(req.socket, 'remoteAddress', { value: '10.0.0.5', configurable: true });
+      next();
+    });
+    app.use('/api/providers', createProvidersRoutes(registry, undefined, vault, { setAnthropicEnv: () => {} }));
+    app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      if (isAppError(err)) {
+        res.status(err.status).json({ error: { code: err.code, message: err.message } });
+        return;
+      }
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({ error: { code: 'INTERNAL', message } });
+    });
+    const res = await request(app).get('/api/providers/keys/anthropic?reveal=1');
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('LOOPBACK_ONLY');
+  });
+
+  it('allows key reveal from a loopback peer', async () => {
+    const { app, vault } = makeAppWithVault();
+    vault.setKey('anthropic', 'sk-plaintext-key');
+    const res = await request(app).get('/api/providers/keys/anthropic?reveal=1');
+    expect(res.status).toBe(200);
+    expect(res.body.plaintext).toBe('sk-plaintext-key');
+  });
+
   it('all 4 vault routes return 503 when keyVault is absent', async () => {
     const registry = { list: () => [], refresh: vi.fn(async () => {}), defaultName: () => null } as unknown as Parameters<typeof createProvidersRoutes>[0];
     const app = express();

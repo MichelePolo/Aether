@@ -9,6 +9,7 @@ import type {
 import type { KeyVaultService } from '@/server/domain/providers/key-vault';
 import { VAULT_TRANSPORTS, type VaultTransport } from '@/server/domain/providers/key-vault.types';
 import { ValidationError } from '@/server/lib/errors';
+import { isLoopbackAddress } from '@/server/lib/net';
 import type { OllamaEndpointStore } from '@/server/domain/providers/ollama-endpoints.store';
 import type { OllamaEndpointRecord } from '@/server/domain/providers/ollama-endpoints.types';
 import type { OpenAICompatEndpointStore } from '@/server/domain/providers/openai-endpoints.store';
@@ -182,6 +183,12 @@ export function createProvidersRoutes(
     asyncHandler(async (req, res) => {
       if (!keyVault) {
         res.status(503).json({ error: { code: 'NO_KEY_VAULT', message: 'Key vault not configured' } });
+        return;
+      }
+      if (!isLoopbackAddress(req.socket.remoteAddress ?? undefined)) {
+        res.status(403).json({
+          error: { code: 'LOOPBACK_ONLY', message: 'Key reveal is restricted to localhost' },
+        });
         return;
       }
       const { transport } = req.params;
