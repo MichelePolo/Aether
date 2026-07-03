@@ -30,6 +30,9 @@ export function createCollectingSse(outer: SseEmitter): CollectingSse {
     end() {
       // no-op: the inner turn ending must not close the swarm stream
     },
+    markClosed() {
+      outer.markClosed();
+    },
     text() {
       return buffer;
     },

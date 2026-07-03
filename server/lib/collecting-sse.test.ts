@@ -11,6 +11,9 @@ function fakeOuter() {
     end: () => {
       ended = true;
     },
+    markClosed: () => {
+      ended = true;
+    },
   };
   return { outer, events, isEnded: () => ended };
 }

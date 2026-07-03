@@ -9,6 +9,7 @@ function recordingSse() {
     event: (name, data) => events.push({ name, data: data as any }),
     error: (message) => events.push({ name: 'error', data: { message } }),
     end: () => {},
+    markClosed: () => {},
   };
   return { sse, events };
 }
@@ -90,6 +91,7 @@ beforeEach(() => {
     event: (name, data) => _sseEvents.push({ name, data: data as any }),
     error: (message) => _sseEvents.push({ name: 'error', data: { message } }),
     end: () => {},
+    markClosed: () => {},
   };
   (sse as any).__events = _sseEvents;
   signal = new AbortController().signal;

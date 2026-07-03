@@ -4,6 +4,7 @@ export interface SseEmitter {
   event(name: string, data: unknown): void;
   error(message: string, retryable?: boolean): void;
   end(): void;
+  markClosed(): void;
 }
 
 export function createSseEmitter(res: Response): SseEmitter {
@@ -36,6 +37,9 @@ export function createSseEmitter(res: Response): SseEmitter {
       ensureHeaders();
       closed = true;
       res.end();
+    },
+    markClosed() {
+      closed = true;
     },
   };
 }

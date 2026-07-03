@@ -337,6 +337,7 @@ describe('POST /api/ai/dispatch/resume', () => {
     event: () => {},
     error: () => {},
     end: () => {},
+    markClosed: () => {},
   };
 
   it('happy path: streams text + done for an interrupted message', async () => {
