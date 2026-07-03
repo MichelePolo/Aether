@@ -74,6 +74,11 @@ export interface ScheduleRunnerDeps {
   breakpointService?: BreakpointService;
   swarmStore?: SwarmStore;
   swarmApprovals?: SwarmApprovalRegistry;
+  /** Resolves a session's workspaceId to its project root. Without it, scheduled
+   *  runs fall back to process.cwd() and execute tools in the wrong directory
+   *  (issue #108). Wired from the composition root, same closure as the
+   *  interactive dispatcher. */
+  projectRootFor?: (workspaceId: string | undefined) => string | null;
   /** Overridable for tests; defaults to building a real per-run DispatchService. */
   buildDispatcher?: (autonomy: Autonomy) => { handle: DispatchService['handle'] };
   /** Overridable for tests. */
@@ -96,6 +101,7 @@ export class ScheduleRunner {
       subAgentsStore: this.deps.subAgentsStore,
       mcpRegistry: registry,
       breakpointService,
+      projectRootFor: this.deps.projectRootFor,
     });
   }
 
