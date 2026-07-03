@@ -1,0 +1,22 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { MessageInput } from './MessageInput';
+import { useChatStore } from '@/src/stores/chat.store';
+
+describe('MessageInput — attachment error', () => {
+  beforeEach(() => {
+    useChatStore.getState()._reset();
+  });
+
+  it('renders a queued attachment error in a role=alert region', () => {
+    useChatStore.setState({ error: 'a.pdf is too large — total attachments must stay under 10 MB.' });
+    render(<MessageInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />);
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(/too large/i);
+  });
+
+  it('does not render an alert region when there is no error', () => {
+    render(<MessageInput onSend={vi.fn()} onStop={vi.fn()} isStreaming={false} />);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});

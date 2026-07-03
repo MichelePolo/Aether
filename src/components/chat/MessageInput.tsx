@@ -44,6 +44,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   const queueAttachments = useChatStore((s) => s.queueAttachments);
   const pendingComposerText = useChatStore((s) => s.pendingComposerText);
   const setPendingComposerText = useChatStore((s) => s.setPendingComposerText);
+  const error = useChatStore((s) => s.error);
 
   const activeProviderName = activeId
     ? ((sessions.find((s) => s.id === activeId) as { providerName?: string } | undefined)?.providerName ?? defaultProvider)
@@ -148,6 +149,11 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
 
   return (
     <div className="shrink-0 border-t border-border-subtle bg-surface-2 p-3">
+      {error && (
+        <div role="alert" className="mb-1 px-2 py-1 rounded bg-status-error/15 text-status-error text-xs font-mono">
+          {error}
+        </div>
+      )}
       {/* Claude-style composer: textarea on top, a single aligned control row below. */}
       <div className="rounded-2xl border border-border-subtle bg-surface-1 transition-colors focus-within:border-manipulation/50 focus-within:ring-1 focus-within:ring-manipulation/40">
         <div className="relative">
