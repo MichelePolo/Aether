@@ -131,6 +131,55 @@ describe('DispatchService', () => {
     expect(model.reasoningSteps?.[0]?.type).toBe('context_fetch');
   });
 
+  it('persists as interrupted (not error) when the provider throws AbortError before any chunk; resume() then accepts it', async () => {
+    class AbortingProvider {
+      readonly model = 'aborting';
+      readonly capabilities = { thinking: true, toolCalling: true };
+      async *stream(): AsyncGenerator<never> {
+        const err = new Error('The operation was aborted');
+        err.name = 'AbortError';
+        throw err;
+      }
+    }
+    const db = makeTestDb();
+    const historyStore = new HistoryStore(db);
+    const contextStore = new ContextStore(db);
+    const providers = await buildSingleProviderRegistry(
+      new AbortingProvider() as unknown as AIProvider,
+    );
+    const service = new DispatchService({ providers, historyStore, contextStore });
+    const session = await historyStore.createEmpty();
+    const { emitter, events } = createCollectorEmitter();
+    const ctrl = new AbortController();
+    ctrl.abort();
+    await service.handle({ sessionId: session.id, message: 'hi' }, emitter, ctrl.signal);
+
+    // No error event/field — this must NOT take the error-persistence path.
+    expect(events.find((e) => e.event === 'error')).toBeUndefined();
+    const done = events.find((e) => e.event === 'done')!;
+    expect((done.data as { interrupted: boolean }).interrupted).toBe(true);
+
+    const msgs = await historyStore.read(session.id);
+    const model = msgs!.find((m) => m.role === 'model')!;
+    expect(model.interrupted).toBe(true);
+    expect(model.error).toBeUndefined();
+
+    // resume() must accept the message as interrupted (no "Message is not
+    // interrupted" refusal). It still has no streamed text, so it legitimately
+    // refuses with the (different) empty-message error — that confirms it passed
+    // the interrupted check rather than being blocked by it.
+    const { emitter: resumeEmitter, events: resumeEvents } = createCollectorEmitter();
+    await service.resume(
+      { sessionId: session.id, messageId: model.id },
+      resumeEmitter,
+      new AbortController().signal,
+    );
+    const resumeErr = resumeEvents.find((e) => e.event === 'error');
+    expect(resumeErr).toBeDefined();
+    expect((resumeErr!.data as { message: string }).message).not.toMatch(/not interrupted/);
+    expect((resumeErr!.data as { message: string }).message).toMatch(/empty interrupted message/);
+  });
+
   it('persists reasoningSteps on aborted stream', async () => {
     const { service, historyStore, sessionId } = await makeService({
       chunks: ['a', 'b', 'c'],
