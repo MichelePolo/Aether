@@ -8,7 +8,7 @@ import { useChatStore } from '@/src/stores/chat.store';
 import { isImageMime } from '@/src/types/attachment.types';
 import { cn } from '@/src/lib/cn';
 import { computeMentionState, type MentionState } from '@/src/hooks/useMentionAutocomplete';
-import { MentionPopover } from './MentionPopover';
+import { MentionPopover, MENTION_LISTBOX_ID, mentionOptionId } from './MentionPopover';
 import { ComposerPlusMenu, type ComposerAction } from './ComposerPlusMenu';
 import { ComposerModelPill } from './ComposerModelPill';
 import { t } from '@/src/i18n/t';
@@ -29,6 +29,7 @@ function autoGrow(el: HTMLTextAreaElement): void {
 export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps) {
   const [value, setValue] = useState('');
   const [mention, setMention] = useState<MentionState>({ open: false, query: '', replaceRange: [0, 0] });
+  const [mentionHighlight, setMentionHighlight] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const thinkingEnabled = useUiStore((s) => s.thinkingEnabled);
@@ -105,6 +106,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
     const next = `${value.slice(0, start)}@${name} ${value.slice(end)}`;
     setValue(next);
     setMention({ open: false, query: '', replaceRange: [0, 0] });
+    setMentionHighlight(0);
     setTimeout(() => {
       const ta = textareaRef.current;
       if (ta) {
@@ -115,8 +117,13 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
     }, 0);
   };
 
-  const handleMentionClose = () =>
+  const handleMentionClose = () => {
     setMention({ open: false, query: '', replaceRange: [0, 0] });
+    setMentionHighlight(0);
+  };
+
+  const mentionActiveDescendant =
+    mention.open && filteredItems.length > 0 ? mentionOptionId(mentionHighlight) : undefined;
 
   const onPickFiles = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -160,6 +167,11 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
           <textarea
             ref={textareaRef}
             id="message-input"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={mention.open}
+            aria-controls={MENTION_LISTBOX_ID}
+            aria-activedescendant={mentionActiveDescendant}
             value={value}
             onChange={onChange}
             onKeyDown={onKey}
@@ -178,6 +190,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
             items={filteredItems}
             onSelect={handleMentionSelect}
             onClose={handleMentionClose}
+            onHighlightChange={setMentionHighlight}
           />
         </div>
 

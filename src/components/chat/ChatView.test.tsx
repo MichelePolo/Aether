@@ -44,7 +44,7 @@ describe('ChatView', () => {
       ),
     );
     render(<ChatView />);
-    await userEvent.type(screen.getByRole('textbox'), 'hi{Enter}');
+    await userEvent.type(screen.getByRole('combobox'), 'hi{Enter}');
     await waitFor(() => {
       expect(screen.getByText(/Hello Aether/)).toBeInTheDocument();
     });
@@ -61,7 +61,7 @@ describe('ChatView', () => {
       ),
     );
     render(<ChatView />);
-    await userEvent.type(screen.getByRole('textbox'), 'first{Enter}');
+    await userEvent.type(screen.getByRole('combobox'), 'first{Enter}');
     const retryBtn = await screen.findByRole('button', { name: /retry/i });
     server.use(
       http.post('http://localhost/api/ai/dispatch', () =>
@@ -101,7 +101,7 @@ describe('ChatView', () => {
     );
     expect(useUiStore.getState().reasoningDrawerOpen).toBe(false);
     render(<ChatView />);
-    await userEvent.type(screen.getByRole('textbox'), 'hi{Enter}');
+    await userEvent.type(screen.getByRole('combobox'), 'hi{Enter}');
     await waitFor(() => {
       expect(useUiStore.getState().reasoningDrawerOpen).toBe(true);
     });
