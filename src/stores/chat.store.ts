@@ -74,6 +74,7 @@ interface ChatState {
     opts: { model?: string; interrupted?: boolean; reasoningSteps?: ReasoningStep[]; tokensIn?: number; tokensOut?: number },
   ) => void;
   failAssistant: (id: string, error: string, retryable: boolean) => void;
+  removeMessage: (id: string) => void;
   setAbortController: (c: AbortController | null) => void;
   abort: () => void;
   reset: () => void;
@@ -199,6 +200,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       abortController: null,
       currentReasoning: emptyReasoning,
     })),
+
+  removeMessage: (id) => set((s) => withMessages(s.messages.filter((m) => m.id !== id))),
 
   setAbortController: (c) => set({ abortController: c }),
 

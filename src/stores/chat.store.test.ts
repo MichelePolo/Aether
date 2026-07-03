@@ -24,6 +24,20 @@ describe('useChatStore basic actions', () => {
     expect(useChatStore.getState().hydrated).toBe(true);
   });
 
+  it('removeMessage removes the message and keeps messagesById in sync', () => {
+    useChatStore.getState().hydrate([
+      { id: 'id1', role: 'user', text: 'hi', timestamp: 1 },
+      { id: 'id2', role: 'model', text: 'hello', timestamp: 2 },
+    ]);
+
+    useChatStore.getState().removeMessage('id1');
+
+    const s = useChatStore.getState();
+    expect(s.messages.map((m) => m.id)).toEqual(['id2']);
+    expect(s.messagesById.id1).toBeUndefined();
+    expect(s.messagesById.id2).toBeDefined();
+  });
+
   it('appendUser pushes a user message', () => {
     const { id } = useChatStore.getState().appendUser('hello');
     const msgs = useChatStore.getState().messages;
