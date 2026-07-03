@@ -23,7 +23,11 @@ export function useAutoScroll<T extends HTMLElement>(
     const el = ref.current;
     if (!el) return;
     if (userScrolledUpRef.current) return;
-    el.scrollTop = el.scrollHeight;
+    // Coalesce writes into a single rAF so bursty updates (e.g. one per SSE
+    // chunk during streaming) force at most one reflow per frame instead of
+    // one per dep change.
+    const raf = requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+    return () => cancelAnimationFrame(raf);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 }
