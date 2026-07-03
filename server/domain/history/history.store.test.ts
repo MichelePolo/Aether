@@ -45,6 +45,32 @@ describe('HistoryStore', () => {
     expect(msgs).toEqual([{ id: 'a', role: 'user', text: 'hi', timestamp: 1 }]);
   });
 
+  describe('getSessionSummary', () => {
+    it('returns null for an unknown session', () => {
+      expect(store.getSessionSummary('nope')).toBeNull();
+    });
+
+    it('returns providerName + workspaceId without materializing messages', async () => {
+      // Seed a workspace so the session's workspace_id FK resolves.
+      db.prepare('INSERT INTO workspaces (id, name, root_path, added_at) VALUES (?, ?, ?, ?)')
+        .run('ws-1', 'WS', '/tmp/ws-1', Date.now());
+      const meta = await store.createEmpty({ providerName: 'anthropic:claude-opus-4-7', workspaceId: 'ws-1' });
+      // Add a message so a full readRecord would have work to do; prove we skip it.
+      await store.append(meta.id, { id: 'm1', role: 'user', text: 'hi', timestamp: 1 });
+      const readMessagesSpy = vi.spyOn(store as unknown as { readMessages: (id: string) => Message[] }, 'readMessages');
+
+      const summary = store.getSessionSummary(meta.id);
+
+      expect(summary).toEqual({ providerName: 'anthropic:claude-opus-4-7', workspaceId: 'ws-1' });
+      expect(readMessagesSpy).not.toHaveBeenCalled();
+    });
+
+    it('maps null provider_name / workspace_id columns to null', async () => {
+      const meta = await store.createEmpty();
+      expect(store.getSessionSummary(meta.id)).toEqual({ providerName: null, workspaceId: null });
+    });
+  });
+
   it('append auto-titles when session is empty and message is user', async () => {
     const meta = await store.createEmpty();
     await store.append(meta.id, { id: 'a', role: 'user', text: 'ciao mondo', timestamp: 1 });

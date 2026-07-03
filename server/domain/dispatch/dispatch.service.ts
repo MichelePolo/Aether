@@ -438,9 +438,9 @@ export class DispatchService {
     const { sessionId, message, thinking, aetherMode } = parsed.data;
     const { historyStore, contextStore } = this.deps;
 
-    const sessionRecord = await this.deps.historyStore.readRecord(sessionId);
+    const sessionSummary = this.deps.historyStore.getSessionSummary(sessionId);
     const requestedName = parsed.data.providerName;
-    const sessionName = sessionRecord?.providerName;
+    const sessionName = sessionSummary?.providerName ?? undefined;
     const fallbackName = this.deps.providers.defaultName();
 
     const prior = await historyStore.read(sessionId);
@@ -539,7 +539,7 @@ export class DispatchService {
       return;
     }
 
-    const effectiveWorkspaceId = parsed.data.workspaceId ?? sessionRecord?.workspaceId;
+    const effectiveWorkspaceId = parsed.data.workspaceId ?? sessionSummary?.workspaceId ?? undefined;
     // Normalize for the MCP tool-pool key (case-insensitive on Windows). The prompt's
     // `# availableWorkspaces -> current` marker uses the RAW path from projectRootFor()
     // via resolveRuntimeContext() because formatAvailableWorkspaces matches against the

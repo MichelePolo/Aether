@@ -124,6 +124,21 @@ export class HistoryStore {
     return wrap(record, Date.now());
   }
 
+  /**
+   * Cheap scalar lookup of a session's provider + workspace, used on the dispatch
+   * hot path so `handle()` need not materialize the full session record (all
+   * messages + reasoning steps + tool traces) just to read two columns.
+   */
+  getSessionSummary(
+    sessionId: string,
+  ): { providerName: string | null; workspaceId: string | null } | null {
+    const row = this.db
+      .prepare('SELECT provider_name, workspace_id FROM sessions WHERE id = ?')
+      .get(sessionId) as { provider_name: string | null; workspace_id: string | null } | undefined;
+    if (!row) return null;
+    return { providerName: row.provider_name ?? null, workspaceId: row.workspace_id ?? null };
+  }
+
   async setProviderName(id: string, providerName: string): Promise<void> {
     const info = this.db
       .prepare('UPDATE sessions SET provider_name = ? WHERE id = ?')
