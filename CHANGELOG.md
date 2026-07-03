@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.20](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.19...aether-core-v0.1.20) (2026-07-03)
+
+
+### Bug Fixes
+
+* code-review remediation (security, crash-safety, correctness, perf, CLI) ([#107](https://github.com/MichelePolo/Aether/issues/107)) ([2d18728](https://github.com/MichelePolo/Aether/commit/2d18728eac4eea6c92f97d44842450ef13a166da))
+
 ## [0.1.19](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.18...aether-core-v0.1.19) (2026-07-01)
 
 
