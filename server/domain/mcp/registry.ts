@@ -172,15 +172,31 @@ export class McpRegistry {
     const out: LiveTool[] = [];
     const fsId = root ? `builtin:filesystem@${root}` : null;
     const gitId = root ? `builtin:git@${root}` : null;
+    // Dedupe key set — only used when `root` is absent (see below). Multiple
+    // fs/git instances (several rooted workspaces, and/or a stray global) can
+    // be live at once; without a root to disambiguate we keep the first tool
+    // seen per qualified name (Map iteration = connection order) so callers
+    // like the tool-policy UI never see two "Filesystem.read_file" rows.
+    const seenFsGitNames = new Set<string>();
     for (const entry of this.live.values()) {
       const id = entry.serverId;
-      // Skip any filesystem/git builtin id — whether rooted (builtin:filesystem@<root>)
+      const isFsOrGit = id.startsWith('builtin:filesystem') || id.startsWith('builtin:git');
+      // With an explicit root (the dispatch path), keep the old behavior exactly:
+      // skip any filesystem/git builtin id — whether rooted (builtin:filesystem@<root>)
       // or bare global (builtin:filesystem) — that is not the requested root's instance.
       // This prevents duplicate Filesystem.*/Git.* tool declarations when a stray global
       // instance coexists with the correct per-root one.
-      const isFsOrGit = id.startsWith('builtin:filesystem') || id.startsWith('builtin:git');
-      if (isFsOrGit && id !== fsId && id !== gitId) continue;
+      if (root && isFsOrGit && id !== fsId && id !== gitId) continue;
       for (const tool of entry.tools) {
+        // With no root (e.g. GET /api/mcp/tools for the tool-policy UI), don't hide
+        // fs/git tools outright — but still dedupe by qualified name across whichever
+        // fs/git instances happen to be live, since the UI keys tool rows by
+        // qualifiedName (`${serverName}.${toolName}`), not by serverId/root.
+        if (!root && isFsOrGit) {
+          const dedupeKey = `${entry.serverName}.${tool.name}`;
+          if (seenFsGitNames.has(dedupeKey)) continue;
+          seenFsGitNames.add(dedupeKey);
+        }
         const policy = this.resolvePolicy(entry, tool.name);
         out.push({
           qualifiedName: `${entry.serverName}.${tool.name}`,
