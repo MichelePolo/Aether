@@ -141,6 +141,8 @@ function VaultRow({ transport, autoFocus, statusState }: VaultRowProps) {
         <input
           ref={inputRef}
           type={revealedText ? 'text' : 'password'}
+          name="aether-provider-key"
+          autoComplete="off"
           aria-label={`${LABEL[transport]} key`}
           value={displayValue}
           onChange={(e) => {

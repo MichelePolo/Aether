@@ -185,6 +185,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
             ref={textareaRef}
             id="message-input"
             role="combobox"
+            aria-label={t('messageInput.accessibleName')}
             aria-autocomplete="list"
             aria-expanded={mention.open}
             aria-controls={MENTION_LISTBOX_ID}

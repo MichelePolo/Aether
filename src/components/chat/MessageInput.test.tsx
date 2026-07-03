@@ -15,6 +15,11 @@ describe('MessageInput', () => {
     localStorage.clear();
   });
 
+  it('the composer textarea has a persistent accessible name (not placeholder-only)', () => {
+    render(<MessageInput onSend={() => {}} onStop={() => {}} isStreaming={false} />);
+    expect(screen.getByRole('combobox', { name: /message/i })).toBeInTheDocument();
+  });
+
   it('sends on Enter with trim', async () => {
     const onSend = vi.fn();
     render(<MessageInput onSend={onSend} onStop={() => {}} isStreaming={false} />);

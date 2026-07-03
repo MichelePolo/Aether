@@ -42,6 +42,7 @@ export function SwarmEditModal({ id, onClose }: { id: string | 'new'; onClose: (
         <input
           className="w-full bg-surface-2 border border-border-subtle rounded px-2 py-1.5 text-sm text-white"
           placeholder="Swarm name"
+          aria-label="Swarm name"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />

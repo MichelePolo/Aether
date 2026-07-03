@@ -1,5 +1,6 @@
 export const messages = {
   messageInput: {
+    accessibleName: 'Message',
     placeholder: 'Type a message. Enter to send, Shift+Enter for newline.',
     streaming: 'Streaming…',
     visionUnsupported: 'Selected provider does not support images',
