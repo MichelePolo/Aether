@@ -53,6 +53,7 @@ interface CurrentReasoning {
 
 interface ChatState {
   messages: Message[];
+  messagesById: Record<string, Message>;
   streamingId: string | null;
   abortController: AbortController | null;
   hydrated: boolean;
@@ -88,8 +89,15 @@ interface ChatState {
 
 const emptyReasoning: CurrentReasoning = { thinkingText: '', steps: [] };
 
+function withMessages(next: Message[]): { messages: Message[]; messagesById: Record<string, Message> } {
+  const byId: Record<string, Message> = {};
+  for (const m of next) byId[m.id] = m;
+  return { messages: next, messagesById: byId };
+}
+
 const initial = {
   messages: [] as Message[],
+  messagesById: {} as Record<string, Message>,
   streamingId: null as string | null,
   abortController: null as AbortController | null,
   hydrated: false,
@@ -118,18 +126,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }),
   clearStickyApprovals: () => set({ stickyApprovals: new Set<string>() }),
 
-  hydrate: (messages) => set({ messages, hydrated: true }),
+  hydrate: (messages) => set({ ...withMessages(messages), hydrated: true }),
 
   appendUser: (text) => {
     const msg: Message = { id: newId(), role: 'user', text, timestamp: Date.now() };
-    set((s) => ({ messages: [...s.messages, msg] }));
+    set((s) => withMessages([...s.messages, msg]));
     return { id: msg.id };
   },
 
   startAssistant: () => {
     const msg: Message = { id: newId(), role: 'model', text: '', timestamp: Date.now() };
     set((s) => ({
-      messages: [...s.messages, msg],
+      ...withMessages([...s.messages, msg]),
       streamingId: msg.id,
       currentReasoning: emptyReasoning,
     }));
@@ -137,11 +145,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   appendChunk: (id, text) =>
-    set((s) => ({
-      messages: s.messages.map((m) =>
-        m.id === id ? { ...m, text: m.text + text } : m,
-      ),
-    })),
+    set((s) => {
+      const cur = s.messagesById[id];
+      if (!cur) return s;
+      const updated = { ...cur, text: cur.text + text };
+      return {
+        messages: s.messages.map((m) => (m.id === id ? updated : m)),
+        messagesById: { ...s.messagesById, [id]: updated },
+      };
+    }),
 
   appendThinkingChunk: (text) =>
     set((s) => ({
@@ -162,17 +174,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
   finishAssistant: (id, opts) =>
     set((s) => ({
       streamingId: s.streamingId === id ? null : s.streamingId,
-      messages: s.messages.map((m) =>
-        m.id === id
-          ? {
-              ...m,
-              model: opts.model,
-              interrupted: opts.interrupted,
-              reasoningSteps: opts.reasoningSteps ?? m.reasoningSteps,
-              ...(opts.tokensIn != null ? { tokensIn: opts.tokensIn } : {}),
-              ...(opts.tokensOut != null ? { tokensOut: opts.tokensOut } : {}),
-            }
-          : m,
+      ...withMessages(
+        s.messages.map((m) =>
+          m.id === id
+            ? {
+                ...m,
+                model: opts.model,
+                interrupted: opts.interrupted,
+                reasoningSteps: opts.reasoningSteps ?? m.reasoningSteps,
+                ...(opts.tokensIn != null ? { tokensIn: opts.tokensIn } : {}),
+                ...(opts.tokensOut != null ? { tokensOut: opts.tokensOut } : {}),
+              }
+            : m,
+        ),
       ),
       abortController: null,
       currentReasoning: emptyReasoning,
@@ -181,9 +195,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   failAssistant: (id, error, retryable) =>
     set((s) => ({
       streamingId: s.streamingId === id ? null : s.streamingId,
-      messages: s.messages.map((m) =>
-        m.id === id ? { ...m, error, retryable } : m,
-      ),
+      ...withMessages(s.messages.map((m) => (m.id === id ? { ...m, error, retryable } : m))),
       abortController: null,
       currentReasoning: emptyReasoning,
     })),

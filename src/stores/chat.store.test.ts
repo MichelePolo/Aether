@@ -48,6 +48,13 @@ describe('useChatStore basic actions', () => {
     expect(useChatStore.getState().messages.at(-1)?.text).toBe('Hello world');
   });
 
+  it('keeps messagesById in sync and appendChunk touches only the target id', () => {
+    useChatStore.setState({ messages: [{ id: 'x', role: 'model', text: 'a', timestamp: 0 }], messagesById: { x: { id: 'x', role: 'model', text: 'a', timestamp: 0 } } });
+    useChatStore.getState().appendChunk('x', 'b');
+    expect(useChatStore.getState().messagesById['x'].text).toBe('ab');
+    expect(useChatStore.getState().messages.find((m) => m.id === 'x')!.text).toBe('ab');
+  });
+
   it('finishAssistant clears streamingId and sets model + interrupted', () => {
     const { id } = useChatStore.getState().startAssistant();
     useChatStore.getState().finishAssistant(id, { model: 'fake-1', interrupted: false });

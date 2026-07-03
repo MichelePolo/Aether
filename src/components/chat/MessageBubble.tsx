@@ -34,7 +34,7 @@ function toolOutputText(result: unknown): string {
 }
 
 export const MessageBubble = memo(function MessageBubble({ id, onRetry }: MessageBubbleProps) {
-  const message = useChatStore((s) => s.messages.find((m) => m.id === id));
+  const message = useChatStore((s) => s.messagesById[id]);
   const isStreaming = useChatStore((s) => s.streamingId === id);
   const isAnyStreaming = useChatStore((s) => s.streamingId !== null);
   const isThinkingNow = useChatStore(

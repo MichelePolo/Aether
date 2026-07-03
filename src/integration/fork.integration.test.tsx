@@ -62,12 +62,10 @@ describe('fork flow integration', () => {
     await waitFor(() => expect(useSessionsStore.getState().hydrated).toBe(true));
 
     // Seed two messages — one user, one model
-    useChatStore.setState({
-      messages: [
-        { id: 'U1', role: 'user', text: 'Hello', timestamp: 1000 },
-        { id: 'M1', role: 'model', text: 'Hi there', timestamp: 2000 },
-      ],
-    });
+    useChatStore.getState().hydrate([
+      { id: 'U1', role: 'user', text: 'Hello', timestamp: 1000 },
+      { id: 'M1', role: 'model', text: 'Hi there', timestamp: 2000 },
+    ]);
 
     // Wait for the user bubble to appear in the DOM
     await waitFor(() => {
