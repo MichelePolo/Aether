@@ -113,6 +113,32 @@ describe('useGitStore', () => {
     expect(s.status?.root).toBe('/b');
   });
 
+  it('load() ignores a stale rejection superseded by a newer workspace load, without clobbering error', async () => {
+    let rejectStatusA!: (e: Error) => void;
+    const statusAPromise = new Promise<{ isRepo: boolean; root?: string; head?: string }>((_resolve, reject) => {
+      rejectStatusA = reject;
+    });
+
+    mockApi.status.mockImplementation((workspaceId: string) =>
+      workspaceId === 'A' ? statusAPromise : Promise.resolve({ isRepo: true, root: '/b', head: 'bbb' }),
+    );
+    mockApi.log.mockResolvedValue({ commits: [commit('b1')], truncated: false });
+
+    const loadA = useGitStore.getState().load('A');
+    await useGitStore.getState().load('B');
+    expect(useGitStore.getState().activeWorkspaceId).toBe('B');
+
+    // Reject A's stale status call after B has already finished loading.
+    rejectStatusA(new Error('boom'));
+    await loadA;
+
+    const s = useGitStore.getState();
+    expect(s.activeWorkspaceId).toBe('B');
+    expect(s.error).toBeNull();
+    expect(s.commits.map((c) => c.hash)).toEqual(['b1']);
+    expect(s.status?.root).toBe('/b');
+  });
+
   it('toggleExpand() adds then removes with a fresh Set identity each time', () => {
     const empty = useGitStore.getState().expanded;
 

@@ -47,6 +47,7 @@ export const useGitStore = create<GitState>((set, get) => ({
       if (get().activeWorkspaceId !== workspaceId) return; // superseded
       set({ status, commits, truncated, loading: false });
     } catch (e) {
+      if (get().activeWorkspaceId !== workspaceId) return; // superseded
       set({ loading: false, error: errMsg(e) });
     }
   },

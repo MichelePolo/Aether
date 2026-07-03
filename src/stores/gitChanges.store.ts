@@ -53,6 +53,7 @@ export const useGitChangesStore = create<GitChangesState>((set, get) => ({
       if (get().activeWorkspaceId !== workspaceId) return; // superseded
       set({ changes, loading: false });
     } catch (e) {
+      if (get().activeWorkspaceId !== workspaceId) return; // superseded
       set({ loading: false, error: errMsg(e) });
     }
   },
@@ -65,6 +66,7 @@ export const useGitChangesStore = create<GitChangesState>((set, get) => ({
       if (get().activeWorkspaceId !== id) return; // superseded
       set({ changes, error: null });
     } catch (e) {
+      if (get().activeWorkspaceId !== id) return; // superseded
       set({ error: errMsg(e) });
     }
   },

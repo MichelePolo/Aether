@@ -83,6 +83,56 @@ describe('useGitChangesStore', () => {
     expect(s.changes?.unstaged.map((c) => c.path)).toEqual(['b.txt']);
   });
 
+  it('load() ignores a stale rejection superseded by a newer workspace load, without clobbering error', async () => {
+    let rejectA!: (e: Error) => void;
+    const aPromise = new Promise<WorkingChanges>((_resolve, reject) => {
+      rejectA = reject;
+    });
+    vi.mocked(gitApi.changes).mockImplementation((workspaceId: string) =>
+      workspaceId === 'A' ? aPromise : Promise.resolve({ ...EMPTY, unstaged: [{ path: 'b.txt', status: 'modified' }] }),
+    );
+
+    const loadA = useGitChangesStore.getState().load('A');
+    await useGitChangesStore.getState().load('B');
+    expect(useGitChangesStore.getState().activeWorkspaceId).toBe('B');
+
+    // Reject A's stale request after B has already finished loading.
+    rejectA(new Error('boom'));
+    await loadA;
+
+    const s = useGitChangesStore.getState();
+    expect(s.activeWorkspaceId).toBe('B');
+    expect(s.error).toBeNull();
+    expect(s.changes?.unstaged.map((c) => c.path)).toEqual(['b.txt']);
+  });
+
+  it('refresh() ignores a stale rejection when a newer load has switched workspaces, without clobbering error', async () => {
+    let rejectRefresh!: (e: Error) => void;
+    const refreshPromise = new Promise<WorkingChanges>((_resolve, reject) => {
+      rejectRefresh = reject;
+    });
+
+    vi.mocked(gitApi.changes)
+      .mockResolvedValueOnce(EMPTY) // load('A')
+      .mockImplementationOnce(() => refreshPromise) // refresh() while on 'A'
+      .mockResolvedValueOnce({ ...EMPTY, unstaged: [{ path: 'b.txt', status: 'modified' }] }); // load('B')
+
+    await useGitChangesStore.getState().load('A');
+    const refreshA = useGitChangesStore.getState().refresh();
+
+    await useGitChangesStore.getState().load('B');
+    expect(useGitChangesStore.getState().activeWorkspaceId).toBe('B');
+
+    // Reject the stale refresh() request after B has already finished loading.
+    rejectRefresh(new Error('boom'));
+    await refreshA;
+
+    const s = useGitChangesStore.getState();
+    expect(s.activeWorkspaceId).toBe('B');
+    expect(s.error).toBeNull();
+    expect(s.changes?.unstaged.map((c) => c.path)).toEqual(['b.txt']);
+  });
+
   it('refresh() ignores a stale resolution when a newer load has switched workspaces', async () => {
     let resolveRefresh!: (v: WorkingChanges) => void;
     const refreshPromise = new Promise<WorkingChanges>((resolve) => {

@@ -338,7 +338,8 @@ async function bootstrap() {
 
   const server = app.listen(cfg.port, host, () => {
     console.log(`Aether server running on http://localhost:${cfg.port}`);
-    if (!isLoopbackAddress(host) && host !== '127.0.0.1') {
+    const loopback = host === 'localhost' || isLoopbackAddress(host);
+    if (!loopback) {
       console.warn(
         `[aether] WARNING: API bound to ${host} — reachable on the network. ` +
           `Anyone on your LAN can drive dispatch and tools. Unset AETHER_HOST for loopback-only.`,
