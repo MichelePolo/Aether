@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.21](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.20...aether-core-v0.1.21) (2026-07-03)
+
+
+### Bug Fixes
+
+* **schedules:** resolve scheduled runs to the pinned workspace root, not cwd ([#112](https://github.com/MichelePolo/Aether/issues/112)) ([532633c](https://github.com/MichelePolo/Aether/commit/532633c2db84914688d18856e9fe730bc6859281)), closes [#108](https://github.com/MichelePolo/Aether/issues/108)
+
 ## [0.1.20](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.19...aether-core-v0.1.20) (2026-07-03)
 
 
