@@ -86,6 +86,7 @@ interface ChatState {
   removeStickyApproval: (qualifiedName: string) => void;
   clearStickyApprovals: () => void;
   setPendingComposerText: (text: string | null) => void;
+  clearError: () => void;
 }
 
 const emptyReasoning: CurrentReasoning = { thinkingText: '', steps: [] };
@@ -268,6 +269,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   clearQueuedAttachments: () => set({ queuedAttachments: [] }),
 
   setPendingComposerText: (text) => set({ pendingComposerText: text }),
+
+  clearError: () => set({ error: null }),
 }));
 
 export function contextSizeOfActive(state: ChatState): {

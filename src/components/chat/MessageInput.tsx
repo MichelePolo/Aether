@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ChangeEvent } from 'react';
-import { Send, Square, Brain, Paperclip } from 'lucide-react';
+import { Send, Square, Brain, Paperclip, X } from 'lucide-react';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
 import { useProvidersStore } from '@/src/stores/providers.store';
@@ -47,6 +47,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   const pendingComposerText = useChatStore((s) => s.pendingComposerText);
   const setPendingComposerText = useChatStore((s) => s.setPendingComposerText);
   const error = useChatStore((s) => s.error);
+  const clearError = useChatStore((s) => s.clearError);
 
   const activeProviderName = activeId
     ? ((sessions.find((s) => s.id === activeId) as { providerName?: string } | undefined)?.providerName ?? defaultProvider)
@@ -87,6 +88,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   const submit = () => {
     const trimmed = value.trim();
     if (!trimmed) return;
+    clearError();
     onSend(trimmed);
     setValue('');
     setMention({ open: false, query: '', replaceRange: [0, 0] });
@@ -174,8 +176,16 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   return (
     <div className="shrink-0 border-t border-border-subtle bg-surface-2 p-3">
       {error && (
-        <div role="alert" className="mb-1 px-2 py-1 rounded bg-status-error/15 text-status-error text-xs font-mono">
-          {error}
+        <div role="alert" className="mb-1 flex items-center gap-2 px-2 py-1 rounded bg-status-error/15 text-status-error text-xs font-mono">
+          <span className="flex-1">{error}</span>
+          <button
+            type="button"
+            aria-label="Dismiss error"
+            onClick={clearError}
+            className="shrink-0 p-0.5 rounded hover:bg-status-error/20 text-status-error"
+          >
+            <X size={12} />
+          </button>
         </div>
       )}
       {/* Claude-style composer: textarea on top, a single aligned control row below. */}
@@ -188,7 +198,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
             aria-label={t('messageInput.accessibleName')}
             aria-autocomplete="list"
             aria-expanded={mention.open}
-            aria-controls={MENTION_LISTBOX_ID}
+            aria-controls={mention.open ? MENTION_LISTBOX_ID : undefined}
             aria-activedescendant={mentionActiveDescendant}
             value={value}
             onChange={onChange}
