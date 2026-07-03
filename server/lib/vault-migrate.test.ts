@@ -182,6 +182,85 @@ describe('migrateVaultToRandomKey — openai_compat_endpoints (single nullable h
   });
 });
 
+describe('migrateVaultToRandomKey — operator visibility (issue #109)', () => {
+  it('warns (naming table + id, never the secret) and counts a row that decrypts under neither key', () => {
+    db = makeTestDb();
+    const dir = tmpDir();
+    const unrelatedKey = Buffer.alloc(32, 7);
+    const blob = encrypt('sk-mystery', unrelatedKey);
+    db.prepare('INSERT INTO provider_keys (transport, ciphertext, iv, auth_tag, updated_at) VALUES (?,?,?,?,?)')
+      .run('gemini', blob.ciphertext, blob.iv, blob.authTag, Date.now());
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const summary = migrateVaultToRandomKey(db, dir);
+      expect(summary.undecryptable).toBe(1);
+      expect(warn).toHaveBeenCalledTimes(1);
+      const msg = String(warn.mock.calls[0][0]);
+      expect(msg).toContain('provider_keys');
+      expect(msg).toContain('gemini');
+      expect(msg).not.toContain('sk-mystery'); // never leak the plaintext...
+      expect(msg).not.toContain(blob.ciphertext.toString('hex')); // ...nor the ciphertext
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('does not warn and reports zero when every group is normal (legacy / active / null)', () => {
+    db = makeTestDb();
+    const dir = tmpDir();
+    const legacy = deriveLegacyKey();
+    const active = loadOrCreateVaultKey(dir);
+    const legacyBlob = encrypt('sk-legacy', legacy);
+    const activeBlob = encrypt('sk-active', active);
+    db.prepare('INSERT INTO provider_keys (transport, ciphertext, iv, auth_tag, updated_at) VALUES (?,?,?,?,?)')
+      .run('anthropic', legacyBlob.ciphertext, legacyBlob.iv, legacyBlob.authTag, Date.now());
+    db.prepare('INSERT INTO provider_keys (transport, ciphertext, iv, auth_tag, updated_at) VALUES (?,?,?,?,?)')
+      .run('openai', activeBlob.ciphertext, activeBlob.iv, activeBlob.authTag, Date.now());
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const summary = migrateVaultToRandomKey(db, dir);
+      expect(summary.undecryptable).toBe(0);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('identifies the specific column group (token vs headers) for endpoint rows', () => {
+    db = makeTestDb();
+    const dir = tmpDir();
+    const legacy = deriveLegacyKey();
+    const unrelatedKey = Buffer.alloc(32, 9);
+    const goodToken = encrypt('tok-legacy', legacy);
+    const badHeaders = encrypt(JSON.stringify({ Authorization: 'Bearer ?' }), unrelatedKey);
+    db.prepare(
+      `INSERT INTO ollama_endpoints
+         (id, label, base_url, token_ciphertext, token_iv, token_auth_tag,
+          headers_ciphertext, headers_iv, headers_auth_tag, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    ).run(
+      'ep-x', 'lab', 'http://a',
+      goodToken.ciphertext, goodToken.iv, goodToken.authTag,
+      badHeaders.ciphertext, badHeaders.iv, badHeaders.authTag,
+      Date.now(), Date.now(),
+    );
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const summary = migrateVaultToRandomKey(db, dir);
+      expect(summary.undecryptable).toBe(1);
+      const msg = String(warn.mock.calls[0][0]);
+      expect(msg).toContain('ollama_endpoints');
+      expect(msg).toContain('ep-x');
+      expect(msg).toContain('headers'); // the bad group, not 'token'
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
 describe('migrateVaultToRandomKey — cross-cutting', () => {
   it('is idempotent across two consecutive full runs', () => {
     db = makeTestDb();
