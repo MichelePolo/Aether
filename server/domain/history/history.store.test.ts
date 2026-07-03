@@ -715,6 +715,134 @@ describe('HistoryStore.forkSession — clones attachments', () => {
   });
 });
 
+describe('HistoryStore.readMessages — batched reads (perf, task 15)', () => {
+  it('issues O(1) prepared statements regardless of message/step count', async () => {
+    const s = await store.createEmpty();
+    // Seed 5 messages, each with 2 reasoning steps (one of which is a tool_call
+    // with a trace) — pre-refactor this would drive ~5 + ~5 + ~5 = ~15 fresh
+    // db.prepare() calls inside readMessages() alone.
+    for (let i = 0; i < 5; i++) {
+      await store.append(s.id, {
+        id: `m${i}`,
+        role: i % 2 === 0 ? 'user' : 'model',
+        text: `msg ${i}`,
+        timestamp: i,
+        reasoningSteps: [
+          { id: `r${i}a`, type: 'context_fetch', title: 't', content: 'c', timestamp: i, durationMs: 5 },
+          {
+            id: `r${i}b`,
+            type: 'tool_call',
+            title: 'Tool: mock.echo',
+            content: 'used mock.echo',
+            timestamp: i,
+            durationMs: 3,
+            toolCall: {
+              id: `tc${i}`,
+              qualifiedName: 'mock.echo',
+              args: { n: i },
+              result: { n: i },
+              durationMs: 3,
+            },
+          },
+        ],
+      });
+    }
+
+    // db.prepare is only ever called by insertReasoningSteps/insertAttachments
+    // during append() (test-setup side effects) and by the four hoisted
+    // statements at construction time — NOT again per read(). Count only the
+    // prepare() calls made during the read itself.
+    const prepareSpy = vi.spyOn(db, 'prepare');
+    prepareSpy.mockClear();
+
+    const msgs = await store.read(s.id);
+
+    expect(msgs).toHaveLength(5);
+    // `read()` itself issues exactly one extra prepare (the session-existence
+    // check) on top of the four hoisted statements reused by readMessages();
+    // it must NOT scale with message/step count.
+    expect(prepareSpy.mock.calls.length).toBeLessThanOrEqual(2);
+    prepareSpy.mockRestore();
+  });
+
+  it('output is unchanged: reasoning steps, tool-call traces, and attachments round-trip byte-identical', async () => {
+    const s = await store.createEmpty();
+    const att: MessageAttachment = {
+      id: randomUUID(),
+      mime: 'text/plain',
+      name: 'note.txt',
+      size: 4,
+      contentBase64: Buffer.from('TEXT').toString('base64'),
+    };
+    await store.append(s.id, { id: 'u1', role: 'user', text: 'hi', timestamp: 1, attachments: [att] });
+    await store.append(s.id, {
+      id: 'm1',
+      role: 'model',
+      text: 'reply',
+      timestamp: 2,
+      model: 'fake-1',
+      reasoningSteps: [
+        { id: 's1', type: 'context_fetch', title: 't1', content: 'c1', timestamp: 10, durationMs: 5, tokens: 7 },
+        {
+          id: 's2',
+          type: 'tool_call',
+          title: 'Tool: mock.echo',
+          content: 'used mock.echo',
+          timestamp: 11,
+          durationMs: 3,
+          subAgent: 'researcher',
+          toolCall: {
+            id: 'tc1',
+            qualifiedName: 'mock.echo',
+            args: { message: 'hi' },
+            result: { message: 'hi' },
+            error: undefined,
+            durationMs: 3,
+            progressNote: '1/1',
+          },
+        },
+        { id: 's3', type: 'thinking', title: 't3', content: 'c3', timestamp: 12 },
+      ],
+    });
+    await store.append(s.id, { id: 'u2', role: 'user', text: 'no reasoning here', timestamp: 3 });
+
+    const msgs = await store.read(s.id);
+
+    expect(msgs).toEqual([
+      { id: 'u1', role: 'user', text: 'hi', timestamp: 1, attachments: [{ id: att.id, mime: 'text/plain', name: 'note.txt', size: 4 }] },
+      {
+        id: 'm1',
+        role: 'model',
+        text: 'reply',
+        timestamp: 2,
+        model: 'fake-1',
+        reasoningSteps: [
+          { id: 's1', type: 'context_fetch', title: 't1', content: 'c1', timestamp: 10, durationMs: 5, tokens: 7 },
+          {
+            id: 's2',
+            type: 'tool_call',
+            title: 'Tool: mock.echo',
+            content: 'used mock.echo',
+            timestamp: 11,
+            durationMs: 3,
+            subAgent: 'researcher',
+            toolCall: {
+              id: 'tc1',
+              qualifiedName: 'mock.echo',
+              args: { message: 'hi' },
+              result: { message: 'hi' },
+              durationMs: 3,
+              progressNote: '1/1',
+            },
+          },
+          { id: 's3', type: 'thinking', title: 't3', content: 'c3', timestamp: 12 },
+        ],
+      },
+      { id: 'u2', role: 'user', text: 'no reasoning here', timestamp: 3 },
+    ]);
+  });
+});
+
 describe('HistoryStore — workspaces (slice 23)', () => {
   it('createEmpty({workspaceId}) writes the FK', async () => {
     const db = makeTestDb();
