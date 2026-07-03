@@ -77,15 +77,20 @@ export function useDialog() {
   function prompt(opts: PromptOptions): Promise<string | null> {
     return new Promise((resolve) => {
       const id = nextId();
+      let settled = false;
       enqueue({
         kind: 'prompt',
         id,
         ...opts,
         resolve: (v) => {
+          if (settled) return;
+          settled = true;
           resolve(v);
           dequeue();
         },
         cancel: () => {
+          if (settled) return;
+          settled = true;
           resolve(null);
           dequeue();
         },
@@ -96,15 +101,20 @@ export function useDialog() {
   function confirm(opts: ConfirmOptions): Promise<boolean> {
     return new Promise((resolve) => {
       const id = nextId();
+      let settled = false;
       enqueue({
         kind: 'confirm',
         id,
         ...opts,
         resolve: (v) => {
+          if (settled) return;
+          settled = true;
           resolve(v);
           dequeue();
         },
         cancel: () => {
+          if (settled) return;
+          settled = true;
           resolve(false);
           dequeue();
         },

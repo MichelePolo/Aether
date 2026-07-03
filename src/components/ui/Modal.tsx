@@ -62,13 +62,16 @@ export function Modal({
     return () => dialog.removeEventListener('close', handler);
   }, [onClose]);
 
-  // Manual Escape fallback for environments where <dialog> doesn't auto-close on Esc.
+  // Manual Escape fallback: route through .close() so the single `close`
+  // listener owns onClose()+focus restore (works for unmount-based dialogs too).
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        const d = dialogRef.current;
+        if (d?.open && typeof d.close === 'function') d.close();
+        else onClose();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -78,7 +81,9 @@ export function Modal({
   const onBackdropMouseDown = (e: React.MouseEvent<HTMLDialogElement>) => {
     if (!dismissOnBackdrop) return;
     if (e.target === e.currentTarget) {
-      onClose();
+      const d = dialogRef.current;
+      if (d?.open && typeof d.close === 'function') d.close();
+      else onClose();
     }
   };
 
