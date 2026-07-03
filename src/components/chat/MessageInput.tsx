@@ -209,7 +209,6 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
 
           <span
             data-testid="input-token-chip"
-            aria-live="polite"
             className="ml-auto text-[10px] font-mono text-zinc-600 px-1 pointer-events-none tabular-nums"
           >
             ~{Math.ceil(value.length / 4)} tokens
