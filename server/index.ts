@@ -2,6 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdirSync } from 'node:fs';
 import { writeDaemonFile, clearDaemonFile } from './lib/daemon-file';
+import { installShutdown } from './lib/shutdown';
 import { isLoopbackAddress } from '@/server/lib/net';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
@@ -335,7 +336,7 @@ async function bootstrap() {
   // exposure is deliberate via AETHER_HOST (e.g. '0.0.0.0'). See spec D1.
   const host = process.env.AETHER_HOST ?? '127.0.0.1';
 
-  app.listen(cfg.port, host, () => {
+  const server = app.listen(cfg.port, host, () => {
     console.log(`Aether server running on http://localhost:${cfg.port}`);
     if (!isLoopbackAddress(host) && host !== '127.0.0.1') {
       console.warn(
@@ -354,18 +355,21 @@ async function bootstrap() {
   });
 
   if (process.env.AETHER_SCHEDULER !== '0') scheduler.start();
-  process.on('SIGTERM', () => scheduler.stop());
-  process.on('SIGINT', () => scheduler.stop());
 
-  if (isDaemon) {
-    const cleanup = () => {
-      clearDaemonFile(cfg.dataDir);
-      process.exit(0);
-    };
-    process.on('SIGTERM', cleanup);
-    process.on('SIGINT', cleanup);
-    process.on('exit', () => clearDaemonFile(cfg.dataDir));
-  }
+  // Cleanly exit on Ctrl+C/SIGTERM in BOTH daemon and non-daemon mode — a
+  // registered signal handler overrides Node's default terminate-on-signal
+  // behavior, so without an explicit process.exit() the still-listening HTTP
+  // server keeps the event loop alive and the process hangs.
+  installShutdown({
+    isDaemon,
+    server,
+    scheduler,
+    dataDir: cfg.dataDir,
+    exit: (code) => process.exit(code),
+    clearDaemonFile,
+    onSignal: (signal, handler) => process.on(signal, handler),
+    onExit: (handler) => process.on('exit', handler),
+  });
 }
 
 bootstrap().catch((err) => {
