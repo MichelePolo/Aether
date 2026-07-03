@@ -176,7 +176,13 @@ async function bootstrap() {
       }),
     listOpenAICompatEndpoints,
     openAICompatBuilder: (baseUrl, model, headers) =>
-      new OpenAIProvider({ apiKey: '', model, baseUrl: `${baseUrl}/chat/completions`, headers }),
+      new OpenAIProvider({
+        apiKey: '', model, baseUrl: `${baseUrl}/chat/completions`, headers,
+        // Self-hosted openai-compatible backends are usually text-only; default to
+        // vision:false so attaching an image doesn't send an image_url block a
+        // text-only model rejects (Ollama hardcodes the same default).
+        capabilities: { thinking: false, toolCalling: true, vision: false },
+      }),
     defaultOverride:
       process.env.AETHER_DEFAULT_PROVIDER ||
       (cfg.fakeProvider ? 'fake:default' : 'anthropic:claude-opus-4-8'),
