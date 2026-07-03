@@ -23,6 +23,11 @@
   @supports (backdrop-filter: blur(1px)) {
     .glass { background: color-mix(in oklab, var(--color-surface-2) 72%, transparent) !important; }
   }
+  /* Respect the user preference (not just support): opaque surface when the OS
+     asks to reduce transparency, even where backdrop-filter is supported. */
+  @media (prefers-reduced-transparency: reduce) {
+    .glass { background: var(--color-surface-2) !important; backdrop-filter: none; }
+  }
   /* Hover "energy": illuminate the border in the element's semantic color. */
   .glow-manip { transition: box-shadow .15s, border-color .15s; }
   .glow-manip:hover { border-color: var(--color-manipulation); box-shadow: 0 0 0 1px var(--color-manipulation), 0 0 12px -3px var(--color-manipulation); }
@@ -40,11 +45,15 @@
    is present so this rule doesn't match and `flex` applies normally. */
 dialog:not([open]) { display: none !important; }
 
-/* Custom scrollbar (global, subtle) */
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-border-default); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #444; }
+/* Custom scrollbar (global, subtle) — standard properties first so Firefox/Safari
+   get the thin themed scrollbar too; WebKit pseudo-elements as a legacy fallback. */
+:root { scrollbar-width: thin; scrollbar-color: var(--color-border-default) transparent; }
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--color-border-default); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #444; }
+}
 
 /* Chat thread scrollbar — deliberately visible so history is easy to scrub.
    Standard properties first; WebKit pseudo-elements only as a legacy fallback. */

@@ -2,6 +2,7 @@
 
 :root {
   color-scheme: dark;
+  accent-color: var(--color-disclosure);
 }
 
 dialog::backdrop {
