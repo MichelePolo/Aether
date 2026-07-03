@@ -296,6 +296,11 @@ export class DispatchService {
           const runToolCall = async (
             call: { qualifiedName: string; args: Record<string, unknown> },
           ): Promise<{ ok: boolean; output?: unknown; error?: string }> => {
+            if (signal.aborted) {
+              // Client left before the in-process (Anthropic-style) tool call
+              // ran; do not execute it.
+              return { ok: false, error: 'Aborted' };
+            }
             if (toolCallsCount >= MAX_TOOL_CALLS_PER_DISPATCH) {
               return { ok: false, error: 'Max tool calls per dispatch exceeded' };
             }
@@ -352,6 +357,8 @@ export class DispatchService {
             }
 
             if (!pendingCall) break;
+
+            if (signal.aborted) break; // client left after the function_call chunk; do not run the tool
 
             if (toolCallsCount >= MAX_TOOL_CALLS_PER_DISPATCH) {
               pendingToolResults = [{

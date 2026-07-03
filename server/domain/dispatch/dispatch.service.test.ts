@@ -943,6 +943,101 @@ describe('runToolCall (agentic providers)', () => {
     expect(fullText).toContain('CAPPED_AT:-1');
     expect(callTool).toHaveBeenCalledTimes(11);
   });
+
+  it('does not execute a tool call once the signal is aborted right after the function_call chunk (manual loop)', async () => {
+    const ctrl = new AbortController();
+    // Custom provider whose async iterator's return() fires when the dispatch
+    // loop breaks out early after receiving the function_call chunk — modeling
+    // a client disconnect landing in the gap between "chunk received" and
+    // "tool executed".
+    const provider: AIProvider = {
+      model: 'abort-after-call-stub',
+      capabilities: { thinking: false, toolCalling: true, vision: false },
+      stream(): AsyncIterable<ProviderChunk> {
+        let delivered = false;
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              async next(): Promise<IteratorResult<ProviderChunk>> {
+                if (delivered) return { value: undefined, done: true };
+                delivered = true;
+                return {
+                  value: {
+                    type: 'function_call',
+                    call: { callId: 'c1', qualifiedName: 'mock.echo', args: {} },
+                  },
+                  done: false,
+                };
+              },
+              async return(value?: unknown): Promise<IteratorResult<ProviderChunk>> {
+                ctrl.abort();
+                return { value: value as ProviderChunk, done: true };
+              },
+            };
+          },
+        };
+      },
+    };
+
+    const callTool = vi.fn().mockResolvedValue({ ok: true, output: { echoed: 'hi' } });
+    const mcpRegistry = {
+      policy: () => ({ autoApprove: true }),
+      callTool,
+      awaitDecision: vi.fn(),
+      listLiveTools: () => [],
+    } as unknown as import('@/server/domain/mcp/registry').McpRegistry;
+
+    const { service, historyStore, sessionId } = await buildAgenticHarness(provider, { mcpRegistry });
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle({ sessionId, message: 'go' }, emitter, ctrl.signal);
+
+    expect(callTool).not.toHaveBeenCalled();
+
+    const done = events.find((e) => e.event === 'done')!;
+    expect((done.data as { interrupted: boolean }).interrupted).toBe(true);
+
+    const msgs = await historyStore.read(sessionId);
+    const model = msgs!.find((m) => m.role === 'model')!;
+    expect(model.interrupted).toBe(true);
+  });
+
+  it('does not execute an in-process (Anthropic-style) tool call once the signal is aborted', async () => {
+    const ctrl = new AbortController();
+    // Provider that surfaces tool calls internally via req.runToolCall (the
+    // Anthropic in-process path) rather than yielding a function_call chunk.
+    // The client disconnects right before the tool would run.
+    const agenticProvider: AIProvider = {
+      model: 'agentic-abort-stub',
+      capabilities: { thinking: false, toolCalling: true, vision: false },
+      async *stream(req: ProviderRequest): AsyncGenerator<ProviderChunk> {
+        ctrl.abort();
+        const outcome = await req.runToolCall!({ qualifiedName: 'mock.echo', args: { message: 'hi' } });
+        yield { type: 'text', text: outcome.ok ? 'OUT:' + JSON.stringify(outcome.output) : 'ERR:' + outcome.error };
+        yield { type: 'done' };
+      },
+    };
+
+    const callTool = vi.fn().mockResolvedValue({ ok: true, output: { echoed: 'hi' } });
+    const mcpRegistry = {
+      policy: () => ({ autoApprove: true }),
+      callTool,
+      awaitDecision: vi.fn(),
+      listLiveTools: () => [],
+    } as unknown as import('@/server/domain/mcp/registry').McpRegistry;
+
+    const { service, historyStore, sessionId } = await buildAgenticHarness(agenticProvider, { mcpRegistry });
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle({ sessionId, message: 'go' }, emitter, ctrl.signal);
+
+    expect(callTool).not.toHaveBeenCalled();
+
+    const done = events.find((e) => e.event === 'done')!;
+    expect((done.data as { interrupted: boolean }).interrupted).toBe(true);
+
+    const msgs = await historyStore.read(sessionId);
+    const model = msgs!.find((m) => m.role === 'model')!;
+    expect(model.interrupted).toBe(true);
+  });
 });
 
 describe('DispatchService — sub-agent model resolution', () => {
