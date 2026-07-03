@@ -30,6 +30,8 @@ export function defaultDeps(opts: { port?: number }): DaemonDeps {
       const child = nodeSpawn('node', [entry], {
         detached: true,
         stdio: 'ignore',
+        // windowsHide: detach without popping a console window on Windows.
+        windowsHide: true,
         // Force production: the daemon runs the prebuilt bundle, which must serve
         // the SPA from dist/ (the dev branch mounts Vite, absent in a global install).
         env: { ...process.env, ...env, NODE_ENV: 'production' },
