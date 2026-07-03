@@ -232,6 +232,17 @@ async function bootstrap() {
   const skillStateStore = new SkillStateStore(db);
   const skillsService = new SkillsService(skillStateStore, cfg.libraryDir);
 
+  // Resolve a session's workspaceId to its project root. Shared by the interactive
+  // dispatcher AND the schedule runner (issue #108) so scheduled runs resolve the
+  // pinned workspace instead of falling back to process.cwd().
+  const projectRootFor = (workspaceId: string | undefined): string | null => {
+    if (workspaceId) {
+      const ws = workspacesStore.get(workspaceId);
+      if (ws) return ws.rootPath;
+    }
+    return builtinStore.read().find((r) => r.transport === 'filesystem')?.fsRoot ?? null;
+  };
+
   const dispatcher = new DispatchService({
     providers,
     historyStore,
@@ -242,13 +253,7 @@ async function bootstrap() {
     previewService,
     skillsService,
     maxToolCallsPerDispatch: cfg.maxToolCallsPerDispatch,
-    projectRootFor: (workspaceId) => {
-      if (workspaceId) {
-        const ws = workspacesStore.get(workspaceId);
-        if (ws) return ws.rootPath;
-      }
-      return builtinStore.read().find((r) => r.transport === 'filesystem')?.fsRoot ?? null;
-    },
+    projectRootFor,
     listWorkspaceRoots: () => workspacesStore.list().map((w) => w.rootPath),
   });
 
@@ -279,6 +284,7 @@ async function bootstrap() {
     historyStore, contextStore, providers, subAgentsStore,
     mcpRegistry, breakpointService,
     swarmStore, swarmApprovals,
+    projectRootFor,
   });
   const scheduler = new SchedulerService({
     store: scheduleStore, runner: scheduleRunner, now: () => Date.now(), workspacesStore,
