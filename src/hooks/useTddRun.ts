@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { parseSseStream } from '@/src/lib/sse-parser';
+import { consumeRun } from '@/src/lib/run-sse';
 import { tddApi, type TddRunRequest } from '@/src/lib/api/tdd.api';
 
 export interface TddResultView {
@@ -57,18 +57,18 @@ export function useTddRun() {
 
     try {
       const res = await tddApi.run(req, controller.signal);
-      if (!res.body) {
-        setState((s) => ({ ...s, running: false, error: 'no stream' }));
-        return;
-      }
-      for await (const ev of parseSseStream(res.body)) {
-        setState((s) => reduceTdd(s, ev.event, ev.data as any));
-      }
+      await consumeRun(res, (name, data) => setState((s) => reduceTdd(s, name, data as any)));
     } catch (e) {
-      if (e instanceof Error && e.name === 'AbortError') {
-        setState((s) => ({ ...s, running: false }));
-      } else {
-        setState((s) => ({ ...s, running: false, error: e instanceof Error ? e.message : 'Network error' }));
+      if (!(e instanceof Error && e.name === 'AbortError') && abortRef.current === controller) {
+        // only surface the error if this run is still the active one — a
+        // superseded run's late rejection must not clobber a newer run's state
+        setState((s) => ({ ...s, error: e instanceof Error ? e.message : 'Network error' }));
+      }
+    } finally {
+      // reset even if the stream ended without emitting tdd_done — but only
+      // for the still-active run; a superseded run is a no-op here
+      if (abortRef.current === controller) {
+        setState((s) => (s.running ? { ...s, running: false } : s));
       }
     }
   }, []);

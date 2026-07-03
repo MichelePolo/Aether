@@ -4,6 +4,7 @@ import { computeTitle } from './title';
 import type { Message, MessageAttachment, SessionMeta, SessionRecord } from './history.types';
 import type { ReasoningStep, ToolCallTrace } from '@/server/domain/reasoning/reasoning.types';
 import type { DatabaseHandle } from '@/server/db/database';
+import type Database from 'better-sqlite3';
 import { wrap, type ExportEnvelope } from './history.export';
 
 const TITLE_MAX = 200;
@@ -56,8 +57,67 @@ type ToolCallRow = {
   progress_note: string | null;
 };
 
+// ---- pure row -> domain-object mappers (no queries) ----
+
+function mapToolCallRow(row: ToolCallRow): ToolCallTrace {
+  const trace: ToolCallTrace = {
+    id: row.id,
+    qualifiedName: row.qualified_name,
+    args: JSON.parse(row.args) as Record<string, unknown>,
+    durationMs: row.duration_ms,
+  };
+  if (row.result !== null) trace.result = JSON.parse(row.result);
+  if (row.error !== null) trace.error = row.error;
+  if (row.progress_note !== null) trace.progressNote = row.progress_note;
+  return trace;
+}
+
+function mapReasoningRow(row: ReasoningRow, tracesByStepId: Map<string, ToolCallRow>): ReasoningStep {
+  const step: ReasoningStep = {
+    id: row.id,
+    type: row.type as ReasoningStep['type'],
+    title: row.title,
+    content: row.content,
+    timestamp: row.timestamp,
+  };
+  if (row.tokens !== null) step.tokens = row.tokens;
+  if (row.duration_ms !== null) step.durationMs = row.duration_ms;
+  if (row.sub_agent !== null) step.subAgent = row.sub_agent;
+  if (row.type === 'tool_call') {
+    const traceRow = tracesByStepId.get(row.id);
+    if (traceRow) step.toolCall = mapToolCallRow(traceRow);
+  }
+  return step;
+}
+
 export class HistoryStore {
-  constructor(private readonly db: DatabaseHandle) {}
+  private readonly db: DatabaseHandle;
+
+  // Prepared once (not per read()/readMessages() call) — readMessages() is on
+  // the dispatch hot path, so avoiding re-parsing SQL on every message/session
+  // read matters. See readMessages() for why these four cover the whole tree
+  // (messages + attachments + reasoning steps + tool-call traces) in O(1)
+  // queries regardless of message/step count.
+  private readonly selectMessagesStmt: Database.Statement;
+  private readonly selectAttachmentsForSessionStmt: Database.Statement;
+  private readonly selectReasoningStepsForSessionStmt: Database.Statement;
+  private readonly selectToolCallTracesForSessionStmt: Database.Statement;
+
+  constructor(db: DatabaseHandle) {
+    this.db = db;
+    this.selectMessagesStmt = db.prepare(
+      'SELECT id, session_id, role, content, model, interrupted, error, retryable, created_at, position, tokens_in, tokens_out FROM messages WHERE session_id = ? ORDER BY position',
+    );
+    this.selectAttachmentsForSessionStmt = db.prepare(
+      'SELECT id, message_id, position, mime, name, size FROM messages_attachments WHERE message_id IN (SELECT id FROM messages WHERE session_id = ?) ORDER BY message_id, position',
+    );
+    this.selectReasoningStepsForSessionStmt = db.prepare(
+      'SELECT id, message_id, type, title, content, tokens, duration_ms, sub_agent, timestamp, position FROM reasoning_steps WHERE message_id IN (SELECT id FROM messages WHERE session_id = ?) ORDER BY message_id, position',
+    );
+    this.selectToolCallTracesForSessionStmt = db.prepare(
+      'SELECT id, reasoning_step_id, qualified_name, args, result, error, duration_ms, progress_note FROM tool_call_traces WHERE reasoning_step_id IN (SELECT id FROM reasoning_steps WHERE message_id IN (SELECT id FROM messages WHERE session_id = ?))',
+    );
+  }
 
   async listSessions(): Promise<SessionMeta[]> {
     const rows = this.db
@@ -122,6 +182,21 @@ export class HistoryStore {
     const record = await this.readRecord(id);
     if (!record) return null;
     return wrap(record, Date.now());
+  }
+
+  /**
+   * Cheap scalar lookup of a session's provider + workspace, used on the dispatch
+   * hot path so `handle()` need not materialize the full session record (all
+   * messages + reasoning steps + tool traces) just to read two columns.
+   */
+  getSessionSummary(
+    sessionId: string,
+  ): { providerName: string | null; workspaceId: string | null } | null {
+    const row = this.db
+      .prepare('SELECT provider_name, workspace_id FROM sessions WHERE id = ?')
+      .get(sessionId) as { provider_name: string | null; workspace_id: string | null } | undefined;
+    if (!row) return null;
+    return { providerName: row.provider_name ?? null, workspaceId: row.workspace_id ?? null };
   }
 
   async setProviderName(id: string, providerName: string): Promise<void> {
@@ -387,23 +462,30 @@ export class HistoryStore {
   // ---- private helpers ----
 
   private readMessages(sessionId: string): Message[] {
-    const msgRows = this.db
-      .prepare(
-        'SELECT id, session_id, role, content, model, interrupted, error, retryable, created_at, position, tokens_in, tokens_out FROM messages WHERE session_id = ? ORDER BY position',
-      )
-      .all(sessionId) as MessageRow[];
+    const msgRows = this.selectMessagesStmt.all(sessionId) as MessageRow[];
 
-    const attachmentRows = this.db
-      .prepare(
-        'SELECT id, message_id, position, mime, name, size FROM messages_attachments WHERE message_id IN (SELECT id FROM messages WHERE session_id = ?) ORDER BY message_id, position',
-      )
-      .all(sessionId) as Array<{ id: string; message_id: string; position: number; mime: string; name: string; size: number }>;
-
-    const byMessage = new Map<string, MessageAttachment[]>();
+    const attachmentRows = this.selectAttachmentsForSessionStmt.all(sessionId) as Array<{
+      id: string; message_id: string; position: number; mime: string; name: string; size: number;
+    }>;
+    const attachmentsByMessage = new Map<string, MessageAttachment[]>();
     for (const r of attachmentRows) {
-      const arr = byMessage.get(r.message_id) ?? [];
+      const arr = attachmentsByMessage.get(r.message_id) ?? [];
       arr.push({ id: r.id, mime: r.mime, name: r.name, size: r.size });
-      byMessage.set(r.message_id, arr);
+      attachmentsByMessage.set(r.message_id, arr);
+    }
+
+    // Batch the whole reasoning-step + tool-call-trace tree for the session in
+    // two queries total (not one query per message / per tool-call step).
+    const traceRows = this.selectToolCallTracesForSessionStmt.all(sessionId) as ToolCallRow[];
+    const tracesByStepId = new Map<string, ToolCallRow>();
+    for (const t of traceRows) tracesByStepId.set(t.reasoning_step_id, t);
+
+    const stepRows = this.selectReasoningStepsForSessionStmt.all(sessionId) as ReasoningRow[];
+    const stepsByMessage = new Map<string, ReasoningStep[]>();
+    for (const s of stepRows) {
+      const arr = stepsByMessage.get(s.message_id) ?? [];
+      arr.push(mapReasoningRow(s, tracesByStepId));
+      stepsByMessage.set(s.message_id, arr);
     }
 
     return msgRows.map((m) => {
@@ -419,57 +501,12 @@ export class HistoryStore {
       if (m.retryable !== null) msg.retryable = m.retryable === 1;
       if (m.tokens_in !== null) msg.tokensIn = m.tokens_in;
       if (m.tokens_out !== null) msg.tokensOut = m.tokens_out;
-      const steps = this.readReasoningSteps(m.id);
-      if (steps.length > 0) msg.reasoningSteps = steps;
-      const atts = byMessage.get(m.id);
+      const steps = stepsByMessage.get(m.id);
+      if (steps && steps.length > 0) msg.reasoningSteps = steps;
+      const atts = attachmentsByMessage.get(m.id);
       if (atts && atts.length > 0) msg.attachments = atts;
       return msg;
     });
-  }
-
-  private readReasoningSteps(messageId: string): ReasoningStep[] {
-    const stepRows = this.db
-      .prepare(
-        'SELECT id, message_id, type, title, content, tokens, duration_ms, sub_agent, timestamp, position FROM reasoning_steps WHERE message_id = ? ORDER BY position',
-      )
-      .all(messageId) as ReasoningRow[];
-
-    return stepRows.map((s) => {
-      const step: ReasoningStep = {
-        id: s.id,
-        type: s.type as ReasoningStep['type'],
-        title: s.title,
-        content: s.content,
-        timestamp: s.timestamp,
-      };
-      if (s.tokens !== null) step.tokens = s.tokens;
-      if (s.duration_ms !== null) step.durationMs = s.duration_ms;
-      if (s.sub_agent !== null) step.subAgent = s.sub_agent;
-      if (s.type === 'tool_call') {
-        const trace = this.readToolCallTrace(s.id);
-        if (trace) step.toolCall = trace;
-      }
-      return step;
-    });
-  }
-
-  private readToolCallTrace(reasoningStepId: string): ToolCallTrace | null {
-    const row = this.db
-      .prepare(
-        'SELECT id, reasoning_step_id, qualified_name, args, result, error, duration_ms, progress_note FROM tool_call_traces WHERE reasoning_step_id = ?',
-      )
-      .get(reasoningStepId) as ToolCallRow | undefined;
-    if (!row) return null;
-    const trace: ToolCallTrace = {
-      id: row.id,
-      qualifiedName: row.qualified_name,
-      args: JSON.parse(row.args) as Record<string, unknown>,
-      durationMs: row.duration_ms,
-    };
-    if (row.result !== null) trace.result = JSON.parse(row.result);
-    if (row.error !== null) trace.error = row.error;
-    if (row.progress_note !== null) trace.progressNote = row.progress_note;
-    return trace;
   }
 
   async getAttachmentBytes(id: string): Promise<{ mime: string; name: string; content: Buffer } | null> {

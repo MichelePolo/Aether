@@ -1,8 +1,41 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ContextStore } from '@/server/domain/context/context.store';
 import { makeTestDb } from '@/server/test/test-db';
 import { McpRegistry } from './registry';
 import { BuiltinMcpStore } from './builtin/builtin.store';
+import type { McpConnection } from './connection.types';
+import type { McpTool, McpToolResult } from './mcp.types';
+
+/** A connection whose initialize() rejects — simulates a spawned child that
+ *  fails to come up. `close` is a spy so tests can assert it was awaited. */
+class FailingInitConnection implements McpConnection {
+  readonly defaultAutoApprove = false;
+  close = vi.fn(async () => {});
+  async initialize(): Promise<void> {
+    throw new Error('boom: initialize failed');
+  }
+  async listTools(): Promise<McpTool[]> {
+    return [];
+  }
+  async callTool(): Promise<McpToolResult> {
+    return { ok: false, error: 'n/a' };
+  }
+}
+
+/** A connection whose initialize() succeeds but listTools() rejects. */
+class FailingListToolsConnection implements McpConnection {
+  readonly defaultAutoApprove = false;
+  close = vi.fn(async () => {});
+  async initialize(): Promise<void> {
+    /* no-op */
+  }
+  async listTools(): Promise<McpTool[]> {
+    throw new Error('boom: listTools failed');
+  }
+  async callTool(): Promise<McpToolResult> {
+    return { ok: false, error: 'n/a' };
+  }
+}
 
 function newCtx(): ContextStore {
   return new ContextStore(makeTestDb());
@@ -138,6 +171,45 @@ describe('McpRegistry', () => {
     await promise;
     expect(reg.stateOf('M1').state).toBe('online');
   }, 10_000);
+
+  it('closes the spawned child when initialize() fails during connect', async () => {
+    const conn = new FailingInitConnection();
+    (reg as unknown as { makeConnection: () => McpConnection }).makeConnection = () => conn;
+    await expect(reg.connect('M1')).rejects.toThrow(/boom/);
+    expect(conn.close).toHaveBeenCalledTimes(1);
+    expect(reg.stateOf('M1').state).toBe('error');
+  });
+
+  it('closes the spawned child when listTools() fails during connect', async () => {
+    const conn = new FailingListToolsConnection();
+    (reg as unknown as { makeConnection: () => McpConnection }).makeConnection = () => conn;
+    await expect(reg.connect('M1')).rejects.toThrow(/boom/);
+    expect(conn.close).toHaveBeenCalledTimes(1);
+    expect(reg.stateOf('M1').state).toBe('error');
+  });
+
+  it('closes each spawned child across immediateReconnectAttempt + reconnectLoop failures', async () => {
+    const connections: FailingInitConnection[] = [];
+    (reg as unknown as { makeConnection: () => McpConnection }).makeConnection = () => {
+      const c = new FailingInitConnection();
+      connections.push(c);
+      return c;
+    };
+    vi.useFakeTimers();
+    try {
+      const p = (reg as unknown as { __forceReconnectForTest(id: string): Promise<void> }).__forceReconnectForTest('M1');
+      // Drain the full reconnect backoff schedule (2000+4000+8000+16000ms) with margin.
+      await vi.advanceTimersByTimeAsync(31_000);
+      await p;
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(connections.length).toBeGreaterThan(1);
+    for (const c of connections) {
+      expect(c.close).toHaveBeenCalledTimes(1);
+    }
+    expect(reg.stateOf('M1').state).toBe('error');
+  }, 15_000);
 });
 
 // ---------------------------------------------------------------------------
@@ -173,8 +245,6 @@ function withMockRootedTransport(store: BuiltinMcpStore): BuiltinMcpStore {
 // Helper: inject always-ok mock connections for rooted builtins directly
 // into the registry (bypasses makeConnection so unknown tool names return ok).
 // ---------------------------------------------------------------------------
-import type { McpConnection } from './connection.types';
-import type { McpTool, McpToolResult } from './mcp.types';
 
 class AlwaysOkConnection implements McpConnection {
   readonly defaultAutoApprove = true;
@@ -355,6 +425,98 @@ describe('McpRegistry — root-aware listLiveTools and callTool', () => {
       withAlwaysOkRootedBuiltins(reg, '/work-a');
       const res = await reg.callTool('Filesystem.list_directory', { path: '/work-a' }, { root: '/work-a' });
       expect(res.ok).toBe(true); // mock connection returns ok
+    } finally {
+      db.close();
+    }
+  });
+
+  it('listLiveTools(root) regression: still returns exactly the rooted fs/git instance, excluding others', async () => {
+    const db = makeTestDb();
+    try {
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx);
+
+      withAlwaysOkRootedBuiltins(reg, '/work-a');
+      withAlwaysOkRootedBuiltins(reg, '/work-b');
+      const toolsA = reg.listLiveTools('/work-a');
+      const fsGitTools = toolsA.filter((t) => t.serverName === 'Filesystem' || t.serverName === 'Git');
+      expect(fsGitTools.length).toBeGreaterThan(0);
+      expect(fsGitTools.every((t) => t.serverId.endsWith('@/work-a'))).toBe(true);
+      expect(fsGitTools.some((t) => t.serverId.endsWith('@/work-b'))).toBe(false);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// listLiveTools() with NO root — must now include builtin fs/git tools (the
+// tool-policy UI's GET /api/mcp/tools calls listLiveTools() with no root),
+// while deduping so multiple live fs/git instances don't produce duplicate
+// qualifiedName rows (the UI keys tool rows by qualifiedName, not serverId).
+// ---------------------------------------------------------------------------
+describe('McpRegistry — listLiveTools() with no root includes fs/git tools', () => {
+  it('includes the bare global builtin:filesystem/builtin:git tools (previously hidden)', () => {
+    const db = makeTestDb();
+    try {
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx);
+
+      const fsConn = new AlwaysOkConnection();
+      const gitConn = new AlwaysOkConnection();
+      const fsTool: McpTool = { name: 'list_directory', description: 'mock', inputSchema: { type: 'object', properties: {} } };
+      const gitTool: McpTool = { name: 'status', description: 'mock', inputSchema: { type: 'object', properties: {} } };
+      reg.__injectLiveForTest('builtin:filesystem', 'Filesystem', fsConn, [fsTool]);
+      reg.__injectLiveForTest('builtin:git', 'Git', gitConn, [gitTool]);
+
+      const tools = reg.listLiveTools();
+      expect(tools.map((t) => t.qualifiedName).sort()).toEqual(['Filesystem.list_directory', 'Git.status']);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('dedupes fs/git tools by qualifiedName when multiple rooted instances are live, keeping exactly one', () => {
+    const db = makeTestDb();
+    try {
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx);
+
+      withAlwaysOkRootedBuiltins(reg, '/work-a');
+      withAlwaysOkRootedBuiltins(reg, '/work-b');
+
+      const tools = reg.listLiveTools();
+      const fsTools = tools.filter((t) => t.serverName === 'Filesystem');
+      const gitTools = tools.filter((t) => t.serverName === 'Git');
+      // Exactly one Filesystem.list_directory and one Git.status — no duplicates
+      expect(fsTools.length).toBe(1);
+      expect(gitTools.length).toBe(1);
+      // The surviving instance is the first one connected (/work-a), by insertion order
+      expect(fsTools[0].serverId).toBe('builtin:filesystem@/work-a');
+      expect(gitTools[0].serverId).toBe('builtin:git@/work-a');
+    } finally {
+      db.close();
+    }
+  });
+
+  it('non-fs/git tools are never deduped by name across different servers', async () => {
+    const db = makeTestDb();
+    try {
+      const ctx = new ContextStore(db);
+      const reg = new McpRegistry(ctx);
+      await ctx.bulkOverwrite({
+        systemInstruction: '',
+        skills: [],
+        tools: [],
+        mcpServers: [
+          { id: 'M1', name: 'mock', transport: 'mock', status: 'offline' },
+        ],
+      });
+      await reg.connect('M1');
+      const tools = reg.listLiveTools();
+      expect(tools.map((t) => t.qualifiedName).sort()).toEqual([
+        'mock.current_time', 'mock.echo', 'mock.read_file_mock',
+      ]);
     } finally {
       db.close();
     }

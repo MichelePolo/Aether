@@ -11,6 +11,10 @@ interface PendingCall {
   resolve: (value: unknown) => void;
   reject: (err: Error) => void;
   timer: NodeJS.Timeout;
+  /** Aborts this RPC's own fetch/SSE stream — always present, one per call. */
+  controller: AbortController;
+  /** Set once the SSE response body reader is obtained, so cleanup can cancel it directly. */
+  reader?: ReadableStreamDefaultReader<Uint8Array>;
   onProgress?: (note: string) => void;
   signal?: AbortSignal;
   onAbort?: () => void;
@@ -83,12 +87,13 @@ export class HttpMcpConnection implements McpConnection {
     const id = this.nextId++;
     const body = JSON.stringify({ jsonrpc: '2.0', id, method, params });
     return new Promise<unknown>((resolve, reject) => {
+      const controller = new AbortController();
       const timer = setTimeout(() => {
         if (this.cleanupPending(id)) {
           reject(new Error(`rpc timeout: ${method}`));
         }
       }, timeoutMs);
-      const entry: PendingCall = { resolve, reject, timer, onProgress: opts?.onProgress };
+      const entry: PendingCall = { resolve, reject, timer, controller, onProgress: opts?.onProgress };
       this.pending.set(id, entry);
 
       const onAbort = (): void => {
@@ -109,7 +114,7 @@ export class HttpMcpConnection implements McpConnection {
         opts.signal.addEventListener('abort', onAbort, { once: true });
       }
 
-      void this.openSseStream(id, body, method);
+      void this.openSseStream(id, body, method, controller.signal);
     });
   }
 
@@ -121,10 +126,25 @@ export class HttpMcpConnection implements McpConnection {
     if (p.signal && p.onAbort) {
       p.signal.removeEventListener('abort', p.onAbort);
     }
+    // Always tear down this RPC's own fetch/stream so a hung server can't hold
+    // the socket open indefinitely — harmless if it already finished normally.
+    if (!p.controller.signal.aborted) {
+      p.controller.abort();
+    }
+    if (p.reader) {
+      void p.reader.cancel().catch(() => {
+        // ignore — reader may already be closed/cancelled
+      });
+    }
     return p;
   }
 
-  private async openSseStream(id: number, body: string, method: string): Promise<void> {
+  private async openSseStream(
+    id: number,
+    body: string,
+    method: string,
+    signal: AbortSignal,
+  ): Promise<void> {
     let res: Response;
     try {
       res = await fetch(this.opts.url, {
@@ -135,12 +155,18 @@ export class HttpMcpConnection implements McpConnection {
           ...(this.opts.headers ?? {}),
         },
         body,
+        signal,
       });
     } catch (err) {
+      // If `p` is undefined, this pending call was already cleaned up (timeout,
+      // close(), or external abort) — the fetch simply surfaced that abort, so
+      // don't re-reject and don't treat it as an unexpected connection close.
       const p = this.cleanupPending(id);
-      if (p) p.reject(err instanceof Error ? err : new Error(String(err)));
-      if (!this.closeRequested && this.unexpectedCloseHandler) {
-        this.unexpectedCloseHandler();
+      if (p) {
+        p.reject(err instanceof Error ? err : new Error(String(err)));
+        if (!this.closeRequested && this.unexpectedCloseHandler) {
+          this.unexpectedCloseHandler();
+        }
       }
       return;
     }
@@ -158,6 +184,11 @@ export class HttpMcpConnection implements McpConnection {
     }
 
     const reader = res.body.getReader();
+    // Make the reader reachable from cleanupPending (timeout / close / external
+    // abort) so those paths can cancel it directly, in addition to aborting the
+    // fetch's AbortController.
+    const pendingEntry = this.pending.get(id);
+    if (pendingEntry) pendingEntry.reader = reader;
     const decoder = new TextDecoder();
     let buf = '';
     try {

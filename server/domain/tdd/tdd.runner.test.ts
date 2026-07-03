@@ -9,6 +9,7 @@ function recordingSse() {
     event: (name, data) => events.push({ name, data: data as any }),
     error: (message) => events.push({ name: 'error', data: { message } }),
     end: () => {},
+    markClosed: () => {},
   };
   return { sse, events };
 }

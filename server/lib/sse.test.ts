@@ -108,4 +108,22 @@ describe('createSseEmitter', () => {
       endCallsBefore,
     );
   });
+
+  it('stops writing after markClosed()', () => {
+    let writes = 0;
+    const res = {
+      setHeader() {},
+      write() {
+        writes++;
+        return true;
+      },
+      end() {},
+      writableEnded: false,
+    } as unknown as Response;
+    const sse = createSseEmitter(res);
+    sse.event('text', { chunk: 'a' });
+    sse.markClosed();
+    sse.event('text', { chunk: 'b' });
+    expect(writes).toBe(1); // only the pre-close write
+  });
 });

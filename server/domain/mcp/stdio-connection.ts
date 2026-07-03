@@ -50,6 +50,10 @@ export class StdioMcpConnection implements McpConnection {
         this.unexpectedCloseHandler();
       }
     });
+    // A write to a child whose stdin has closed emits an ASYNC 'error' on the
+    // stream; with no listener Node escalates it to an unhandled process error
+    // and crashes the whole server. Swallow it — 'exit' already fails pending.
+    this.proc.stdin.on('error', () => { /* pipe closed; handled via 'exit' */ });
     this.proc.stdout.setEncoding('utf-8');
     this.proc.stdout.on('data', (chunk: string) => this.onStdout(chunk));
     this.proc.stderr.setEncoding('utf-8');

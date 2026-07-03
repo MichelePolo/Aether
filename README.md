@@ -95,6 +95,8 @@ These are the environment variables the code actually reads:
 | --- | --- | --- |
 | `PORT` | HTTP port for the server | `3000` |
 | `AETHER_DATA_DIR` | Directory for the SQLite database | `./data` |
+| `AETHER_HOST` | Address the server binds to; set to `0.0.0.0` to expose Aether on your LAN (anyone on the network can then drive dispatch and tools) | `127.0.0.1` |
+| `AETHER_VAULT_KEY` | Override the vault key that encrypts provider credentials in SQLite (64 hex chars = 32 bytes) | random, persisted at `${AETHER_DATA_DIR}/.vault.key` |
 | `AETHER_LIBRARY_DIR` | Directory for skills (and future agents) | OS app-data dir |
 | `GEMINI_API_KEY` | Enable the Gemini provider | — |
 | `ANTHROPIC_API_KEY` | Enable Anthropic/Claude (Claude CLI OAuth is also auto-detected) | — |

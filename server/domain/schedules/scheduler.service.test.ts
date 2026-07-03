@@ -20,7 +20,9 @@ describe('SchedulerService.tick', () => {
       update: () => {},
     };
     const runner = { run: async (s: Schedule) => { ran.push(s.id); } };
-    const svc = new SchedulerService({ store: store as never, runner, now: () => 3000 });
+    const svc = new SchedulerService({
+      store: store as never, runner, now: () => 3000, workspacesStore: { get: () => ({}) },
+    });
     await svc.tick();
     expect(ran).toEqual(['a']);          // only 'a' is due at now=3000
     expect(advanced['a']).toBe(3000 + 60_000);
@@ -33,10 +35,45 @@ describe('SchedulerService.tick', () => {
     let release!: () => void;
     const store = { listDue: () => [s], setNextRunAt: () => {}, update: () => {} };
     const runner = { run: (sc: Schedule) => new Promise<void>((r) => { ran.push(sc.id); release = r; }) };
-    const svc = new SchedulerService({ store: store as never, runner, now: () => 3000 });
+    const svc = new SchedulerService({
+      store: store as never, runner, now: () => 3000, workspacesStore: { get: () => ({}) },
+    });
     await svc.tick();   // starts 'a' (still running)
     await svc.tick();   // 'a' running → skipped
     expect(ran).toEqual(['a']);
     release();
+  });
+
+  it('skips a due schedule whose workspace no longer exists, and logs it', async () => {
+    const s = { ...sched('a', 1000), workspaceId: 'ws-deleted' };
+    const ran: string[] = [];
+    const advanced: Record<string, number> = {};
+    const store = {
+      listDue: () => [s],
+      setNextRunAt: (id: string, n: number | null) => { advanced[id] = n ?? -1; },
+      update: () => {},
+    };
+    const runner = { run: async (sc: Schedule) => { ran.push(sc.id); } };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const svc = new SchedulerService({
+      store: store as never, runner, now: () => 3000, workspacesStore: { get: () => undefined },
+    });
+    await svc.tick();
+    expect(ran).toEqual([]); // runner.run must NOT be invoked for a dangling workspace
+    expect(advanced['a']).toBe(3000 + 60_000); // still advanced so it doesn't wedge the loop
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('still fires a due schedule with no workspaceId', async () => {
+    const s = sched('a', 1000); // no workspaceId
+    const ran: string[] = [];
+    const store = { listDue: () => [s], setNextRunAt: () => {}, update: () => {} };
+    const runner = { run: async (sc: Schedule) => { ran.push(sc.id); } };
+    const svc = new SchedulerService({
+      store: store as never, runner, now: () => 3000, workspacesStore: { get: () => undefined },
+    });
+    await svc.tick();
+    expect(ran).toEqual(['a']);
   });
 });

@@ -21,7 +21,10 @@ interface Row {
 }
 
 export class OpenAICompatEndpointStore {
-  constructor(private readonly db: DatabaseHandle) {}
+  constructor(
+    private readonly db: DatabaseHandle,
+    private readonly key: Buffer,
+  ) {}
 
   list(): OpenAICompatEndpointRecord[] {
     return this.db
@@ -111,17 +114,20 @@ export class OpenAICompatEndpointStore {
 
   private encryptHeaders(headers: Record<string, string>) {
     if (Object.keys(headers).length === 0) return null;
-    return encrypt(JSON.stringify(headers));
+    return encrypt(JSON.stringify(headers), this.key);
   }
 
   private decryptHeaders(r: Row): Record<string, string> | null {
     if (!r.headers_ciphertext || !r.headers_iv || !r.headers_auth_tag) return null;
     try {
-      const plain = decrypt({
-        ciphertext: r.headers_ciphertext,
-        iv: r.headers_iv,
-        authTag: r.headers_auth_tag,
-      });
+      const plain = decrypt(
+        {
+          ciphertext: r.headers_ciphertext,
+          iv: r.headers_iv,
+          authTag: r.headers_auth_tag,
+        },
+        this.key,
+      );
       return JSON.parse(plain) as Record<string, string>;
     } catch {
       console.warn(`[openai-endpoints] decrypt failed for ${r.id}: auth-tag mismatch`);

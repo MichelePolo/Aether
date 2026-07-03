@@ -30,6 +30,8 @@ export function defaultDeps(opts: { port?: number }): DaemonDeps {
       const child = nodeSpawn('node', [entry], {
         detached: true,
         stdio: 'ignore',
+        // windowsHide: detach without popping a console window on Windows.
+        windowsHide: true,
         // Force production: the daemon runs the prebuilt bundle, which must serve
         // the SPA from dist/ (the dev branch mounts Vite, absent in a global install).
         env: { ...process.env, ...env, NODE_ENV: 'production' },
@@ -40,6 +42,14 @@ export function defaultDeps(opts: { port?: number }): DaemonDeps {
     readInfo: () => readDaemonFile(dir),
     clearInfo: () => clearDaemonFile(dir),
     kill: (pid) => process.kill(pid, 'SIGTERM'),
+    isAlive: (pid) => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    },
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     baseUrl: ep.baseUrl,
     serverEntry: path.resolve(bundleDir, 'server.cjs'),

@@ -48,4 +48,18 @@ describe('parseArgs', () => {
   it('defaults open to false', () => {
     expect(parseArgs(['daemon', 'status']).flags.open).toBe(false);
   });
+
+  it('treats --help/-h as the help command', () => {
+    expect(parseArgs(['--help']).command).toBe('help');
+    expect(parseArgs(['-h']).command).toBe('help');
+  });
+
+  it('rejects a non-numeric --port', () => {
+    expect(() => parseArgs(['--port', 'daemon', 'status'])).toThrow(/--port/);
+    expect(() => parseArgs(['--port', 'xyz'])).toThrow(/--port/);
+  });
+
+  it('accepts a valid --port', () => {
+    expect(parseArgs(['--port', '3001', 'daemon', 'status']).flags.port).toBe(3001);
+  });
 });

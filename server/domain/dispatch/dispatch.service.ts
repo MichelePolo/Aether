@@ -135,6 +135,12 @@ interface RunDispatchLoopResult {
   dispatchUsage: ProviderUsage | undefined;
   toolCallsCount: number;
   error?: { message: string; retryable: boolean };
+  /** True when the loop's catch block observed a cancellation (thrown `AbortError`,
+   *  or the signal was already aborted) rather than a genuine provider error — e.g.
+   *  the client cancelled while the opening `fetch()` was still pending, before any
+   *  chunk arrived. Callers should treat this the same as a graceful mid-stream abort
+   *  (persist as `interrupted`, not `error`) so a later `resume()` is accepted. */
+  aborted: boolean;
 }
 
 export class DispatchService {
@@ -284,6 +290,7 @@ export class DispatchService {
     let firstIter = true;
 
     let capturedError: { message: string; retryable: boolean } | undefined;
+    let capturedAbort = false;
 
     try {
       await tracer.step({
@@ -296,6 +303,11 @@ export class DispatchService {
           const runToolCall = async (
             call: { qualifiedName: string; args: Record<string, unknown> },
           ): Promise<{ ok: boolean; output?: unknown; error?: string }> => {
+            if (signal.aborted) {
+              // Client left before the in-process (Anthropic-style) tool call
+              // ran; do not execute it.
+              return { ok: false, error: 'Aborted' };
+            }
             if (toolCallsCount >= MAX_TOOL_CALLS_PER_DISPATCH) {
               return { ok: false, error: 'Max tool calls per dispatch exceeded' };
             }
@@ -353,6 +365,8 @@ export class DispatchService {
 
             if (!pendingCall) break;
 
+            if (signal.aborted) break; // client left after the function_call chunk; do not run the tool
+
             if (toolCallsCount >= MAX_TOOL_CALLS_PER_DISPATCH) {
               pendingToolResults = [{
                 callId: pendingCall.callId,
@@ -388,7 +402,16 @@ export class DispatchService {
         },
       });
     } catch (e) {
-      capturedError = classifyError(e);
+      // A cancellation can surface as a thrown `AbortError` instead of the loop
+      // observing `signal.aborted` mid-stream — e.g. the client cancels while the
+      // provider's opening `fetch()` is still pending, before any chunk arrives.
+      // Treat that the same as a graceful abort (no `error`) so the caller persists
+      // the turn on the interrupted path and a later `resume()` is accepted.
+      if (isAbort(e, signal)) {
+        capturedAbort = true;
+      } else {
+        capturedError = classifyError(e);
+      }
     }
 
     return {
@@ -398,6 +421,7 @@ export class DispatchService {
       dispatchUsage,
       toolCallsCount,
       error: capturedError,
+      aborted: capturedAbort,
     };
   }
 
@@ -414,9 +438,9 @@ export class DispatchService {
     const { sessionId, message, thinking, aetherMode } = parsed.data;
     const { historyStore, contextStore } = this.deps;
 
-    const sessionRecord = await this.deps.historyStore.readRecord(sessionId);
+    const sessionSummary = this.deps.historyStore.getSessionSummary(sessionId);
     const requestedName = parsed.data.providerName;
-    const sessionName = sessionRecord?.providerName;
+    const sessionName = sessionSummary?.providerName ?? undefined;
     const fallbackName = this.deps.providers.defaultName();
 
     const prior = await historyStore.read(sessionId);
@@ -515,7 +539,7 @@ export class DispatchService {
       return;
     }
 
-    const effectiveWorkspaceId = parsed.data.workspaceId ?? sessionRecord?.workspaceId;
+    const effectiveWorkspaceId = parsed.data.workspaceId ?? sessionSummary?.workspaceId ?? undefined;
     // Normalize for the MCP tool-pool key (case-insensitive on Windows). The prompt's
     // `# availableWorkspaces -> current` marker uses the RAW path from projectRootFor()
     // via resolveRuntimeContext() because formatAvailableWorkspaces matches against the
@@ -633,7 +657,7 @@ export class DispatchService {
       },
     });
 
-    const interrupted = signal.aborted;
+    const interrupted = signal.aborted || loopResult.aborted;
     const reasoningSteps = tracer.finalSteps();
 
     await historyStore.append(sessionId, {
@@ -822,7 +846,7 @@ export class DispatchService {
       },
     });
 
-    const interrupted = signal.aborted;
+    const interrupted = signal.aborted || loopResult.aborted;
     const reasoningSteps = tracer.finalSteps();
 
     await historyStore.append(sessionId, {
@@ -846,6 +870,13 @@ export class DispatchService {
     });
     sse.end();
   }
+}
+
+/** True when `e` represents a cancellation rather than a genuine provider error:
+ *  either the dispatch's signal is already aborted, or the provider threw the
+ *  standard `AbortError` (e.g. from an in-flight `fetch()` whose signal fired). */
+function isAbort(e: unknown, signal: AbortSignal): boolean {
+  return signal.aborted || (e instanceof Error && e.name === 'AbortError');
 }
 
 function classifyError(e: unknown): { message: string; retryable: boolean } {

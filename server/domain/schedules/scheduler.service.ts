@@ -11,6 +11,10 @@ export interface SchedulerDeps {
   };
   runner: { run(schedule: Schedule): Promise<void> };
   now: () => number;
+  /** Used to guard against schedules pointing at a workspace that no longer exists —
+   *  without this, a dangling workspaceId would silently fall back to the builtin
+   *  filesystem root / process.cwd() when the run resolves its project root. */
+  workspacesStore: { get(id: string): unknown };
 }
 
 export class SchedulerService {
@@ -39,6 +43,12 @@ export class SchedulerService {
         this.deps.store.update(s.id, { lastRunAt: t });
       } catch {
         // A broken cadence shouldn't wedge the loop; skip this schedule.
+        continue;
+      }
+      if (s.workspaceId && !this.deps.workspacesStore.get(s.workspaceId)) {
+        // The workspace was deleted after the schedule was created. Skip the run
+        // rather than letting it silently fall back to the builtin fs root / cwd.
+        console.warn(`[scheduler] skipping schedule ${s.id} (${s.name}): workspace ${s.workspaceId} no longer exists`);
         continue;
       }
       this.running.add(s.id);

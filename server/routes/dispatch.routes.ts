@@ -13,7 +13,9 @@ export function createDispatchRoutes(dispatcher: DispatchService): Router {
     // body è stato spedito, generando un falso "abort" prima ancora che la
     // risposta inizi. `res.on('close')` con check su `writableEnded` rileva
     // solo le disconnessioni reali del client mentre lo streaming è in corso.
+    res.on('error', () => {}); // a write-after-close must never escalate to a process error
     res.on('close', () => {
+      sse.markClosed();
       if (!res.writableEnded) controller.abort();
     });
     try {
@@ -29,7 +31,9 @@ export function createDispatchRoutes(dispatcher: DispatchService): Router {
   router.post('/resume', express.json({ limit: '15mb' }), async (req: Request, res: Response) => {
     const sse = createSseEmitter(res);
     const controller = new AbortController();
+    res.on('error', () => {}); // a write-after-close must never escalate to a process error
     res.on('close', () => {
+      sse.markClosed();
       if (!res.writableEnded) controller.abort();
     });
     const body = req.body as { sessionId?: unknown; messageId?: unknown; providerName?: unknown };

@@ -50,6 +50,7 @@ function recordingSse(): RecordedSse {
       event: (name, data) => { events.push({ name, data }); },
       error: (message) => { events.push({ name: 'error', data: { message } }); },
       end: () => {},
+      markClosed: () => {},
     },
   };
 }

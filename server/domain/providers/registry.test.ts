@@ -241,4 +241,27 @@ describe('ProviderRegistry', () => {
     expect(reg.list().some((d) => d.name === 'openai-compat:corp:qwen')).toBe(true);
     vi.unstubAllGlobals();
   });
+
+  it('openai-compat models default to vision:false (self-hosted text-only backends reject image_url)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/v1/models')) return new Response(JSON.stringify({ data: [{ id: 'qwen' }] }), { status: 200 });
+      return new Response('{}', { status: 200 });
+    }));
+    const reg = new ProviderRegistry(baseDeps({
+      listOpenAICompatEndpoints: () => [{ id: 'corp', label: 'corp', baseUrl: 'https://v/v1', model: null, headers: { Authorization: 'Bearer t' } }],
+      // Mirrors the real openAICompatBuilder wired in server/index.ts.
+      openAICompatBuilder: (baseUrl, model, headers) =>
+        new OpenAIProvider({
+          apiKey: '', model, baseUrl: `${baseUrl}/chat/completions`, headers,
+          capabilities: { thinking: false, toolCalling: true, vision: false },
+        }),
+    }));
+    await reg.refresh();
+    expect(reg.describe('openai-compat:corp:qwen')?.capabilities).toEqual({
+      thinking: false,
+      toolCalling: true,
+      vision: false,
+    });
+    vi.unstubAllGlobals();
+  });
 });

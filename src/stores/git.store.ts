@@ -38,13 +38,16 @@ export const useGitStore = create<GitState>((set, get) => ({
     set({ loading: true, error: null, activeWorkspaceId: workspaceId });
     try {
       const status = await gitApi.status(workspaceId);
+      if (get().activeWorkspaceId !== workspaceId) return; // superseded
       if (!status.isRepo) {
         set({ status, commits: [], truncated: false, loading: false });
         return;
       }
       const { commits, truncated } = await gitApi.log(workspaceId, maxCount);
+      if (get().activeWorkspaceId !== workspaceId) return; // superseded
       set({ status, commits, truncated, loading: false });
     } catch (e) {
+      if (get().activeWorkspaceId !== workspaceId) return; // superseded
       set({ loading: false, error: errMsg(e) });
     }
   },

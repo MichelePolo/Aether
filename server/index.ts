@@ -2,6 +2,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdirSync } from 'node:fs';
 import { writeDaemonFile, clearDaemonFile } from './lib/daemon-file';
+import { installShutdown } from './lib/shutdown';
+import { isLoopbackAddress } from '@/server/lib/net';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
@@ -51,6 +53,8 @@ import { seedSkillSmith } from './domain/subagents/skill-smith';
 import { defaultsDir, skillsDirFor, agentsDirFor } from './domain/skills/skills.paths';
 import { relocateSkillsDir } from './domain/skills/relocate';
 import { assertWritableDir } from './lib/library-dir';
+import { loadOrCreateVaultKey } from './lib/key-crypto';
+import { migrateVaultToRandomKey } from './lib/vault-migrate';
 
 dotenv.config();
 
@@ -62,6 +66,12 @@ async function bootstrap() {
   if (migrated.applied.length > 0) {
     console.log(`[db] applied migrations: ${migrated.applied.join(', ')}`);
   }
+
+  // Random per-install vault key (falls back to AETHER_VAULT_KEY override) +
+  // one-time re-encryption of any rows still under the legacy hostname-derived
+  // key. Must run before any store that reads/writes encrypted columns.
+  const vaultKey = loadOrCreateVaultKey(cfg.dataDir);
+  migrateVaultToRandomKey(db, cfg.dataDir);
 
   assertWritableDir(cfg.libraryDir);
   if (relocateSkillsDir(cfg.dataDir, cfg.libraryDir)) {
@@ -107,7 +117,7 @@ async function bootstrap() {
     console.log('[aether] Using FakeProvider (AETHER_FAKE_PROVIDER=1)');
   }
 
-  const keyVault = new KeyVaultService(db);
+  const keyVault = new KeyVaultService(db, vaultKey);
 
   // Cold-start anthropic env priming: if vault has an anthropic key and env doesn't,
   // set process.env.ANTHROPIC_API_KEY BEFORE detectAnthropicAuth() runs so the SDK sees it.
@@ -127,13 +137,13 @@ async function bootstrap() {
 
   const ollamaHost = process.env.OLLAMA_HOST ?? 'http://localhost:11434';
 
-  const ollamaEndpointStore = new OllamaEndpointStore(db);
+  const ollamaEndpointStore = new OllamaEndpointStore(db, vaultKey);
   const listOllamaEndpoints = () => [
     { id: 'local', label: 'local', baseUrl: ollamaHost },
     ...ollamaEndpointStore.listResolved(),
   ];
 
-  const openAICompatEndpointStore = new OpenAICompatEndpointStore(db);
+  const openAICompatEndpointStore = new OpenAICompatEndpointStore(db, vaultKey);
   const listOpenAICompatEndpoints = () => openAICompatEndpointStore.listResolved();
 
   const providers = new ProviderRegistry({
@@ -167,7 +177,13 @@ async function bootstrap() {
       }),
     listOpenAICompatEndpoints,
     openAICompatBuilder: (baseUrl, model, headers) =>
-      new OpenAIProvider({ apiKey: '', model, baseUrl: `${baseUrl}/chat/completions`, headers }),
+      new OpenAIProvider({
+        apiKey: '', model, baseUrl: `${baseUrl}/chat/completions`, headers,
+        // Self-hosted openai-compatible backends are usually text-only; default to
+        // vision:false so attaching an image doesn't send an image_url block a
+        // text-only model rejects (Ollama hardcodes the same default).
+        capabilities: { thinking: false, toolCalling: true, vision: false },
+      }),
     defaultOverride:
       process.env.AETHER_DEFAULT_PROVIDER ||
       (cfg.fakeProvider ? 'fake:default' : 'anthropic:claude-opus-4-8'),
@@ -264,7 +280,9 @@ async function bootstrap() {
     mcpRegistry, breakpointService,
     swarmStore, swarmApprovals,
   });
-  const scheduler = new SchedulerService({ store: scheduleStore, runner: scheduleRunner, now: () => Date.now() });
+  const scheduler = new SchedulerService({
+    store: scheduleStore, runner: scheduleRunner, now: () => Date.now(), workspacesStore,
+  });
 
   const app = createApp({
     contextStore,
@@ -314,10 +332,19 @@ async function bootstrap() {
   }
 
   const isDaemon = process.env.AETHER_DAEMON === '1';
-  const host = isDaemon ? '127.0.0.1' : '0.0.0.0';
+  // Default to loopback for BOTH daemon and non-daemon. Opting into LAN
+  // exposure is deliberate via AETHER_HOST (e.g. '0.0.0.0'). See spec D1.
+  const host = process.env.AETHER_HOST ?? '127.0.0.1';
 
-  app.listen(cfg.port, host, () => {
+  const server = app.listen(cfg.port, host, () => {
     console.log(`Aether server running on http://localhost:${cfg.port}`);
+    const loopback = host === 'localhost' || isLoopbackAddress(host);
+    if (!loopback) {
+      console.warn(
+        `[aether] WARNING: API bound to ${host} — reachable on the network. ` +
+          `Anyone on your LAN can drive dispatch and tools. Unset AETHER_HOST for loopback-only.`,
+      );
+    }
     if (isDaemon) {
       writeDaemonFile(cfg.dataDir, {
         pid: process.pid,
@@ -329,18 +356,21 @@ async function bootstrap() {
   });
 
   if (process.env.AETHER_SCHEDULER !== '0') scheduler.start();
-  process.on('SIGTERM', () => scheduler.stop());
-  process.on('SIGINT', () => scheduler.stop());
 
-  if (isDaemon) {
-    const cleanup = () => {
-      clearDaemonFile(cfg.dataDir);
-      process.exit(0);
-    };
-    process.on('SIGTERM', cleanup);
-    process.on('SIGINT', cleanup);
-    process.on('exit', () => clearDaemonFile(cfg.dataDir));
-  }
+  // Cleanly exit on Ctrl+C/SIGTERM in BOTH daemon and non-daemon mode — a
+  // registered signal handler overrides Node's default terminate-on-signal
+  // behavior, so without an explicit process.exit() the still-listening HTTP
+  // server keeps the event loop alive and the process hangs.
+  installShutdown({
+    isDaemon,
+    server,
+    scheduler,
+    dataDir: cfg.dataDir,
+    exit: (code) => process.exit(code),
+    clearDaemonFile,
+    onSignal: (signal, handler) => process.on(signal, handler),
+    onExit: (handler) => process.on('exit', handler),
+  });
 }
 
 bootstrap().catch((err) => {

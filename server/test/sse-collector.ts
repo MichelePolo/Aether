@@ -28,6 +28,9 @@ export function createCollectorEmitter(): {
     end() {
       ended = true;
     },
+    markClosed() {
+      ended = true;
+    },
   };
   return {
     emitter,

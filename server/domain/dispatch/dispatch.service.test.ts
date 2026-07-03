@@ -131,6 +131,55 @@ describe('DispatchService', () => {
     expect(model.reasoningSteps?.[0]?.type).toBe('context_fetch');
   });
 
+  it('persists as interrupted (not error) when the provider throws AbortError before any chunk; resume() then accepts it', async () => {
+    class AbortingProvider {
+      readonly model = 'aborting';
+      readonly capabilities = { thinking: true, toolCalling: true };
+      async *stream(): AsyncGenerator<never> {
+        const err = new Error('The operation was aborted');
+        err.name = 'AbortError';
+        throw err;
+      }
+    }
+    const db = makeTestDb();
+    const historyStore = new HistoryStore(db);
+    const contextStore = new ContextStore(db);
+    const providers = await buildSingleProviderRegistry(
+      new AbortingProvider() as unknown as AIProvider,
+    );
+    const service = new DispatchService({ providers, historyStore, contextStore });
+    const session = await historyStore.createEmpty();
+    const { emitter, events } = createCollectorEmitter();
+    const ctrl = new AbortController();
+    ctrl.abort();
+    await service.handle({ sessionId: session.id, message: 'hi' }, emitter, ctrl.signal);
+
+    // No error event/field — this must NOT take the error-persistence path.
+    expect(events.find((e) => e.event === 'error')).toBeUndefined();
+    const done = events.find((e) => e.event === 'done')!;
+    expect((done.data as { interrupted: boolean }).interrupted).toBe(true);
+
+    const msgs = await historyStore.read(session.id);
+    const model = msgs!.find((m) => m.role === 'model')!;
+    expect(model.interrupted).toBe(true);
+    expect(model.error).toBeUndefined();
+
+    // resume() must accept the message as interrupted (no "Message is not
+    // interrupted" refusal). It still has no streamed text, so it legitimately
+    // refuses with the (different) empty-message error — that confirms it passed
+    // the interrupted check rather than being blocked by it.
+    const { emitter: resumeEmitter, events: resumeEvents } = createCollectorEmitter();
+    await service.resume(
+      { sessionId: session.id, messageId: model.id },
+      resumeEmitter,
+      new AbortController().signal,
+    );
+    const resumeErr = resumeEvents.find((e) => e.event === 'error');
+    expect(resumeErr).toBeDefined();
+    expect((resumeErr!.data as { message: string }).message).not.toMatch(/not interrupted/);
+    expect((resumeErr!.data as { message: string }).message).toMatch(/empty interrupted message/);
+  });
+
   it('persists reasoningSteps on aborted stream', async () => {
     const { service, historyStore, sessionId } = await makeService({
       chunks: ['a', 'b', 'c'],
@@ -942,6 +991,101 @@ describe('runToolCall (agentic providers)', () => {
     const fullText = events.filter((e) => e.event === 'text').map((e) => (e.data as { chunk: string }).chunk).join('');
     expect(fullText).toContain('CAPPED_AT:-1');
     expect(callTool).toHaveBeenCalledTimes(11);
+  });
+
+  it('does not execute a tool call once the signal is aborted right after the function_call chunk (manual loop)', async () => {
+    const ctrl = new AbortController();
+    // Custom provider whose async iterator's return() fires when the dispatch
+    // loop breaks out early after receiving the function_call chunk — modeling
+    // a client disconnect landing in the gap between "chunk received" and
+    // "tool executed".
+    const provider: AIProvider = {
+      model: 'abort-after-call-stub',
+      capabilities: { thinking: false, toolCalling: true, vision: false },
+      stream(): AsyncIterable<ProviderChunk> {
+        let delivered = false;
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              async next(): Promise<IteratorResult<ProviderChunk>> {
+                if (delivered) return { value: undefined, done: true };
+                delivered = true;
+                return {
+                  value: {
+                    type: 'function_call',
+                    call: { callId: 'c1', qualifiedName: 'mock.echo', args: {} },
+                  },
+                  done: false,
+                };
+              },
+              async return(value?: unknown): Promise<IteratorResult<ProviderChunk>> {
+                ctrl.abort();
+                return { value: value as ProviderChunk, done: true };
+              },
+            };
+          },
+        };
+      },
+    };
+
+    const callTool = vi.fn().mockResolvedValue({ ok: true, output: { echoed: 'hi' } });
+    const mcpRegistry = {
+      policy: () => ({ autoApprove: true }),
+      callTool,
+      awaitDecision: vi.fn(),
+      listLiveTools: () => [],
+    } as unknown as import('@/server/domain/mcp/registry').McpRegistry;
+
+    const { service, historyStore, sessionId } = await buildAgenticHarness(provider, { mcpRegistry });
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle({ sessionId, message: 'go' }, emitter, ctrl.signal);
+
+    expect(callTool).not.toHaveBeenCalled();
+
+    const done = events.find((e) => e.event === 'done')!;
+    expect((done.data as { interrupted: boolean }).interrupted).toBe(true);
+
+    const msgs = await historyStore.read(sessionId);
+    const model = msgs!.find((m) => m.role === 'model')!;
+    expect(model.interrupted).toBe(true);
+  });
+
+  it('does not execute an in-process (Anthropic-style) tool call once the signal is aborted', async () => {
+    const ctrl = new AbortController();
+    // Provider that surfaces tool calls internally via req.runToolCall (the
+    // Anthropic in-process path) rather than yielding a function_call chunk.
+    // The client disconnects right before the tool would run.
+    const agenticProvider: AIProvider = {
+      model: 'agentic-abort-stub',
+      capabilities: { thinking: false, toolCalling: true, vision: false },
+      async *stream(req: ProviderRequest): AsyncGenerator<ProviderChunk> {
+        ctrl.abort();
+        const outcome = await req.runToolCall!({ qualifiedName: 'mock.echo', args: { message: 'hi' } });
+        yield { type: 'text', text: outcome.ok ? 'OUT:' + JSON.stringify(outcome.output) : 'ERR:' + outcome.error };
+        yield { type: 'done' };
+      },
+    };
+
+    const callTool = vi.fn().mockResolvedValue({ ok: true, output: { echoed: 'hi' } });
+    const mcpRegistry = {
+      policy: () => ({ autoApprove: true }),
+      callTool,
+      awaitDecision: vi.fn(),
+      listLiveTools: () => [],
+    } as unknown as import('@/server/domain/mcp/registry').McpRegistry;
+
+    const { service, historyStore, sessionId } = await buildAgenticHarness(agenticProvider, { mcpRegistry });
+    const { emitter, events } = createCollectorEmitter();
+    await service.handle({ sessionId, message: 'go' }, emitter, ctrl.signal);
+
+    expect(callTool).not.toHaveBeenCalled();
+
+    const done = events.find((e) => e.event === 'done')!;
+    expect((done.data as { interrupted: boolean }).interrupted).toBe(true);
+
+    const msgs = await historyStore.read(sessionId);
+    const model = msgs!.find((m) => m.role === 'model')!;
+    expect(model.interrupted).toBe(true);
   });
 });
 

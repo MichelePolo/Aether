@@ -25,11 +25,19 @@ export function parseArgs(argv: string[]): ParsedArgs {
       flags.json = true;
     } else if (arg === '--open') {
       flags.open = true;
+    } else if (arg === '--help' || arg === '-h') {
+      return { command: 'help', flags };
     } else if (VALUE_FLAGS.has(arg)) {
       const value = argv[++i];
       if (arg === '--provider') flags.provider = value;
       else if (arg === '--session') flags.session = value;
-      else if (arg === '--port') flags.port = parseInt(value, 10);
+      else if (arg === '--port') {
+        const n = Number(value);
+        if (!Number.isInteger(n) || n < 1 || n > 65535) {
+          throw new Error(`--port requires a valid port number (got: ${value ?? 'nothing'})`);
+        }
+        flags.port = n;
+      }
     } else {
       positionals.push(arg);
     }

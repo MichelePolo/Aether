@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { parseSseStream } from '@/src/lib/sse-parser';
+import { consumeRun } from '@/src/lib/run-sse';
 import { swarmsApi } from '@/src/lib/api/swarms.api';
 
 export interface SwarmStepView {
@@ -63,18 +63,28 @@ export function useSwarmRun() {
     abortRef.current = controller;
     setState({ ...INITIAL, running: true });
 
-    const res = await fetch(`/api/swarms/${swarmId}/run`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input }),
-      signal: controller.signal,
-    });
-    if (!res.body) {
-      setState((s) => ({ ...s, running: false, error: 'no stream' }));
-      return;
-    }
-    for await (const ev of parseSseStream(res.body)) {
-      setState((s) => reduce(s, ev.event, ev.data as any));
+    try {
+      const res = await fetch(`/api/swarms/${swarmId}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input }),
+        signal: controller.signal,
+      });
+      await consumeRun(res, (name, data) => setState((s) => reduce(s, name, data as any)));
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') {
+        // user cancelled — no error to surface
+      } else if (abortRef.current === controller) {
+        // only surface the error if this run is still the active one — a
+        // superseded run's late rejection must not clobber a newer run's state
+        setState((s) => ({ ...s, error: e instanceof Error ? e.message : 'Network error' }));
+      }
+    } finally {
+      // reset even if the stream ended without emitting swarm_done — but only
+      // for the still-active run; a superseded run is a no-op here
+      if (abortRef.current === controller) {
+        setState((s) => (s.running ? { ...s, running: false } : s));
+      }
     }
   }, []);
 

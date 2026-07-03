@@ -77,4 +77,39 @@ describe('stopDaemon', () => {
   it('returns false when nothing is running', async () => {
     expect(await stopDaemon(deps({}))).toBe(false);
   });
+
+  it('does not kill when isAlive reports the recorded pid is dead, but still clears and returns true', async () => {
+    const d = deps({
+      readInfo: vi.fn(() => ({ pid: 99, host: '127.0.0.1', port: 3000, startedAt: 'x' })),
+      isAlive: vi.fn(() => false),
+    });
+    const r = await stopDaemon(d);
+    expect(d.kill).not.toHaveBeenCalled();
+    expect(d.clearInfo).toHaveBeenCalled();
+    expect(r).toBe(true);
+  });
+
+  it('kills when isAlive reports the recorded pid is alive', async () => {
+    const d = deps({
+      readInfo: vi.fn(() => ({ pid: 99, host: '127.0.0.1', port: 3000, startedAt: 'x' })),
+      isAlive: vi.fn(() => true),
+    });
+    const r = await stopDaemon(d);
+    expect(d.kill).toHaveBeenCalledWith(99);
+    expect(d.clearInfo).toHaveBeenCalled();
+    expect(r).toBe(true);
+  });
+
+  it('still clears and returns true if kill throws (raced exit)', async () => {
+    const d = deps({
+      readInfo: vi.fn(() => ({ pid: 99, host: '127.0.0.1', port: 3000, startedAt: 'x' })),
+      isAlive: vi.fn(() => true),
+      kill: vi.fn(() => {
+        throw new Error('ESRCH');
+      }),
+    });
+    const r = await stopDaemon(d);
+    expect(d.clearInfo).toHaveBeenCalled();
+    expect(r).toBe(true);
+  });
 });
