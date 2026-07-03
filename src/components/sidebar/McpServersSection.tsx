@@ -10,9 +10,10 @@ const EMPTY_SERVERS: never[] = [];
 
 export function McpServersSection() {
   const context = useContextStore((s) => s.context);
-  const servers = (context?.mcpServers ?? EMPTY_SERVERS).filter(
-    (srv) => !srv.id.startsWith('builtin:'),
-  );
+  // Builtin MCP servers (filesystem/git/terminal) are managed separately in
+  // BuiltinMcpToggles and never enter context.mcpServers — the server assigns a
+  // random UUID id on add (never a `builtin:` id) — so no filtering is needed here.
+  const servers = context?.mcpServers ?? EMPTY_SERVERS;
   const addMcpServer = useContextStore((s) => s.addMcpServer);
   const removeMcpServer = useContextStore((s) => s.removeMcpServer);
 
