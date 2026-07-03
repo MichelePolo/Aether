@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.22](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.21...aether-core-v0.1.22) (2026-07-03)
+
+
+### Bug Fixes
+
+* **vault:** warn when a secret decrypts under neither key during migration ([#114](https://github.com/MichelePolo/Aether/issues/114)) ([7aa4153](https://github.com/MichelePolo/Aether/commit/7aa4153f9bc6e80c0b5b1869dce551b9160aa460)), closes [#109](https://github.com/MichelePolo/Aether/issues/109)
+
 ## [0.1.21](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.20...aether-core-v0.1.21) (2026-07-03)
 
 
