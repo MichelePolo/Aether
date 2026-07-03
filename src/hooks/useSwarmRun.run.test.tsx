@@ -56,10 +56,11 @@ describe('useSwarmRun', () => {
       },
     });
     server.use(
-      http.post('http://localhost/api/swarms/:id/run', () =>
-        new HttpResponse(streamA, { headers: { 'Content-Type': 'text/event-stream' } }),
+      http.post(
+        'http://localhost/api/swarms/:id/run',
+        () => new HttpResponse(streamA, { headers: { 'Content-Type': 'text/event-stream' } }),
+        { once: true },
       ),
-      { once: true },
     );
 
     const { result } = renderHook(() => useSwarmRun());
@@ -82,10 +83,11 @@ describe('useSwarmRun', () => {
       },
     });
     server.use(
-      http.post('http://localhost/api/swarms/:id/run', () =>
-        new HttpResponse(streamB, { headers: { 'Content-Type': 'text/event-stream' } }),
+      http.post(
+        'http://localhost/api/swarms/:id/run',
+        () => new HttpResponse(streamB, { headers: { 'Content-Type': 'text/event-stream' } }),
+        { once: true },
       ),
-      { once: true },
     );
 
     let runBPromise!: Promise<void>;

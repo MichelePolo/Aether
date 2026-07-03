@@ -85,10 +85,11 @@ describe('useTddRun', () => {
       },
     });
     server.use(
-      http.post('http://localhost/api/tdd/run', () =>
-        new HttpResponse(streamA, { headers: { 'Content-Type': 'text/event-stream' } }),
+      http.post(
+        'http://localhost/api/tdd/run',
+        () => new HttpResponse(streamA, { headers: { 'Content-Type': 'text/event-stream' } }),
+        { once: true },
       ),
-      { once: true },
     );
 
     const { result } = renderHook(() => useTddRun());
@@ -111,10 +112,11 @@ describe('useTddRun', () => {
       },
     });
     server.use(
-      http.post('http://localhost/api/tdd/run', () =>
-        new HttpResponse(streamB, { headers: { 'Content-Type': 'text/event-stream' } }),
+      http.post(
+        'http://localhost/api/tdd/run',
+        () => new HttpResponse(streamB, { headers: { 'Content-Type': 'text/event-stream' } }),
+        { once: true },
       ),
-      { once: true },
     );
 
     let runBPromise!: Promise<void>;
