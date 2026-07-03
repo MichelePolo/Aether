@@ -69,8 +69,9 @@ export class McpRegistry {
       return { tools: this.live.get(id)!.tools };
     }
     this.states.set(id, { state: 'connecting' });
+    let connection: McpConnection | undefined;
     try {
-      const connection = this.makeConnection(cfg);
+      connection = this.makeConnection(cfg);
       await connection.initialize();
       const tools = await connection.listTools();
       if (this.live.has(id)) {
@@ -90,6 +91,7 @@ export class McpRegistry {
       });
       return { tools };
     } catch (e) {
+      await connection?.close().catch(() => {});
       this.states.set(id, {
         state: 'error',
         error: e instanceof Error ? e.message : 'connect failed',
@@ -347,8 +349,9 @@ export class McpRegistry {
       const delayMs = RECONNECT_DELAYS_MS[attempt - 1];
       const slept = await sleep(delayMs, signal);
       if (!slept || signal.aborted) return;
+      let connection: McpConnection | undefined;
       try {
-        const connection = this.makeConnection(cfg);
+        connection = this.makeConnection(cfg);
         await connection.initialize();
         const tools = await connection.listTools();
         if (signal.aborted) {
@@ -368,6 +371,7 @@ export class McpRegistry {
         });
         return;
       } catch {
+        await connection?.close().catch(() => {});
         // try next attempt
       }
     }
@@ -426,8 +430,9 @@ export class McpRegistry {
       reconnectAttempt: 1,
       reconnectMaxAttempts: MAX_RECONNECT_ATTEMPTS,
     });
+    let connection: McpConnection | undefined;
     try {
-      const connection = this.makeConnection(cfg);
+      connection = this.makeConnection(cfg);
       await connection.initialize();
       const tools = await connection.listTools();
       if (signal.aborted) {
@@ -446,6 +451,7 @@ export class McpRegistry {
         void this.triggerReconnect(id, cfg);
       });
     } catch {
+      await connection?.close().catch(() => {});
       await this.reconnectLoop(id, cfg, signal, 2);
     }
   }

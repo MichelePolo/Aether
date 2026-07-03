@@ -1,8 +1,41 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ContextStore } from '@/server/domain/context/context.store';
 import { makeTestDb } from '@/server/test/test-db';
 import { McpRegistry } from './registry';
 import { BuiltinMcpStore } from './builtin/builtin.store';
+import type { McpConnection } from './connection.types';
+import type { McpTool, McpToolResult } from './mcp.types';
+
+/** A connection whose initialize() rejects — simulates a spawned child that
+ *  fails to come up. `close` is a spy so tests can assert it was awaited. */
+class FailingInitConnection implements McpConnection {
+  readonly defaultAutoApprove = false;
+  close = vi.fn(async () => {});
+  async initialize(): Promise<void> {
+    throw new Error('boom: initialize failed');
+  }
+  async listTools(): Promise<McpTool[]> {
+    return [];
+  }
+  async callTool(): Promise<McpToolResult> {
+    return { ok: false, error: 'n/a' };
+  }
+}
+
+/** A connection whose initialize() succeeds but listTools() rejects. */
+class FailingListToolsConnection implements McpConnection {
+  readonly defaultAutoApprove = false;
+  close = vi.fn(async () => {});
+  async initialize(): Promise<void> {
+    /* no-op */
+  }
+  async listTools(): Promise<McpTool[]> {
+    throw new Error('boom: listTools failed');
+  }
+  async callTool(): Promise<McpToolResult> {
+    return { ok: false, error: 'n/a' };
+  }
+}
 
 function newCtx(): ContextStore {
   return new ContextStore(makeTestDb());
@@ -138,6 +171,45 @@ describe('McpRegistry', () => {
     await promise;
     expect(reg.stateOf('M1').state).toBe('online');
   }, 10_000);
+
+  it('closes the spawned child when initialize() fails during connect', async () => {
+    const conn = new FailingInitConnection();
+    (reg as unknown as { makeConnection: () => McpConnection }).makeConnection = () => conn;
+    await expect(reg.connect('M1')).rejects.toThrow(/boom/);
+    expect(conn.close).toHaveBeenCalledTimes(1);
+    expect(reg.stateOf('M1').state).toBe('error');
+  });
+
+  it('closes the spawned child when listTools() fails during connect', async () => {
+    const conn = new FailingListToolsConnection();
+    (reg as unknown as { makeConnection: () => McpConnection }).makeConnection = () => conn;
+    await expect(reg.connect('M1')).rejects.toThrow(/boom/);
+    expect(conn.close).toHaveBeenCalledTimes(1);
+    expect(reg.stateOf('M1').state).toBe('error');
+  });
+
+  it('closes each spawned child across immediateReconnectAttempt + reconnectLoop failures', async () => {
+    const connections: FailingInitConnection[] = [];
+    (reg as unknown as { makeConnection: () => McpConnection }).makeConnection = () => {
+      const c = new FailingInitConnection();
+      connections.push(c);
+      return c;
+    };
+    vi.useFakeTimers();
+    try {
+      const p = (reg as unknown as { __forceReconnectForTest(id: string): Promise<void> }).__forceReconnectForTest('M1');
+      // Drain the full reconnect backoff schedule (2000+4000+8000+16000ms) with margin.
+      await vi.advanceTimersByTimeAsync(31_000);
+      await p;
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(connections.length).toBeGreaterThan(1);
+    for (const c of connections) {
+      expect(c.close).toHaveBeenCalledTimes(1);
+    }
+    expect(reg.stateOf('M1').state).toBe('error');
+  }, 15_000);
 });
 
 // ---------------------------------------------------------------------------
@@ -173,8 +245,6 @@ function withMockRootedTransport(store: BuiltinMcpStore): BuiltinMcpStore {
 // Helper: inject always-ok mock connections for rooted builtins directly
 // into the registry (bypasses makeConnection so unknown tool names return ok).
 // ---------------------------------------------------------------------------
-import type { McpConnection } from './connection.types';
-import type { McpTool, McpToolResult } from './mcp.types';
 
 class AlwaysOkConnection implements McpConnection {
   readonly defaultAutoApprove = true;
