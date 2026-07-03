@@ -8,7 +8,7 @@
 @layer components {
   .panel        { @apply bg-surface-2 border border-border-subtle rounded; }
   .panel-inset  { @apply bg-zinc-900/30 border border-border-subtle/50 rounded; }
-  .mono-label   { @apply font-mono text-[10px] uppercase tracking-widest text-zinc-500; }
+  .mono-label   { @apply font-mono text-[10px] uppercase tracking-widest text-fg-dim; }
   .status-dot   { @apply w-1.5 h-1.5 rounded-full inline-block; }
   .badge        { @apply text-[9px] px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wide; }
   .icon-btn     { @apply p-1.5 rounded text-zinc-500 hover:bg-zinc-800 hover:text-white transition-colors; }

@@ -32,7 +32,7 @@ export function SidebarGroups() {
         title="Sessions"
         open={groups.sessions}
         onToggle={() => toggle('sessions')}
-        actions={<span className="text-[10px] text-zinc-600">[{sessionCount}]</span>}
+        actions={<span className="text-[10px] text-fg-dim">[{sessionCount}]</span>}
       >
         <SessionsSection />
       </SidebarAccordion>

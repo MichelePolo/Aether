@@ -29,7 +29,7 @@ export function BreakpointsSection() {
           <button
             type="button"
             aria-label="What are breakpoints?"
-            className="text-zinc-600 hover:text-zinc-300 text-[10px]"
+            className="text-fg-faint hover:text-zinc-300 text-[10px]"
           >
             ?
           </button>
@@ -61,7 +61,7 @@ export function BreakpointsSection() {
                       'px-2 py-0.5',
                       mode === m
                         ? 'bg-manipulation/20 text-manipulation'
-                        : 'bg-surface-1 text-zinc-500 hover:text-zinc-300',
+                        : 'bg-surface-1 text-fg-dim hover:text-zinc-300',
                     )}
                   >
                     {m}
@@ -75,19 +75,19 @@ export function BreakpointsSection() {
       <div className="mt-4">
         <div className="flex items-center gap-2 mb-2">
           <span className="mono-label">{t('breakpoints.sessionApprovals.heading')}</span>
-          <span className="text-[10px] text-zinc-600">[{stickyNames.length}]</span>
+          <span className="text-[10px] text-fg-dim">[{stickyNames.length}]</span>
           <Tooltip label={t('breakpoints.sessionApprovals.help')}>
             <button
               type="button"
               aria-label="What are session approvals?"
-              className="text-zinc-600 hover:text-zinc-300 text-[10px]"
+              className="text-fg-faint hover:text-zinc-300 text-[10px]"
             >
               ?
             </button>
           </Tooltip>
         </div>
         {stickyNames.length === 0 ? (
-          <div className="text-[10px] text-zinc-600 font-mono italic">
+          <div className="text-[10px] text-fg-faint font-mono italic">
             {t('breakpoints.sessionApprovals.empty')}
           </div>
         ) : (
@@ -103,7 +103,7 @@ export function BreakpointsSection() {
                   type="button"
                   aria-label={`Revoke ${name}`}
                   onClick={() => removeStickyApproval(name)}
-                  className="text-zinc-500 hover:text-status-error"
+                  className="text-fg-dim hover:text-status-error"
                 >
                   ×
                 </button>
@@ -113,7 +113,7 @@ export function BreakpointsSection() {
               type="button"
               aria-label="Clear all session approvals"
               onClick={clearStickyApprovals}
-              className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors mt-2"
+              className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-fg-dim hover:text-zinc-400 transition-colors mt-2"
             >
               {t('breakpoints.sessionApprovals.clearAll')}
             </button>

@@ -53,7 +53,7 @@ export function WorkspacesSection() {
             >
               <span className="flex-1 truncate">{w.name}</span>
               <span
-                className="text-zinc-600 truncate max-w-[140px] direction-rtl text-left"
+                className="text-fg-faint truncate max-w-[140px] direction-rtl text-left"
                 title={w.rootPath}
                 dir="rtl"
               >
@@ -64,7 +64,7 @@ export function WorkspacesSection() {
                   type="button"
                   aria-label={`Rename ${w.name}`}
                   onClick={() => void handleRename(w.id, w.name)}
-                  className="text-zinc-500 hover:text-white px-1"
+                  className="text-fg-dim hover:text-white px-1"
                 >
                   <Pencil size={11} aria-hidden="true" />
                 </button>
@@ -72,7 +72,7 @@ export function WorkspacesSection() {
                   type="button"
                   aria-label={`delete ${w.name}`}
                   onClick={() => void handleDelete(w.id, w.name)}
-                  className="text-zinc-500 hover:text-status-error px-1"
+                  className="text-fg-dim hover:text-status-error px-1"
                 >
                   <Trash2 size={11} aria-hidden="true" />
                 </button>

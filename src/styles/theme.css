@@ -24,6 +24,13 @@
   /* Safety net for any not-yet-migrated usage; target is zero `accent` left. */
   --color-accent: #B388FF;
 
+  /* Text scale — AA (>=4.5:1) on the darkest surface (#09090B). Preserves the
+     3-tier layered-gray hierarchy; only the muted floor rises above zinc-600. */
+  --color-fg-strong: #f4f4f5; /* headings / active / emphasis */
+  --color-fg-base:   #d4d4d8; /* body copy */
+  --color-fg-dim:    #a1a1aa; /* labels / meta / mono-label */
+  --color-fg-faint:  #8b8b93; /* dimmest still-readable tier (was zinc-600) */
+
   /* Typography — unchanged */
   --font-sans: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", monospace;

@@ -16,7 +16,7 @@ const DOT_CLASS: Record<string, string> = {
   connecting: 'text-status-warn',
   reconnecting: 'text-status-warn',
   error: 'text-status-error',
-  offline: 'text-zinc-500',
+  offline: 'text-fg-dim',
 };
 
 export function BuiltinMcpToggles() {
@@ -34,7 +34,7 @@ export function BuiltinMcpToggles() {
           const row = builtins.find((b) => b.transport === t);
           if (!row) return null;
           const liveState = connectStates[`builtin:${t}`] ?? 'offline';
-          const dotClass = DOT_CLASS[liveState] ?? 'text-zinc-500';
+          const dotClass = DOT_CLASS[liveState] ?? 'text-fg-dim';
           return (
             <div
               key={t}
@@ -44,7 +44,7 @@ export function BuiltinMcpToggles() {
               <span data-state={liveState} className={cn(dotClass)}>●</span>
               <span className="text-zinc-300">{LABEL[t]}</span>
               {t === 'filesystem' && (
-                <span className="flex-1 text-zinc-600 truncate" title={row.fsRoot ?? 'default'}>
+                <span className="flex-1 text-fg-faint truncate" title={row.fsRoot ?? 'default'}>
                   {row.fsRoot ?? 'default'}
                 </span>
               )}
@@ -59,7 +59,7 @@ export function BuiltinMcpToggles() {
                   'px-2 py-0.5 rounded text-[10px] border',
                   row.enabled
                     ? 'bg-manipulation/20 text-manipulation border-manipulation/40'
-                    : 'bg-surface-1 text-zinc-500 border-border-subtle hover:text-zinc-300',
+                    : 'bg-surface-1 text-fg-dim border-border-subtle hover:text-zinc-300',
                 )}
               >
                 {row.enabled ? 'On' : 'Off'}

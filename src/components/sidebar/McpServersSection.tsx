@@ -45,7 +45,7 @@ export function McpServersSection() {
       <div className="mono-label mb-2">MCP Network</div>
       <div className="space-y-2">
         {servers.length === 0 ? (
-          <div className="text-[10px] text-zinc-600 font-mono italic">
+          <div className="text-[10px] text-fg-faint font-mono italic">
             No active MCP nodes connected.
           </div>
         ) : (
@@ -62,7 +62,7 @@ export function McpServersSection() {
                 className="group p-2 rounded bg-zinc-900/30 border border-border-subtle/50 flex flex-col gap-1"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono text-zinc-500">{server.name}</span>
+                  <span className="text-[10px] font-mono text-fg-dim">{server.name}</span>
                   <div className="flex items-center gap-2">
                     {isReconnecting ? (
                       <span aria-live="polite" className="text-[10px] font-mono text-zinc-400">
@@ -112,7 +112,7 @@ export function McpServersSection() {
                   </div>
                 </div>
                 {'url' in server && server.url && (
-                  <div className="text-[9px] font-mono text-zinc-600 truncate">{String(server.url)}</div>
+                  <div className="text-[9px] font-mono text-fg-faint truncate">{String(server.url)}</div>
                 )}
                 {err && (
                   <div role="alert" className="text-[9px] font-mono text-status-error flex items-center gap-1">
@@ -139,7 +139,7 @@ export function McpServersSection() {
                   </div>
                 )}
                 {isOnline && tools.length === 0 && (
-                  <div className="mt-1 text-[9px] font-mono text-zinc-600 italic">
+                  <div className="mt-1 text-[9px] font-mono text-fg-faint italic">
                     (no tools available)
                   </div>
                 )}
@@ -150,7 +150,7 @@ export function McpServersSection() {
         <button
           onClick={handleAdd}
           aria-label="Add MCP server"
-          className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors mt-2"
+          className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-fg-dim hover:text-zinc-400 transition-colors mt-2"
         >
           + Add Connection
         </button>
