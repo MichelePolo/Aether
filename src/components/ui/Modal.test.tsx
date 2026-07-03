@@ -65,6 +65,21 @@ describe('Modal', () => {
     expect(document.body.style.overflow).toBe('hidden');
   });
 
+  it('labels the dialog via aria-labelledby referencing the visible title', () => {
+    render(<Modal open onClose={() => {}} title="Settings"><p>x</p></Modal>);
+    const dlg = document.querySelector('dialog')!;
+    const labelledby = dlg.getAttribute('aria-labelledby');
+    expect(labelledby).toBeTruthy();
+    expect(document.getElementById(labelledby!)).toHaveTextContent('Settings');
+    expect(dlg).not.toHaveAttribute('aria-label');
+  });
+
+  it('sets closedby="any" on the dialog when dismissOnBackdrop is true', () => {
+    render(<Modal open onClose={() => {}}>body</Modal>);
+    const dlg = document.querySelector('dialog')!;
+    expect(dlg.getAttribute('closedby')).toBe('any');
+  });
+
   it('caps height and scrolls the body so tall content stays reachable', () => {
     const { container } = render(<Modal open onClose={() => {}} title="T">body</Modal>);
     const dialog = container.querySelector('dialog')!;

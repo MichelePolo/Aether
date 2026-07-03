@@ -50,9 +50,8 @@ export function AttachmentLightbox() {
   };
 
   return (
-    <Modal open={true} onClose={close} className="max-w-[92vw]">
+    <Modal open={true} onClose={close} title={name} className="max-w-[92vw]">
       <div className="flex flex-col items-center gap-2">
-        <div className="text-zinc-400 text-[11px] font-mono">{name}</div>
         <div className="relative">
           <img
             src={url}
