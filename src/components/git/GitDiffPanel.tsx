@@ -84,7 +84,7 @@ export function GitDiffPanel({ req, onClose }: GitDiffPanelProps) {
         <div className="min-h-0 flex-1 overflow-auto">
           {state.kind === 'loading' && (
             <div className="flex items-center gap-2 p-4 text-[12px] text-zinc-500">
-              <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+              <Loader2 size={14} className="motion-safe:animate-spin" aria-hidden="true" />
               {t('git.diff.loading')}
             </div>
           )}

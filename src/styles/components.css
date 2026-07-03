@@ -36,6 +36,11 @@
   @media (prefers-reduced-motion: reduce) { .glow-manip, .glow-disc { transition: none; } }
 }
 
+/* Looping, non-essential animations must stop when the user asks for reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin, .animate-pulse { animation: none; }
+}
+
 /* Native <dialog> hide-when-closed. UA `dialog:not([open]) { display:none }` is
    user-agent origin and loses to ANY author rule — and our Modal applies the
    `flex` utility unconditionally, so a closed dialog would otherwise stay
