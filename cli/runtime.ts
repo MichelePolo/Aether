@@ -42,6 +42,14 @@ export function defaultDeps(opts: { port?: number }): DaemonDeps {
     readInfo: () => readDaemonFile(dir),
     clearInfo: () => clearDaemonFile(dir),
     kill: (pid) => process.kill(pid, 'SIGTERM'),
+    isAlive: (pid) => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    },
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
     baseUrl: ep.baseUrl,
     serverEntry: path.resolve(bundleDir, 'server.cjs'),

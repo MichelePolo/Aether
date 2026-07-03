@@ -11,6 +11,7 @@ export interface DaemonDeps {
   readInfo: () => DaemonInfo | null;
   clearInfo: () => void;
   kill: (pid: number) => void;
+  isAlive?: (pid: number) => boolean;
   sleep: (ms: number) => Promise<void>;
   baseUrl: string;
   serverEntry: string;
@@ -66,10 +67,13 @@ export async function statusDaemon(d: DaemonDeps): Promise<StatusResult> {
 export async function stopDaemon(d: DaemonDeps): Promise<boolean> {
   const info = d.readInfo();
   if (!info) return false;
-  try {
-    d.kill(info.pid);
-  } catch {
-    // process already gone
+  const alive = d.isAlive ? d.isAlive(info.pid) : true;
+  if (alive) {
+    try {
+      d.kill(info.pid);
+    } catch {
+      // raced to exit
+    }
   }
   d.clearInfo();
   return true;
