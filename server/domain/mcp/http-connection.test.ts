@@ -1,3 +1,5 @@
+import * as http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { HttpMcpConnection } from './http-connection';
 
@@ -125,5 +127,61 @@ describe('HttpMcpConnection', () => {
     });
     await expect(c.initialize()).rejects.toThrow();
     expect(fired).toBe(true);
+  });
+
+  describe('socket leak on timeout (real HTTP server)', () => {
+    // These tests exercise a real node:http server + real global fetch, so they
+    // must undo the vi.stubGlobal('fetch', ...) from the outer beforeEach.
+    let server: http.Server;
+    let url: string;
+    let serverSawAbort: Promise<void>;
+
+    beforeEach(async () => {
+      vi.unstubAllGlobals();
+      let resolveAbort!: () => void;
+      serverSawAbort = new Promise<void>((resolve) => {
+        resolveAbort = resolve;
+      });
+      server = http.createServer((req, res) => {
+        res.writeHead(200, {
+          'content-type': 'text/event-stream',
+          connection: 'keep-alive',
+        });
+        res.write(': connected\n\n'); // keep the stream open — never send a response frame, never end()
+        req.on('aborted', resolveAbort);
+        res.on('close', resolveAbort);
+      });
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+      const address = server.address() as AddressInfo;
+      url = `http://127.0.0.1:${address.port}`;
+    });
+
+    afterEach(async () => {
+      await new Promise<void>((resolve, reject) => {
+        server.close((err) => (err ? reject(err) : resolve()));
+      });
+    });
+
+    it(
+      'aborts the fetch/reader when the RPC times out, so the server observes the request being aborted',
+      async () => {
+        const c = new HttpMcpConnection({ url });
+
+        await expect(c.initialize()).rejects.toThrow(/timeout/);
+
+        // Bounded wait: the server-side socket must actually be torn down as a
+        // result of our client-side abort — not just the client-side promise
+        // rejecting while the underlying connection is left open.
+        await Promise.race([
+          serverSawAbort,
+          new Promise<void>((_, reject) =>
+            setTimeout(() => reject(new Error('server never observed the request being aborted')), 3_000),
+          ),
+        ]);
+
+        await c.close();
+      },
+      10_000,
+    );
   });
 });
