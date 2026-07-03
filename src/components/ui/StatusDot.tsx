@@ -25,6 +25,7 @@ export function StatusDot({ status, label, className, ...rest }: StatusDotProps)
       role="img"
       title={`${label}: ${status}`}
       aria-label={`${label}: ${status}`}
+      data-status={status}
       className={cn(dotVariants({ status }), className)}
       {...rest}
     />

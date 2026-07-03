@@ -13,6 +13,14 @@ describe('StatusDot', () => {
     expect(screen.getByTitle(`X: ${s}`)).toBeInTheDocument();
   });
 
+  it.each(['online', 'offline', 'connecting', 'error'] as const)(
+    'carries data-status="%s" for forced-colors targeting',
+    (s) => {
+      render(<StatusDot status={s} label="X" />);
+      expect(screen.getByTitle(`X: ${s}`)).toHaveAttribute('data-status', s);
+    },
+  );
+
   it('uses green color for online', () => {
     render(<StatusDot status="online" label="X" />);
     const dot = screen.getByTitle('X: online');

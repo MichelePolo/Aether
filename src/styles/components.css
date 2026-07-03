@@ -34,6 +34,18 @@
   .glow-disc { transition: box-shadow .15s, border-color .15s; }
   .glow-disc:hover { border-color: var(--color-disclosure); box-shadow: 0 0 0 1px var(--color-disclosure), 0 0 12px -3px var(--color-disclosure); }
   @media (prefers-reduced-motion: reduce) { .glow-manip, .glow-disc { transition: none; } }
+
+  /* Windows High Contrast (forced-colors): background-color and box-shadow are
+     stripped to system colors, so StatusDot states and glow-hover feedback would
+     otherwise collapse to indistinguishable flat dots / no hover cue. Restore
+     the distinction with non-color cues (outline style/weight). */
+  @media (forced-colors: active) {
+    [data-status="online"]     { outline: 2px solid CanvasText; }
+    [data-status="connecting"] { outline: 2px dotted CanvasText; }
+    [data-status="error"]      { outline: 2px double CanvasText; }
+    [data-status="offline"]    { outline: 1px solid GrayText; }
+    .glow-manip:hover, .glow-disc:hover { outline: 2px solid Highlight; box-shadow: none; }
+  }
 }
 
 /* Looping, non-essential animations must stop when the user asks for reduced motion. */
