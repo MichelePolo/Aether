@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ChangeEvent } from 'react';
 import { Send, Square, Brain, Paperclip } from 'lucide-react';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
@@ -30,6 +30,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   const [value, setValue] = useState('');
   const [mention, setMention] = useState<MentionState>({ open: false, query: '', replaceRange: [0, 0] });
   const [mentionHighlight, setMentionHighlight] = useState(0);
+  const mentionRef = useRef(mention);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const thinkingEnabled = useUiStore((s) => s.thinkingEnabled);
@@ -64,6 +65,12 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
     if (textareaRef.current) autoGrow(textareaRef.current);
   }, [value]);
 
+  // Keep the latest mention state available to the stable (empty-dep)
+  // callbacks below without forcing them to change identity every keystroke.
+  useEffect(() => {
+    mentionRef.current = mention;
+  }, [mention]);
+
   useEffect(() => {
     if (pendingComposerText === null) return;
     setValue(pendingComposerText);
@@ -95,16 +102,22 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
     }
   };
 
-  const filteredItems = mention.open
-    ? subAgents.filter((s) =>
-        s.name.toLowerCase().startsWith(mention.query.toLowerCase()),
-      )
-    : [];
+  // Memoized/stable so MentionPopover doesn't see new prop references on
+  // every keystroke or highlight change — reference churn here used to
+  // re-trigger MentionPopover's index-reset effect and steal keyboard nav.
+  const filteredItems = useMemo(
+    () =>
+      mention.open
+        ? subAgents.filter((s) =>
+            s.name.toLowerCase().startsWith(mention.query.toLowerCase()),
+          )
+        : [],
+    [mention.open, mention.query, subAgents],
+  );
 
-  const handleMentionSelect = (name: string) => {
-    const [start, end] = mention.replaceRange;
-    const next = `${value.slice(0, start)}@${name} ${value.slice(end)}`;
-    setValue(next);
+  const handleMentionSelect = useCallback((name: string) => {
+    const [start, end] = mentionRef.current.replaceRange;
+    setValue((prev) => `${prev.slice(0, start)}@${name} ${prev.slice(end)}`);
     setMention({ open: false, query: '', replaceRange: [0, 0] });
     setMentionHighlight(0);
     setTimeout(() => {
@@ -115,12 +128,16 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
         ta.setSelectionRange(caret, caret);
       }
     }, 0);
-  };
+  }, []);
 
-  const handleMentionClose = () => {
+  const handleMentionClose = useCallback(() => {
     setMention({ open: false, query: '', replaceRange: [0, 0] });
     setMentionHighlight(0);
-  };
+  }, []);
+
+  const handleMentionHighlightChange = useCallback((i: number) => {
+    setMentionHighlight(i);
+  }, []);
 
   const mentionActiveDescendant =
     mention.open && filteredItems.length > 0 ? mentionOptionId(mentionHighlight) : undefined;
@@ -190,7 +207,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
             items={filteredItems}
             onSelect={handleMentionSelect}
             onClose={handleMentionClose}
-            onHighlightChange={setMentionHighlight}
+            onHighlightChange={handleMentionHighlightChange}
           />
         </div>
 

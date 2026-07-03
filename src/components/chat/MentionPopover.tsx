@@ -22,6 +22,7 @@ export function MentionPopover({ open, items, onSelect, onClose, onHighlightChan
   const [index, setIndex] = useState(0);
   const indexRef = useRef(0);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const wasOpenRef = useRef(open);
 
   useEffect(() => {
     itemRefs.current[index]?.scrollIntoView({ block: 'nearest' });
@@ -36,9 +37,27 @@ export function MentionPopover({ open, items, onSelect, onClose, onHighlightChan
     setIndex(next);
   };
 
+  // Reset the highlighted option only on a genuine closed->open transition, or
+  // clamp it into range if the item list shrinks underneath it. Deliberately
+  // does NOT depend on `items`/`onSelect`/`onClose` identity: the owning
+  // composer recreates those on every render (e.g. via onHighlightChange
+  // forcing a re-render), and resetting here on every reference change used
+  // to fight the keyboard navigation below back to index 0 on each keypress.
+  useEffect(() => {
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = open;
+    if (!open) return;
+    if (!wasOpen) {
+      updateIndex(0);
+      return;
+    }
+    if (indexRef.current > items.length - 1) {
+      updateIndex(Math.max(items.length - 1, 0));
+    }
+  }, [open, items]);
+
   useEffect(() => {
     if (!open) return;
-    updateIndex(0);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
