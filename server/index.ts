@@ -273,7 +273,9 @@ async function bootstrap() {
     mcpRegistry, breakpointService,
     swarmStore, swarmApprovals,
   });
-  const scheduler = new SchedulerService({ store: scheduleStore, runner: scheduleRunner, now: () => Date.now() });
+  const scheduler = new SchedulerService({
+    store: scheduleStore, runner: scheduleRunner, now: () => Date.now(), workspacesStore,
+  });
 
   const app = createApp({
     contextStore,
