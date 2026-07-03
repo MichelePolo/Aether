@@ -31,7 +31,7 @@
   --color-fg-dim:    #a1a1aa; /* labels / meta / mono-label */
   --color-fg-faint:  #8b8b93; /* dimmest still-readable tier (was zinc-600) */
 
-  /* Typography — unchanged */
-  --font-sans: "Inter", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  /* Typography — no @font-face is loaded; keep tokens honest (system fallback only) */
+  --font-sans: system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
