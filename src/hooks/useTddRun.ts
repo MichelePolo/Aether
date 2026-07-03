@@ -59,12 +59,17 @@ export function useTddRun() {
       const res = await tddApi.run(req, controller.signal);
       await consumeRun(res, (name, data) => setState((s) => reduceTdd(s, name, data as any)));
     } catch (e) {
-      if (!(e instanceof Error && e.name === 'AbortError')) {
+      if (!(e instanceof Error && e.name === 'AbortError') && abortRef.current === controller) {
+        // only surface the error if this run is still the active one — a
+        // superseded run's late rejection must not clobber a newer run's state
         setState((s) => ({ ...s, error: e instanceof Error ? e.message : 'Network error' }));
       }
     } finally {
-      // reset even if the stream ended without emitting tdd_done
-      setState((s) => (s.running ? { ...s, running: false } : s));
+      // reset even if the stream ended without emitting tdd_done — but only
+      // for the still-active run; a superseded run is a no-op here
+      if (abortRef.current === controller) {
+        setState((s) => (s.running ? { ...s, running: false } : s));
+      }
     }
   }, []);
 
