@@ -79,6 +79,40 @@ describe('useGitStore', () => {
     expect(s.loading).toBe(false);
   });
 
+  it('load() ignores a stale log resolution superseded by a newer workspace load', async () => {
+    let resolveLogA!: (v: { commits: CommitNode[]; truncated: boolean }) => void;
+    const logAPromise = new Promise<{ commits: CommitNode[]; truncated: boolean }>((resolve) => {
+      resolveLogA = resolve;
+    });
+
+    mockApi.status.mockImplementation((workspaceId: string) =>
+      Promise.resolve(
+        workspaceId === 'A' ? { isRepo: true, root: '/a', head: 'aaa' } : { isRepo: true, root: '/b', head: 'bbb' },
+      ),
+    );
+    mockApi.log.mockImplementation((workspaceId: string) =>
+      workspaceId === 'A' ? logAPromise : Promise.resolve({ commits: [commit('b1')], truncated: false }),
+    );
+
+    const loadA = useGitStore.getState().load('A');
+    // Let load('A') resolve status and reach the pending log('A') call.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mockApi.log).toHaveBeenCalledWith('A', undefined);
+
+    await useGitStore.getState().load('B');
+    expect(useGitStore.getState().activeWorkspaceId).toBe('B');
+
+    // Resolve A's stale log call after B has already finished loading.
+    resolveLogA({ commits: [commit('a1')], truncated: true });
+    await loadA;
+
+    const s = useGitStore.getState();
+    expect(s.activeWorkspaceId).toBe('B');
+    expect(s.commits.map((c) => c.hash)).toEqual(['b1']);
+    expect(s.status?.root).toBe('/b');
+  });
+
   it('toggleExpand() adds then removes with a fresh Set identity each time', () => {
     const empty = useGitStore.getState().expanded;
 

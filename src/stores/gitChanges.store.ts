@@ -50,6 +50,7 @@ export const useGitChangesStore = create<GitChangesState>((set, get) => ({
     set({ loading: true, error: null, activeWorkspaceId: workspaceId });
     try {
       const changes = await gitApi.changes(workspaceId);
+      if (get().activeWorkspaceId !== workspaceId) return; // superseded
       set({ changes, loading: false });
     } catch (e) {
       set({ loading: false, error: errMsg(e) });
@@ -60,7 +61,9 @@ export const useGitChangesStore = create<GitChangesState>((set, get) => ({
     const id = get().activeWorkspaceId;
     if (!id) return;
     try {
-      set({ changes: await gitApi.changes(id), error: null });
+      const changes = await gitApi.changes(id);
+      if (get().activeWorkspaceId !== id) return; // superseded
+      set({ changes, error: null });
     } catch (e) {
       set({ error: errMsg(e) });
     }
