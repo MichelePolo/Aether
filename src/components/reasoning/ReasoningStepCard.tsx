@@ -54,7 +54,10 @@ export function ReasoningStepCard({ step }: ReasoningStepCardProps) {
   const hasError = Boolean(step.toolCall?.error);
 
   return (
-    <div className="rounded bg-surface-3 border border-border-subtle glow-disc">
+    <div
+      className="rounded bg-surface-3 border border-border-subtle glow-disc"
+      style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 120px' } as React.CSSProperties}
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
