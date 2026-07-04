@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aether — Disclosure &amp; Manipulation</title>
+  <meta name="description" content="Aether: an agentic, local-first, multi-provider dev studio to observe and control LLMs. Disclosure & Manipulation." />
+  <meta property="og:title" content="Aether — Disclosure & Manipulation" />
+  <meta property="og:description" content="Observing and controlling LLMs. Local-first, multi-provider, agentic." />
+  <meta property="og:image" content="../assets/img/hero.png" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml" />
+  <link rel="alternate" hreflang="it" href="../index.html" />
+  <link rel="alternate" hreflang="en" href="index.html" />
+  <link rel="alternate" hreflang="x-default" href="../index.html" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"><span class="a"></span><span class="b"></span><span class="c"></span></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <nav class="nav">
+    <span class="brand">AETHER<span class="dot">_</span>CORE</span>
+    <div class="links">
+      <a href="#manifesto">Manifesto</a>
+      <a href="install.html">Install</a>
+      <a href="https://github.com/MichelePolo/Aether">GitHub</a>
+      <a href="https://michelepolo.github.io/Journey/">Blog</a>
+      <details class="lang">
+        <summary aria-label="Lingua / Language">
+          <svg class="flag" viewBox="0 0 60 30" aria-hidden="true"><rect width="60" height="30" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" stroke-width="3"/><rect x="25" width="10" height="30" fill="#fff"/><rect y="10" width="60" height="10" fill="#fff"/><rect x="27" width="6" height="30" fill="#C8102E"/><rect y="12" width="60" height="6" fill="#C8102E"/></svg>
+          <span>EN</span><span class="caret" aria-hidden="true">▾</span>
+        </summary>
+        <ul class="lang-menu">
+          <li><a href="../index.html"><svg class="flag" viewBox="0 0 3 2" aria-hidden="true"><rect width="1" height="2" fill="#009246"/><rect width="1" height="2" x="1" fill="#fff"/><rect width="1" height="2" x="2" fill="#ce2b37"/></svg> Italiano</a></li>
+          <li><a href="index.html" aria-current="page"><svg class="flag" viewBox="0 0 60 30" aria-hidden="true"><rect width="60" height="30" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" stroke-width="3"/><rect x="25" width="10" height="30" fill="#fff"/><rect y="10" width="60" height="10" fill="#fff"/><rect x="27" width="6" height="30" fill="#C8102E"/><rect y="12" width="60" height="6" fill="#C8102E"/></svg> English</a></li>
+        </ul>
+      </details>
+    </div>
+  </nav>
+
+  <header class="hero wrap">
+    <img src="../assets/img/hero.png" alt="Aether — Disclosure & Manipulation for LLMs" />
+    <h1>Aether <span class="c-disc">Disclosure</span> &amp; <span class="c-manip">Manipulation</span></h1>
+    <p class="tag">A local-first studio to see how LLM agents really work — and to learn by getting your hands on them.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="install.html">Install</a>
+      <a class="btn btn-ghost" href="https://github.com/MichelePolo/Aether">GitHub</a>
+    </div>
+  </header>
+
+  <main>
+    <section id="manifesto" class="wrap manifesto">
+      <p class="mono-label">Manifesto</p>
+      <h2><span class="c-disc">Disclosure</span> &amp; <span class="c-manip">Manipulation</span></h2>
+
+      <p class="intro">Most AI tools show you the answer and hide everything else. Aether does the opposite.</p>
+
+      <p>It's a <strong>local-first</strong>, <strong>multi-provider</strong> agentic studio (Anthropic, OpenAI, Gemini, Ollama and compatible endpoints), built for one thing: <strong>to understand how an LLM agent really works</strong> — and to learn by using it.</p>
+
+      <p><strong class="c-disc">Disclosure.</strong> An agent is usually a black box: you see the output, not the why. Aether opens the box — the <em>assembled system prompt</em> of every request, the context, the reasoning steps, every tool call with its output, the tokens. You no longer guess what drives the answers: you observe it.</p>
+
+      <p><strong class="c-manip">Manipulation.</strong> You understand by doing. Breakpoints on tools, gates with a preview before irreversible actions, context injection, control from the CLI. Change a variable and see the effect: that's how you learn.</p>
+
+      <p>Aether is for people who work with AI and want to stop guessing at prompts — to <em>really</em> understand System Prompt, Tools, Skills and Gates, and the best practices that emerge from building agentic software.</p>
+    </section>
+
+    <section class="wrap">
+      <p class="mono-label">What you understand with Aether</p>
+      <h2>Agents, taken apart</h2>
+      <div class="concepts">
+        <div class="card c1">
+          <p class="mono-label c-disc">System Prompt</p>
+          <h3>What the model receives</h3>
+          <p>The instructions, context and tools the model actually receives — usually invisible. In Aether you see the <em>assembled system prompt</em> of every dispatch: you understand how framing changes the answers.</p>
+        </div>
+        <div class="card c2">
+          <p class="mono-label c-manip">Tools · MCP</p>
+          <h3>What it can do</h3>
+          <p>The functions the agent can call: filesystem, shell, any MCP server. You connect them in 1 click and see every tool call with its output, distinct from the rest: you understand <em>when</em> and <em>why</em> it uses a tool.</p>
+        </div>
+        <div class="card c3">
+          <p class="mono-label c-cli">Skills &amp; agents</p>
+          <h3>How it's composed</h3>
+          <p>Reusable skills and procedures. You compose skills, sub-agents and swarms — there's even <code>skill-smith</code>, an agent that helps you write new ones. You learn to structure capabilities instead of repeating prompts.</p>
+        </div>
+        <div class="card c4">
+          <p class="mono-label c-disc">Gates &amp; approvals</p>
+          <h3>Who stays in control</h3>
+          <p>Control over irreversible actions. You set tools to auto or gate and approve with a diff preview: you learn to let the agent run without losing control of it.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="wrap">
+      <p class="mono-label">Lessons from the field</p>
+      <h2>Best practices, not theory</h2>
+      <ol class="lessons">
+        <li><strong>Brainstorm before code.</strong> An agreed, test-driven plan beats intuition. Using Obra's Superpowers skills is no longer optional: Aether's own agents would want to start from this rule, and all of Aether is built this way.</li>
+        <li><strong>Isolated sub-agents.</strong> Narrow task, narrow context: parallel work is reliable when you don't share too much context — anything extra is noise in the session.</li>
+        <li><strong>Gate before touching the world.</strong> File, shell and git are embedded tools by default (integrated via MCP) and pass through an approval with a preview: the LLM is free up to that point.</li>
+        <li><strong>Context is a resource.</strong> Per-workspace rooting, conversation forks and targeted tools — instead of giving everything to everyone everywhere.</li>
+      </ol>
+    </section>
+
+    <section class="wrap">
+      <p class="mono-label">What's still missing</p>
+      <h2>The roadmap</h2>
+      <ul class="roadmap">
+        <li><strong>AST</strong> — read code as a syntax tree, not as text: reason about program structure, not strings.</li>
+        <li><strong>LSP</strong> — hook up Language Servers: diagnostics, definitions and references from the IDE, fed straight to the agent.</li>
+        <li><strong>Ingestion &amp; RAG</strong> — index documents and codebases and retrieve only the relevant pieces as context, instead of pasting everything.</li>
+        <li><strong>Additional tools</strong> — more embedded tools beyond filesystem, shell and git.</li>
+        <li><strong>Multi-provider integration tests</strong> — end-to-end tests across multiple LLM providers, to guarantee behavioral parity.</li>
+        <li><strong>Remote control</strong> — drive the daemon and sessions remotely, not just from localhost.</li>
+        <li><strong>LDAP authentication</strong> — login via a corporate directory, for team use.</li>
+      </ul>
+      <p class="roadmap-quote">Appetite comes with eating.</p>
+    </section>
+
+    <section class="wrap">
+      <p class="mono-label">In action</p>
+      <h2>Aether live</h2>
+      <p class="lead">Real screenshots: an <span class="c-cli">Ollama</span> and <span class="c-disc">Anthropic</span> agent working under your gaze.</p>
+      <div class="carousel">
+        <div class="carousel-track">
+          <figure class="shot">
+            <img src="../assets/img/shot-overview.png" alt="Aether: accordion sidebar, chat with a local model and tool calls" />
+            <figcaption>Accordion sidebar, real chat and distinguishable <span class="c-cli">tool calls</span> — all in one workspace.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="../assets/img/shot-reasoning.png" alt="Reasoning drawer: context, tools, dispatch, validation with tokens and timings" />
+            <figcaption><span class="c-disc">Disclosure</span>: the reasoning drawer shows context, tools, dispatch, tokens and metadata.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="../assets/img/shot-opus.png" alt="Claude Opus 4.8 admitting its own mistakes, with the reasoning drawer open" />
+            <figcaption><span class="c-disc">Disclosure</span> with <span class="c-disc">Claude Opus 4.8</span>: the agent admits its own mistakes — reasoning and tools in plain sight, nothing hidden.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="../assets/img/shot-manip.png" alt="Tools and Breakpoints panel with auto/gate toggles" />
+            <figcaption><span class="c-manip">Manipulation</span>: breakpoints, tool gates and coding tools — the control is yours.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="../assets/img/shot-swimlanes.png" alt="Git Swimlanes: repo history with per-branch swimlanes and inferred PRs" />
+            <figcaption>Git Swimlanes: the repo history visualized — branches, inferred PRs and on-demand diffs, inside Aether.</figcaption>
+          </figure>
+        </div>
+        <button class="carousel-btn prev" aria-label="Previous">‹</button>
+        <button class="carousel-btn next" aria-label="Next">›</button>
+        <div class="carousel-dots" aria-label="Slides"></div>
+      </div>
+    </section>
+
+    <section class="wrap">
+      <p class="mono-label">A closer look</p>
+      <h2>Details</h2>
+      <div class="carousel details-carousel">
+        <div class="carousel-track">
+          <div class="slide">
+            <figure class="shot">
+              <img src="../assets/img/detail-skill-smith.png" alt="skill-smith sub-agent editor: name, system instruction, model, skills and tools" />
+              <figcaption><span class="c-cli">Skills &amp; agents</span>: <code>skill-smith</code> — a sub-agent that writes skills with you. You see (and edit) its <span class="c-disc">system instruction</span>: sub-agent → system prompt → skill.</figcaption>
+            </figure>
+          </div>
+          <div class="slide">
+            <figure class="shot">
+              <img src="../assets/img/detail-prompt.png" alt="Reasoning drawer: context, assembled system prompt and tools" />
+              <figcaption><span class="c-disc">Disclosure</span>: the assembled system prompt, revealed — context, prompt and tools.</figcaption>
+            </figure>
+          </div>
+          <div class="slide">
+            <figure class="shot">
+              <img src="../assets/img/detail-tools.png" alt="Tools: coding tools, auto/gate breakpoints and session approvals" />
+              <figcaption><span class="c-manip">Manipulation</span>: breakpoints (auto/gate) and session approvals — you decide what the agent can do.</figcaption>
+            </figure>
+          </div>
+          <div class="slide">
+            <figure class="shot">
+              <img src="../assets/img/detail-skills.png" alt="Skills & Agents: skills, sub-agents, swarms and schedules" />
+              <figcaption>Skills, sub-agents, swarms and schedules: the composable agent.</figcaption>
+            </figure>
+          </div>
+          <div class="slide">
+            <figure class="shot">
+              <img src="../assets/img/detail-providers.png" alt="Provider selector: Anthropic Opus/Sonnet/Haiku and local Ollama models" />
+              <figcaption>Multi-provider: <span class="c-disc">Anthropic</span> (Opus/Sonnet/Haiku) and local <span class="c-cli">Ollama</span> in one click.</figcaption>
+            </figure>
+          </div>
+        </div>
+        <button class="carousel-btn prev" aria-label="Previous">‹</button>
+        <button class="carousel-btn next" aria-label="Next">›</button>
+        <div class="carousel-dots" aria-label="Slides"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p class="mono-label"><span class="c-disc">Disclosure</span> &amp; <span class="c-manip">Manipulation</span></p>
+      <div class="links">
+        <a href="https://github.com/MichelePolo/Aether">GitHub</a>
+        <a href="install.html">Install &amp; Troubleshooting</a>
+        <a href="https://michelepolo.github.io/Journey/">Blog</a>
+      </div>
+      <p class="credit">Aether — Observing and controlling LLMs.</p>
+    </div>
+  </footer>
+
+  <script src="../assets/main.js"></script>
+</body>
+</html>
