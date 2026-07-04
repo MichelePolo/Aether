@@ -215,8 +215,14 @@ footer .credit { color:var(--text-faint); font-size:.8rem; }
 /* ---- responsive ---- */
 @media (max-width:720px) {
   .concepts { grid-template-columns:1fr; }
-  .nav .links { gap:.9rem; }
-  .nav .links a:first-child { display:none; } /* drop "Manifesto" to keep the pill tidy on phones */
+  /* let the nav links wrap so the language selector can't be pushed off the
+     right edge (where `body{overflow-x:hidden}` would clip it) on narrow phones. */
+  .nav .links { gap:.9rem; flex-wrap:wrap; justify-content:flex-end; row-gap:.5rem; }
+  /* drop the top-level "Manifesto" link to keep the pill tidy on phones.
+     `>` scopes this to a DIRECT child of .links — a bare `a:first-child` also
+     matches each language-menu <a> (the sole child of its <li>) and hid the
+     dropdown options on mobile. */
+  .nav .links > a:first-child { display:none; }
 }
 
 /* ---- language selector (native <details> dropdown) ---- */
