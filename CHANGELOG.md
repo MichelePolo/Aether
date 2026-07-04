@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.23](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.22...aether-core-v0.1.23) (2026-07-04)
+
+
+### Features
+
+* **web-ui:** readability + a11y + forms + perf remediation (WCAG AA text, Modal focus, INP) ([#117](https://github.com/MichelePolo/Aether/issues/117)) ([eb07972](https://github.com/MichelePolo/Aether/commit/eb07972aa6acb1657349b551848eb6fdf15eae24))
+
 ## [0.1.22](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.21...aether-core-v0.1.22) (2026-07-03)
 
 
