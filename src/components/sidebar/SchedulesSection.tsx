@@ -30,7 +30,7 @@ export function SchedulesSection() {
           <div key={s.id} className="flex items-center gap-1.5 p-1.5 bg-zinc-900 border border-border-subtle rounded text-[10px] font-mono">
             <span className={`status-dot ${s.enabled ? 'bg-status-online' : 'bg-zinc-600'}`} aria-hidden="true" />
             <span className="min-w-0 flex-1 truncate text-zinc-300">
-              {s.name} <span className="text-zinc-600">({cadenceSummary(s.cadence)})</span>
+              {s.name} <span className="text-fg-dim">({cadenceSummary(s.cadence)})</span>
             </span>
             <button type="button" aria-label={t('schedules.runNow', { name: s.name })} onClick={() => void runNow(s.id)} className="icon-btn"><Play size={12} aria-hidden="true" /></button>
             <button type="button" aria-label={t('schedules.edit', { name: s.name })} onClick={() => setEditing(s.id)} className="icon-btn"><Pencil size={12} aria-hidden="true" /></button>

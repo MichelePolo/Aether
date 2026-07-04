@@ -106,7 +106,7 @@ export function ChangesView() {
               {t('gitChanges.push')}{ahead > 0 ? ` ↑${ahead}` : ''}
             </button>
             <button type="button" aria-label={t('gitChanges.refresh')} onClick={() => void refresh()} className="icon-btn">
-              <RefreshCw size={13} className={busy ? 'animate-spin' : undefined} aria-hidden="true" />
+              <RefreshCw size={13} className={busy ? 'motion-safe:animate-spin' : undefined} aria-hidden="true" />
             </button>
           </div>
         </div>

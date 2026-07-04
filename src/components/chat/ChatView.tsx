@@ -20,9 +20,7 @@ export function ChatView() {
       if (idx < 1) return;
       const prev = state.messages[idx - 1];
       if (prev.role !== 'user') return;
-      useChatStore.setState((s) => ({
-        messages: s.messages.filter((m) => m.id !== failedId),
-      }));
+      useChatStore.getState().removeMessage(failedId);
       await send(prev.text);
     },
     [send],

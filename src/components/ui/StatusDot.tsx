@@ -7,7 +7,7 @@ const dotVariants = cva('status-dot', {
     status: {
       online: 'bg-status-online shadow-[0_0_8px_var(--color-status-online)]',
       offline: 'bg-status-offline',
-      connecting: 'bg-status-connecting animate-pulse',
+      connecting: 'bg-status-connecting motion-safe:animate-pulse',
       error: 'bg-status-error',
     },
   },
@@ -25,6 +25,7 @@ export function StatusDot({ status, label, className, ...rest }: StatusDotProps)
       role="img"
       title={`${label}: ${status}`}
       aria-label={`${label}: ${status}`}
+      data-status={status}
       className={cn(dotVariants({ status }), className)}
       {...rest}
     />

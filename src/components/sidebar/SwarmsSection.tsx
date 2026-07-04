@@ -12,7 +12,7 @@ export function SwarmsSection() {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-widest text-zinc-500">Swarms</span>
+        <span className="text-[10px] uppercase tracking-widest text-fg-dim">Swarms</span>
         <button className="text-[10px] text-manipulation hover:underline" onClick={() => setEditing('new')}>
           + New
         </button>
@@ -20,11 +20,11 @@ export function SwarmsSection() {
       {swarms.map((sw) => (
         <div key={sw.id} className="flex items-center justify-between rounded bg-surface-1 p-1.5 text-[11px]">
           <button className="text-zinc-200 hover:text-manipulation" onClick={() => setRunning(sw.id)}>
-            {sw.name} <span className="text-zinc-500">({sw.stepCount})</span>
+            {sw.name} <span className="text-fg-dim">({sw.stepCount})</span>
           </button>
           <div className="flex gap-1.5">
-            <button className="text-zinc-500 hover:text-manipulation" onClick={() => setEditing(sw.id)}>edit</button>
-            <button className="text-zinc-500 hover:text-status-error" onClick={() => void remove(sw.id)}>del</button>
+            <button className="text-fg-dim hover:text-manipulation" onClick={() => setEditing(sw.id)}>edit</button>
+            <button className="text-fg-dim hover:text-status-error" onClick={() => void remove(sw.id)}>del</button>
           </div>
         </div>
       ))}

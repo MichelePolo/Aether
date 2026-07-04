@@ -15,10 +15,15 @@ describe('MessageInput', () => {
     localStorage.clear();
   });
 
+  it('the composer textarea has a persistent accessible name (not placeholder-only)', () => {
+    render(<MessageInput onSend={() => {}} onStop={() => {}} isStreaming={false} />);
+    expect(screen.getByRole('combobox', { name: /message/i })).toBeInTheDocument();
+  });
+
   it('sends on Enter with trim', async () => {
     const onSend = vi.fn();
     render(<MessageInput onSend={onSend} onStop={() => {}} isStreaming={false} />);
-    const ta = screen.getByRole('textbox');
+    const ta = screen.getByRole('combobox');
     await userEvent.type(ta, '  hello  {Enter}');
     expect(onSend).toHaveBeenCalledWith('hello');
   });
@@ -26,7 +31,7 @@ describe('MessageInput', () => {
   it('does not send on empty/whitespace Enter', async () => {
     const onSend = vi.fn();
     render(<MessageInput onSend={onSend} onStop={() => {}} isStreaming={false} />);
-    const ta = screen.getByRole('textbox');
+    const ta = screen.getByRole('combobox');
     await userEvent.type(ta, '   {Enter}');
     expect(onSend).not.toHaveBeenCalled();
   });
@@ -34,7 +39,7 @@ describe('MessageInput', () => {
   it('Shift+Enter inserts newline', async () => {
     const onSend = vi.fn();
     render(<MessageInput onSend={onSend} onStop={() => {}} isStreaming={false} />);
-    const ta = screen.getByRole<HTMLTextAreaElement>('textbox');
+    const ta = screen.getByRole<HTMLTextAreaElement>('combobox');
     await userEvent.type(ta, 'a{Shift>}{Enter}{/Shift}b');
     expect(onSend).not.toHaveBeenCalled();
     expect(ta.value).toBe('a\nb');
@@ -60,13 +65,13 @@ describe('MessageInput', () => {
 
   it('textarea is disabled during streaming', () => {
     render(<MessageInput onSend={() => {}} onStop={() => {}} isStreaming />);
-    expect(screen.getByRole('textbox')).toBeDisabled();
+    expect(screen.getByRole('combobox')).toBeDisabled();
   });
 
   it('clears textarea after successful send', async () => {
     const onSend = vi.fn();
     render(<MessageInput onSend={onSend} onStop={() => {}} isStreaming={false} />);
-    const ta = screen.getByRole<HTMLTextAreaElement>('textbox');
+    const ta = screen.getByRole<HTMLTextAreaElement>('combobox');
     await userEvent.type(ta, 'hi{Enter}');
     expect(ta.value).toBe('');
   });
@@ -74,7 +79,7 @@ describe('MessageInput', () => {
   it('Send button click also sends', async () => {
     const onSend = vi.fn();
     render(<MessageInput onSend={onSend} onStop={() => {}} isStreaming={false} />);
-    await userEvent.type(screen.getByRole('textbox'), 'click-send');
+    await userEvent.type(screen.getByRole('combobox'), 'click-send');
     await userEvent.click(screen.getByRole('button', { name: /send/i }));
     expect(onSend).toHaveBeenCalledWith('click-send');
   });

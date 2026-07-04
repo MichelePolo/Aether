@@ -80,7 +80,7 @@ export function SkillsSection() {
     <section>
       <div className="flex items-center justify-between mb-2">
         <div className="mono-label">{t('skills.heading')}</div>
-        <span className="text-[10px] text-zinc-600">
+        <span className="text-[10px] text-fg-dim">
           [{enabledCount}/{total}]
         </span>
       </div>
@@ -118,11 +118,11 @@ export function SkillsSection() {
             className={`group flex items-center justify-between p-1.5 rounded bg-zinc-900 border border-border-subtle text-[10px] font-mono cursor-pointer ${
               skill.enabled
                 ? 'text-zinc-400 hover:border-manipulation/40'
-                : 'text-zinc-600 line-through opacity-60'
+                : 'text-fg-faint line-through opacity-60'
             }`}
           >
             <span className="truncate">
-              <span className="text-zinc-600 mr-1">[{t('skills.labelBadge')}]</span>
+              <span className="text-fg-faint mr-1">[{t('skills.labelBadge')}]</span>
               {skill.name}
             </span>
             <div className="hidden group-hover:flex gap-1">
@@ -159,7 +159,7 @@ export function SkillsSection() {
                 ? 'text-status-error'
                 : skill.enabled
                   ? 'text-zinc-400'
-                  : 'text-zinc-600'
+                  : 'text-fg-faint'
             }`}
           >
             <button
@@ -171,7 +171,7 @@ export function SkillsSection() {
               className="flex-1 text-left truncate disabled:cursor-not-allowed"
               title={skill.invalid ?? skill.description}
             >
-              <span className="text-zinc-600 mr-1">
+              <span className="text-fg-faint mr-1">
                 [{skill.invalid ? t('skills.invalidBadge') : t('skills.materialBadge')}]
               </span>
               <span className={skill.enabled && !skill.invalid ? '' : 'line-through opacity-60'}>
@@ -184,7 +184,7 @@ export function SkillsSection() {
                   onClick={() => togglePinned(skill.name).catch(() => {})}
                   aria-pressed={skill.pinned}
                   aria-label={`${t('skills.pin')} ${skill.name}`}
-                  className={skill.pinned ? 'text-manipulation' : 'text-zinc-600 hover:text-zinc-300'}
+                  className={skill.pinned ? 'text-manipulation' : 'text-fg-faint hover:text-zinc-300'}
                   title={t('skills.pin')}
                 >
                   📌
@@ -202,20 +202,20 @@ export function SkillsSection() {
         ))}
 
         {labelSkills.length === 0 && materialSkills.length === 0 && (
-          <p className="text-[10px] text-zinc-600">{t('skills.empty')}</p>
+          <p className="text-[10px] text-fg-faint">{t('skills.empty')}</p>
         )}
 
         <button
           onClick={handleAdd}
           aria-label="Add skill"
-          className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors mt-2"
+          className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-fg-dim hover:text-zinc-400 transition-colors mt-2"
         >
           + Deploy New Skill
         </button>
         <button
           onClick={() => openCreateWithAi()}
           aria-label={t('skills.createWithAi')}
-          className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-zinc-600 hover:text-manipulation transition-colors mt-1"
+          className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-fg-dim hover:text-manipulation transition-colors mt-1"
         >
           ✨ {t('skills.createWithAi')}
         </button>
@@ -228,7 +228,7 @@ export function SkillsSection() {
             {drafts.map((d) => (
               <div
                 key={`draft-${d.name}`}
-                className="flex items-center justify-between p-1.5 rounded bg-zinc-900 border border-dashed border-border-subtle text-[10px] font-mono text-zinc-500"
+                className="flex items-center justify-between p-1.5 rounded bg-zinc-900 border border-dashed border-border-subtle text-[10px] font-mono text-fg-dim"
               >
                 <span className="truncate" title={d.invalid ?? d.description}>
                   {d.name}

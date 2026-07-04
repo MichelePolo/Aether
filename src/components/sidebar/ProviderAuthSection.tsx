@@ -19,7 +19,7 @@ const TRANSPORT_LABELS: Record<ProviderTransport, string> = {
 function dotClass(state: TransportStatus['state']): string {
   if (state === 'ok') return 'text-status-ok';
   if (state === 'error') return 'text-status-error';
-  return 'text-zinc-500';
+  return 'text-fg-dim';
 }
 
 const VAULT_SET = new Set<VaultTransport>(['anthropic', 'openai', 'gemini']);
@@ -77,7 +77,7 @@ export function ProviderAuthSection() {
                 {TRANSPORT_LABELS[transport]}
               </span>
               {reason && (
-                <span className="text-zinc-600 truncate">/ {reason}</span>
+                <span className="text-fg-faint truncate">/ {reason}</span>
               )}
             </div>
           );
@@ -110,8 +110,8 @@ export function ProviderAuthSection() {
                 })}
               />
               <span className="flex-shrink-0 text-zinc-300">{ep.label}</span>
-              {ep.fixed && ep.label !== 'local' && <span className="text-zinc-600">/ local</span>}
-              {ep.reason && <span className="text-zinc-600 truncate">/ {ep.reason}</span>}
+              {ep.fixed && ep.label !== 'local' && <span className="text-fg-faint">/ local</span>}
+              {ep.reason && <span className="text-fg-faint truncate">/ {ep.reason}</span>}
             </div>
           ))}
         </div>
@@ -143,7 +143,7 @@ export function ProviderAuthSection() {
                 })}
               />
               <span className="flex-shrink-0 text-zinc-300">{ep.label}</span>
-              {ep.reason && <span className="text-zinc-600 truncate">/ {ep.reason}</span>}
+              {ep.reason && <span className="text-fg-faint truncate">/ {ep.reason}</span>}
             </div>
           ))}
         </div>

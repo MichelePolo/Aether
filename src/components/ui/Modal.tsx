@@ -1,5 +1,11 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { cn } from '@/src/lib/cn';
+
+// The native `closedBy` IDL attribute (HTML attribute: `closedby`) is very
+// new; feature-detect it so the manual Escape/backdrop fallbacks only run in
+// browsers (or test environments like jsdom) that lack native light-dismiss.
+const supportsNativeClosedBy = () =>
+  typeof HTMLDialogElement !== 'undefined' && 'closedBy' in HTMLDialogElement.prototype;
 
 export interface ModalProps {
   open: boolean;
@@ -20,6 +26,7 @@ export function Modal({
 }: ModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const previouslyFocusedRef = useRef<Element | null>(null);
+  const titleId = useId();
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -62,13 +69,16 @@ export function Modal({
     return () => dialog.removeEventListener('close', handler);
   }, [onClose]);
 
-  // Manual Escape fallback for environments where <dialog> doesn't auto-close on Esc.
+  // Manual Escape fallback: route through .close() so the single `close`
+  // listener owns onClose()+focus restore (works for unmount-based dialogs too).
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        const d = dialogRef.current;
+        if (d?.open && typeof d.close === 'function') d.close();
+        else onClose();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -77,8 +87,13 @@ export function Modal({
 
   const onBackdropMouseDown = (e: React.MouseEvent<HTMLDialogElement>) => {
     if (!dismissOnBackdrop) return;
+    // Browsers that support `closedby` already light-dismiss on backdrop
+    // clicks natively; only run the manual fallback where that's absent.
+    if (supportsNativeClosedBy()) return;
     if (e.target === e.currentTarget) {
-      onClose();
+      const d = dialogRef.current;
+      if (d?.open && typeof d.close === 'function') d.close();
+      else onClose();
     }
   };
 
@@ -86,14 +101,18 @@ export function Modal({
     <dialog
       ref={dialogRef}
       onMouseDown={onBackdropMouseDown}
-      aria-label={title}
+      closedby={dismissOnBackdrop ? 'any' : 'closerequest'}
+      aria-labelledby={title ? titleId : undefined}
       className={cn(
         'bg-surface-1 border border-border-subtle rounded-xl shadow-2xl w-full max-w-md p-0 overflow-hidden text-zinc-300 glass flex flex-col max-h-[85vh]',
         className,
       )}
     >
       {title && (
-        <div className="shrink-0 px-4 py-3 border-b border-border-subtle mono-label text-white">
+        <div
+          id={titleId}
+          className="shrink-0 px-4 py-3 border-b border-border-subtle mono-label text-white"
+        >
           {title}
         </div>
       )}

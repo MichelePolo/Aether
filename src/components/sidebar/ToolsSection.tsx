@@ -32,7 +32,7 @@ export function ToolsSection() {
             key={tool.id}
             className="group p-2 rounded bg-zinc-900/30 border border-border-subtle/50 flex items-center justify-between"
           >
-            <span className="text-[10px] font-mono text-zinc-500">
+            <span className="text-[10px] font-mono text-fg-dim">
               {tool.name} <span className="opacity-50 mx-1">v{tool.version}</span>
             </span>
             <div className="flex items-center gap-2">
@@ -50,7 +50,7 @@ export function ToolsSection() {
         <button
           onClick={handleAdd}
           aria-label="Register tool"
-          className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors mt-2"
+          className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-fg-dim hover:text-zinc-400 transition-colors mt-2"
         >
           + Register Tool
         </button>

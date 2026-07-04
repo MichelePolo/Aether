@@ -142,7 +142,7 @@ export function SessionsSection() {
           onClick={handleNew}
           aria-label="New session"
           disabled={isStreaming}
-          className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors mt-2 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-fg-dim hover:text-zinc-400 transition-colors mt-2 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           + New Session
         </button>

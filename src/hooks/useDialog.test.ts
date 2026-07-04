@@ -51,6 +51,36 @@ describe('useDialog', () => {
     await expect(promise).resolves.toBe(false);
   });
 
+  it('resolve() is idempotent: a second resolve()/cancel() call is a no-op', async () => {
+    const { result } = renderHook(() => useDialog());
+    let p1!: Promise<string | null>;
+    let p2!: Promise<string | null>;
+    act(() => {
+      p1 = result.current.prompt({ title: 'A', label: 'L' });
+      p2 = result.current.prompt({ title: 'B', label: 'L' });
+    });
+    expect(result.current.current?.title).toBe('A');
+
+    act(() => {
+      if (result.current.current?.kind === 'prompt') {
+        result.current.current.resolve('first');
+        // Second settle attempt on the same dialog must not advance the queue again
+        // or resolve the promise a second time.
+        result.current.current.resolve('second');
+        result.current.current.cancel();
+      }
+    });
+
+    await expect(p1).resolves.toBe('first');
+    // The queue should have advanced exactly once: dialog B is now current.
+    expect(result.current.current?.title).toBe('B');
+
+    act(() => {
+      if (result.current.current?.kind === 'prompt') result.current.current.resolve('2');
+    });
+    await expect(p2).resolves.toBe('2');
+  });
+
   it('only one dialog active at a time (FIFO queue)', async () => {
     const { result } = renderHook(() => useDialog());
     let p1!: Promise<string | null>;

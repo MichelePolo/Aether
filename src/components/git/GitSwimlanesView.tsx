@@ -85,7 +85,7 @@ export function GitSwimlanesView() {
         >
           <RefreshCw
             size={14}
-            className={loading ? 'animate-spin' : undefined}
+            className={loading ? 'motion-safe:animate-spin' : undefined}
             aria-hidden="true"
           />
         </button>
@@ -105,7 +105,7 @@ export function GitSwimlanesView() {
 
           {loading && commits.length === 0 ? (
             <div className="flex flex-1 items-center justify-center text-zinc-500">
-              <Loader2 size={20} className="animate-spin" aria-hidden="true" />
+              <Loader2 size={20} className="motion-safe:animate-spin" aria-hidden="true" />
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 overflow-auto">

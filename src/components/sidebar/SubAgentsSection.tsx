@@ -40,7 +40,7 @@ export function SubAgentsSection() {
     <section>
       <div className="flex items-center justify-between mb-2">
         <div className="mono-label">Sub-agents</div>
-        <span className="text-[10px] text-zinc-600">[{list.length}]</span>
+        <span className="text-[10px] text-fg-dim">[{list.length}]</span>
       </div>
 
       {error && (
@@ -59,7 +59,7 @@ export function SubAgentsSection() {
 
       <div className="space-y-1">
         {list.length === 0 ? (
-          <div className="text-[10px] text-zinc-600 font-mono italic">
+          <div className="text-[10px] text-fg-faint font-mono italic">
             No sub-agents defined.
           </div>
         ) : (
@@ -90,7 +90,7 @@ export function SubAgentsSection() {
           type="button"
           onClick={handleAdd}
           aria-label="New sub-agent"
-          className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors mt-2"
+          className="w-full p-1 border border-dashed border-border-subtle rounded text-[10px] text-fg-dim hover:text-zinc-400 transition-colors mt-2"
         >
           + New sub-agent
         </button>

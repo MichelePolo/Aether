@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ChangeEvent } from 'react';
-import { Send, Square, Brain, Paperclip } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ChangeEvent } from 'react';
+import { Send, Square, Brain, Paperclip, X } from 'lucide-react';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
 import { useProvidersStore } from '@/src/stores/providers.store';
@@ -8,7 +8,7 @@ import { useChatStore } from '@/src/stores/chat.store';
 import { isImageMime } from '@/src/types/attachment.types';
 import { cn } from '@/src/lib/cn';
 import { computeMentionState, type MentionState } from '@/src/hooks/useMentionAutocomplete';
-import { MentionPopover } from './MentionPopover';
+import { MentionPopover, MENTION_LISTBOX_ID, mentionOptionId } from './MentionPopover';
 import { ComposerPlusMenu, type ComposerAction } from './ComposerPlusMenu';
 import { ComposerModelPill } from './ComposerModelPill';
 import { t } from '@/src/i18n/t';
@@ -29,6 +29,8 @@ function autoGrow(el: HTMLTextAreaElement): void {
 export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps) {
   const [value, setValue] = useState('');
   const [mention, setMention] = useState<MentionState>({ open: false, query: '', replaceRange: [0, 0] });
+  const [mentionHighlight, setMentionHighlight] = useState(0);
+  const mentionRef = useRef(mention);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const thinkingEnabled = useUiStore((s) => s.thinkingEnabled);
@@ -44,6 +46,8 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   const queueAttachments = useChatStore((s) => s.queueAttachments);
   const pendingComposerText = useChatStore((s) => s.pendingComposerText);
   const setPendingComposerText = useChatStore((s) => s.setPendingComposerText);
+  const error = useChatStore((s) => s.error);
+  const clearError = useChatStore((s) => s.clearError);
 
   const activeProviderName = activeId
     ? ((sessions.find((s) => s.id === activeId) as { providerName?: string } | undefined)?.providerName ?? defaultProvider)
@@ -62,6 +66,12 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
     if (textareaRef.current) autoGrow(textareaRef.current);
   }, [value]);
 
+  // Keep the latest mention state available to the stable (empty-dep)
+  // callbacks below without forcing them to change identity every keystroke.
+  useEffect(() => {
+    mentionRef.current = mention;
+  }, [mention]);
+
   useEffect(() => {
     if (pendingComposerText === null) return;
     setValue(pendingComposerText);
@@ -78,6 +88,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
   const submit = () => {
     const trimmed = value.trim();
     if (!trimmed) return;
+    clearError();
     onSend(trimmed);
     setValue('');
     setMention({ open: false, query: '', replaceRange: [0, 0] });
@@ -93,17 +104,24 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
     }
   };
 
-  const filteredItems = mention.open
-    ? subAgents.filter((s) =>
-        s.name.toLowerCase().startsWith(mention.query.toLowerCase()),
-      )
-    : [];
+  // Memoized/stable so MentionPopover doesn't see new prop references on
+  // every keystroke or highlight change — reference churn here used to
+  // re-trigger MentionPopover's index-reset effect and steal keyboard nav.
+  const filteredItems = useMemo(
+    () =>
+      mention.open
+        ? subAgents.filter((s) =>
+            s.name.toLowerCase().startsWith(mention.query.toLowerCase()),
+          )
+        : [],
+    [mention.open, mention.query, subAgents],
+  );
 
-  const handleMentionSelect = (name: string) => {
-    const [start, end] = mention.replaceRange;
-    const next = `${value.slice(0, start)}@${name} ${value.slice(end)}`;
-    setValue(next);
+  const handleMentionSelect = useCallback((name: string) => {
+    const [start, end] = mentionRef.current.replaceRange;
+    setValue((prev) => `${prev.slice(0, start)}@${name} ${prev.slice(end)}`);
     setMention({ open: false, query: '', replaceRange: [0, 0] });
+    setMentionHighlight(0);
     setTimeout(() => {
       const ta = textareaRef.current;
       if (ta) {
@@ -112,10 +130,19 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
         ta.setSelectionRange(caret, caret);
       }
     }, 0);
-  };
+  }, []);
 
-  const handleMentionClose = () =>
+  const handleMentionClose = useCallback(() => {
     setMention({ open: false, query: '', replaceRange: [0, 0] });
+    setMentionHighlight(0);
+  }, []);
+
+  const handleMentionHighlightChange = useCallback((i: number) => {
+    setMentionHighlight(i);
+  }, []);
+
+  const mentionActiveDescendant =
+    mention.open && filteredItems.length > 0 ? mentionOptionId(mentionHighlight) : undefined;
 
   const onPickFiles = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -148,12 +175,31 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
 
   return (
     <div className="shrink-0 border-t border-border-subtle bg-surface-2 p-3">
+      {error && (
+        <div role="alert" className="mb-1 flex items-center gap-2 px-2 py-1 rounded bg-status-error/15 text-status-error text-xs font-mono">
+          <span className="flex-1">{error}</span>
+          <button
+            type="button"
+            aria-label="Dismiss error"
+            onClick={clearError}
+            className="shrink-0 p-0.5 rounded hover:bg-status-error/20 text-status-error"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
       {/* Claude-style composer: textarea on top, a single aligned control row below. */}
       <div className="rounded-2xl border border-border-subtle bg-surface-1 transition-colors focus-within:border-manipulation/50 focus-within:ring-1 focus-within:ring-manipulation/40">
         <div className="relative">
           <textarea
             ref={textareaRef}
             id="message-input"
+            role="combobox"
+            aria-label={t('messageInput.accessibleName')}
+            aria-autocomplete="list"
+            aria-expanded={mention.open}
+            aria-controls={mention.open ? MENTION_LISTBOX_ID : undefined}
+            aria-activedescendant={mentionActiveDescendant}
             value={value}
             onChange={onChange}
             onKeyDown={onKey}
@@ -172,6 +218,7 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
             items={filteredItems}
             onSelect={handleMentionSelect}
             onClose={handleMentionClose}
+            onHighlightChange={handleMentionHighlightChange}
           />
         </div>
 
@@ -203,7 +250,6 @@ export function MessageInput({ onSend, onStop, isStreaming }: MessageInputProps)
 
           <span
             data-testid="input-token-chip"
-            aria-live="polite"
             className="ml-auto text-[10px] font-mono text-zinc-600 px-1 pointer-events-none tabular-nums"
           >
             ~{Math.ceil(value.length / 4)} tokens

@@ -2,17 +2,29 @@ import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useChatStore } from '@/src/stores/chat.store';
+import type { Message } from '@/src/types/message.types';
+import type { ReasoningStep } from '@/src/types/reasoning.types';
 import { LiveThinkingBlock } from './LiveThinkingBlock';
 import { ReasoningStepCard } from './ReasoningStepCard';
+
+// Stable references so that when the drawer is closed, the selectors below
+// return the *same* value across store updates — Zustand's equality check
+// then skips re-rendering this component entirely on every streamed chunk,
+// instead of re-running the reverse+find below on every message.
+const EMPTY_MESSAGES: Message[] = [];
+const EMPTY_REASONING: { thinkingText: string; steps: ReasoningStep[] } = { thinkingText: '', steps: [] };
 
 export function ReasoningDrawer() {
   const open = useUiStore((s) => s.reasoningDrawerOpen);
   const close = useUiStore((s) => s.closeReasoningDrawer);
   const focusedId = useUiStore((s) => s.focusedMessageId);
 
-  const streamingId = useChatStore((s) => s.streamingId);
-  const messages = useChatStore(useShallow((s) => s.messages));
-  const currentReasoning = useChatStore((s) => s.currentReasoning);
+  // While closed, feed the component stable/empty data instead of subscribing
+  // to the live message stream — the aside itself stays mounted (see below)
+  // so its slide-out transition still plays.
+  const streamingId = useChatStore((s) => (open ? s.streamingId : null));
+  const messages = useChatStore(useShallow((s) => (open ? s.messages : EMPTY_MESSAGES)));
+  const currentReasoning = useChatStore((s) => (open ? s.currentReasoning : EMPTY_REASONING));
 
   const lastAssistantId = useMemo(
     () => [...messages].reverse().find((m) => m.role === 'model')?.id ?? null,

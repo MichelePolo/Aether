@@ -32,7 +32,7 @@ export function SidebarGroups() {
         title="Sessions"
         open={groups.sessions}
         onToggle={() => toggle('sessions')}
-        actions={<span className="text-[10px] text-zinc-600">[{sessionCount}]</span>}
+        actions={<span className="text-[10px] text-fg-dim">[{sessionCount}]</span>}
       >
         <SessionsSection />
       </SidebarAccordion>
@@ -102,7 +102,7 @@ export function SidebarGroups() {
             type="button"
             aria-label="Refresh provider auth"
             onClick={() => refreshProviders().catch(() => {})}
-            className={cn('text-zinc-400 hover:text-white transition-colors', providersLoading && 'animate-spin')}
+            className={cn('text-zinc-400 hover:text-white transition-colors', providersLoading && 'motion-safe:animate-spin')}
           >
             <RefreshCw size={10} />
           </button>

@@ -24,6 +24,20 @@ describe('useChatStore basic actions', () => {
     expect(useChatStore.getState().hydrated).toBe(true);
   });
 
+  it('removeMessage removes the message and keeps messagesById in sync', () => {
+    useChatStore.getState().hydrate([
+      { id: 'id1', role: 'user', text: 'hi', timestamp: 1 },
+      { id: 'id2', role: 'model', text: 'hello', timestamp: 2 },
+    ]);
+
+    useChatStore.getState().removeMessage('id1');
+
+    const s = useChatStore.getState();
+    expect(s.messages.map((m) => m.id)).toEqual(['id2']);
+    expect(s.messagesById.id1).toBeUndefined();
+    expect(s.messagesById.id2).toBeDefined();
+  });
+
   it('appendUser pushes a user message', () => {
     const { id } = useChatStore.getState().appendUser('hello');
     const msgs = useChatStore.getState().messages;
@@ -46,6 +60,13 @@ describe('useChatStore basic actions', () => {
     useChatStore.getState().appendChunk(id, 'Hello');
     useChatStore.getState().appendChunk(id, ' world');
     expect(useChatStore.getState().messages.at(-1)?.text).toBe('Hello world');
+  });
+
+  it('keeps messagesById in sync and appendChunk touches only the target id', () => {
+    useChatStore.setState({ messages: [{ id: 'x', role: 'model', text: 'a', timestamp: 0 }], messagesById: { x: { id: 'x', role: 'model', text: 'a', timestamp: 0 } } });
+    useChatStore.getState().appendChunk('x', 'b');
+    expect(useChatStore.getState().messagesById['x'].text).toBe('ab');
+    expect(useChatStore.getState().messages.find((m) => m.id === 'x')!.text).toBe('ab');
   });
 
   it('finishAssistant clears streamingId and sets model + interrupted', () => {

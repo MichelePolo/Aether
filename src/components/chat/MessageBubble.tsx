@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { File as FileIcon, Brain, Copy, Check } from 'lucide-react';
@@ -33,8 +33,8 @@ function toolOutputText(result: unknown): string {
   return String(result ?? '');
 }
 
-export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
-  const message = useChatStore((s) => s.messages.find((m) => m.id === id));
+export const MessageBubble = memo(function MessageBubble({ id, onRetry }: MessageBubbleProps) {
+  const message = useChatStore((s) => s.messagesById[id]);
   const isStreaming = useChatStore((s) => s.streamingId === id);
   const isAnyStreaming = useChatStore((s) => s.streamingId !== null);
   const isThinkingNow = useChatStore(
@@ -232,4 +232,4 @@ export function MessageBubble({ id, onRetry }: MessageBubbleProps) {
       </div>
     </div>
   );
-}
+});
