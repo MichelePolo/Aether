@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aether — Install &amp; Troubleshooting</title>
+  <meta name="description" content="Install Aether with one command (curl, powershell, npm, pnpm, bun). First run and troubleshooting: port in use, Node, better-sqlite3." />
+  <meta property="og:title" content="Aether — Install & Troubleshooting" />
+  <meta property="og:description" content="One command to install Aether. Plus first run and troubleshooting." />
+  <meta property="og:image" content="../assets/img/hero.png" />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml" />
+  <link rel="alternate" hreflang="it" href="../install.html" />
+  <link rel="alternate" hreflang="en" href="install.html" />
+  <link rel="alternate" hreflang="x-default" href="../install.html" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"><span class="a"></span><span class="b"></span><span class="c"></span></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <nav class="nav">
+    <a class="brand" href="index.html" style="text-decoration:none">AETHER<span class="dot">_</span>CORE</a>
+    <div class="links">
+      <a href="index.html#manifesto">Manifesto</a>
+      <a href="install.html">Install</a>
+      <a href="https://github.com/MichelePolo/Aether">GitHub</a>
+      <a href="https://michelepolo.github.io/Journey/">Blog</a>
+      <details class="lang">
+        <summary aria-label="Lingua / Language">
+          <svg class="flag" viewBox="0 0 60 30" aria-hidden="true"><rect width="60" height="30" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" stroke-width="3"/><rect x="25" width="10" height="30" fill="#fff"/><rect y="10" width="60" height="10" fill="#fff"/><rect x="27" width="6" height="30" fill="#C8102E"/><rect y="12" width="60" height="6" fill="#C8102E"/></svg>
+          <span>EN</span><span class="caret" aria-hidden="true">▾</span>
+        </summary>
+        <ul class="lang-menu">
+          <li><a href="../install.html"><svg class="flag" viewBox="0 0 3 2" aria-hidden="true"><rect width="1" height="2" fill="#009246"/><rect width="1" height="2" x="1" fill="#fff"/><rect width="1" height="2" x="2" fill="#ce2b37"/></svg> Italiano</a></li>
+          <li><a href="install.html" aria-current="page"><svg class="flag" viewBox="0 0 60 30" aria-hidden="true"><rect width="60" height="30" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" stroke-width="3"/><rect x="25" width="10" height="30" fill="#fff"/><rect y="10" width="60" height="10" fill="#fff"/><rect x="27" width="6" height="30" fill="#C8102E"/><rect y="12" width="60" height="6" fill="#C8102E"/></svg> English</a></li>
+        </ul>
+      </details>
+    </div>
+  </nav>
+
+  <main>
+    <section class="wrap">
+      <p class="mono-label">Install</p>
+      <h2>One command, and you're in</h2>
+      <p class="prereq">Prerequisite: <strong>Node.js 22+</strong> — the install downloads a <strong>prebuilt tarball</strong> (no build on the client); <code>better-sqlite3</code> downloads a prebuilt native binary on most platforms.</p>
+
+      <div class="tabs">
+        <button class="tab" data-tab="curl">curl · macOS/Linux</button>
+        <button class="tab" data-tab="powershell">PowerShell · Windows</button>
+        <button class="tab" data-tab="npm">npm</button>
+        <button class="tab" data-tab="pnpm">pnpm</button>
+        <button class="tab" data-tab="bun">bun</button>
+      </div>
+
+      <div class="cmd-block" data-panel="curl">
+        <pre class="cmd"><span class="prompt">$ </span>curl -fsSL https://raw.githubusercontent.com/MichelePolo/Aether/main/scripts/install/install.sh | bash</pre>
+        <button class="copy" data-copy>copy</button>
+      </div>
+      <div class="cmd-block" data-panel="powershell">
+        <pre class="cmd"><span class="prompt">&gt; </span>powershell -c "irm https://raw.githubusercontent.com/MichelePolo/Aether/main/scripts/install/install.ps1 | iex"</pre>
+        <button class="copy" data-copy>copy</button>
+      </div>
+      <div class="cmd-block" data-panel="npm">
+        <pre class="cmd"><span class="prompt">$ </span>npm i -g https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz</pre>
+        <button class="copy" data-copy>copy</button>
+      </div>
+      <div class="cmd-block" data-panel="pnpm">
+        <pre class="cmd"><span class="prompt">$ </span>pnpm add -g https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz</pre>
+        <button class="copy" data-copy>copy</button>
+      </div>
+      <div class="cmd-block" data-panel="bun">
+        <pre class="cmd"><span class="prompt">$ </span>bun add -g https://github.com/MichelePolo/Aether/releases/latest/download/aether-core.tgz</pre>
+        <button class="copy" data-copy>copy</button>
+      </div>
+
+      <p class="prereq" style="margin-top:1rem">curl and PowerShell verify Node, install the latest release and start Aether, opening the browser. With npm/pnpm/bun, run <code>aether daemon start --open</code> yourself after the install.</p>
+    </section>
+
+    <section class="wrap">
+      <p class="mono-label">First run</p>
+      <h2>Start and open</h2>
+      <div class="cmd-block">
+        <pre class="cmd"><span class="prompt">$ </span>aether daemon start --open   <span class="prompt"># start the server and open http://localhost:3000</span>
+<span class="prompt">$ </span>aether daemon status         <span class="prompt"># running/stopped + pid + port</span>
+<span class="prompt">$ </span>aether daemon stop</pre>
+        <button class="copy" data-copy>copy</button>
+      </div>
+    </section>
+
+    <section class="wrap">
+      <p class="mono-label">Uninstall</p>
+      <h2>Remove Aether</h2>
+      <div class="cmd-block">
+        <pre class="cmd"><span class="prompt">$ </span>aether daemon stop            <span class="prompt"># stop the server, if running</span>
+<span class="prompt">$ </span>npm  rm -g aether-core        <span class="prompt"># pnpm: pnpm rm -g · bun: bun rm -g</span></pre>
+        <button class="copy" data-copy>copy</button>
+      </div>
+      <p class="prereq" style="margin-top:1rem">Once the package is removed, the <code>aether</code> command disappears. Local data (sessions, SQLite DB, encrypted keys) lives in the <code>data/</code> folder you started the daemon from — or in <code>$AETHER_DATA_DIR</code> if you set it. To delete it entirely: <code>rm -rf data</code> in that folder.</p>
+    </section>
+
+    <section class="wrap">
+      <p class="mono-label">Troubleshooting</p>
+      <h2>If something's off</h2>
+      <div class="tshoot">
+        <div class="card">
+          <h3>Port 3000 is already in use</h3>
+          <p>Aether binds to the <code>PORT</code> variable (default 3000). Pick another one:</p>
+          <div class="cmd-block">
+            <pre class="cmd"><span class="prompt">$ </span>PORT=3001 aether daemon start --open
+<span class="prompt">$ </span>aether --port 3001 daemon start --open
+<span class="prompt"># from a clone, in dev:</span>
+<span class="prompt">$ </span>PORT=3001 npm run dev</pre>
+            <button class="copy" data-copy>copy</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Node missing or &lt; 20</h3>
+          <p>You need Node.js ≥ 20. Install it and re-run: <code>winget install OpenJS.NodeJS.LTS</code> (Windows), <code>brew install node</code> (macOS), or from <a href="https://nodejs.org">nodejs.org</a>. The install scripts check for it and stop with a clear message.</p>
+        </div>
+
+        <div class="card">
+          <h3><code>better-sqlite3</code> build error</h3>
+          <p>If there's no prebuilt binary for your platform, it's compiled and you need build tools: <strong>Windows</strong> = "Visual Studio Build Tools" (C++ workload) + Python; <strong>macOS</strong> = Xcode Command Line Tools (<code>xcode-select --install</code>); <strong>Linux</strong> = <code>build-essential</code> + <code>python3</code>.</p>
+        </div>
+
+        <div class="card">
+          <h3><code>EACCES</code> / permission denied on the global install</h3>
+          <p>If npm's global prefix is owned by root, the <code>-g</code> install can fail with <code>EACCES</code>. Use a user prefix (no sudo):</p>
+          <div class="cmd-block">
+            <pre class="cmd"><span class="prompt">$ </span>npm config set prefix ~/.local
+<span class="prompt"># add ~/.local/bin to your PATH, then re-run the install</span></pre>
+            <button class="copy" data-copy>copy</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>The browser doesn't open (SSH/headless)</h3>
+          <p>Opening the browser is best-effort. If it doesn't start, open the printed URL manually: <code>http://localhost:3000</code> (or the port you chose).</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p class="mono-label"><span class="c-disc">Disclosure</span> &amp; <span class="c-manip">Manipulation</span></p>
+      <div class="links">
+        <a href="https://github.com/MichelePolo/Aether">GitHub</a>
+        <a href="index.html">Manifesto</a>
+        <a href="https://michelepolo.github.io/Journey/">Blog</a>
+      </div>
+      <p class="credit">Aether — Observing and controlling LLMs.</p>
+    </div>
+  </footer>
+
+  <script src="../assets/main.js"></script>
+</body>
+</html>

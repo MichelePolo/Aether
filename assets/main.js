@@ -1,5 +1,12 @@
 // Aether site — minimal interactions (no deps). Degrades gracefully without JS.
 
+// UI strings that live in JS (not in the HTML) — chosen by <html lang>.
+const LANG = ((document.documentElement.lang || 'it').slice(0, 2) === 'en') ? 'en' : 'it';
+const STR = {
+  it: { copy: 'copia', copied: 'copiato ✓', copyManual: 'copia a mano', slide: 'Vai alla slide ' },
+  en: { copy: 'copy',  copied: 'copied ✓',  copyManual: 'copy manually', slide: 'Go to slide ' },
+}[LANG];
+
 // Copy-to-clipboard for [data-copy] buttons inside a .cmd-block
 document.querySelectorAll('[data-copy]').forEach((btn) => {
   btn.addEventListener('click', async () => {
@@ -7,11 +14,11 @@ document.querySelectorAll('[data-copy]').forEach((btn) => {
     const text = block?.querySelector('.cmd')?.innerText ?? '';
     try {
       await navigator.clipboard.writeText(text.trim());
-      btn.textContent = 'copiato ✓';
+      btn.textContent = STR.copied;
     } catch {
-      btn.textContent = 'copia a mano';
+      btn.textContent = STR.copyManual;
     }
-    setTimeout(() => { btn.textContent = 'copia'; }, 1500);
+    setTimeout(() => { btn.textContent = STR.copy; }, 1500);
   });
 });
 
@@ -43,7 +50,7 @@ document.querySelectorAll('.carousel').forEach((car) => {
   car.querySelector('.next')?.addEventListener('click', () => go(current() + 1));
   slides.forEach((_, i) => {
     const b = document.createElement('button');
-    b.setAttribute('aria-label', 'Vai alla slide ' + (i + 1));
+    b.setAttribute('aria-label', STR.slide + (i + 1));
     b.addEventListener('click', () => go(i));
     dotsWrap?.appendChild(b);
   });
@@ -55,3 +62,16 @@ document.querySelectorAll('.carousel').forEach((car) => {
   window.addEventListener('resize', setActive);
   setActive();
 });
+
+// Language selector (<details class="lang">): close on outside-click and Escape.
+// Native <details> already toggles on summary click and links navigate on their
+// own; this only tidies the UX. Without JS the dropdown still opens/closes.
+const langEl = document.querySelector('details.lang');
+if (langEl) {
+  document.addEventListener('click', (e) => {
+    if (langEl.open && !langEl.contains(e.target)) langEl.open = false;
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') langEl.open = false;
+  });
+}

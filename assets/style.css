@@ -218,3 +218,38 @@ footer .credit { color:var(--text-faint); font-size:.8rem; }
   .nav .links { gap:.9rem; }
   .nav .links a:first-child { display:none; } /* drop "Manifesto" to keep the pill tidy on phones */
 }
+
+/* ---- language selector (native <details> dropdown) ---- */
+/* The nav is a glass primitive with `contain:paint` (shared rule above), which
+   clips descendants that paint outside its box — that would hide this dropdown,
+   which extends below the bar. Drop the nav to layout containment so the menu
+   escapes; layout containment keeps the perf hint without the paint clip. */
+.nav { contain:layout; }
+.nav .links .lang { position:relative; }
+.nav .links .lang > summary {
+  list-style:none; cursor:pointer; display:inline-flex; align-items:center; gap:.4rem;
+  padding:.25rem .5rem; border-radius:.5rem; border:1px solid var(--edge);
+  background:rgba(255,255,255,.04); color:var(--text-dim); user-select:none;
+}
+.nav .links .lang > summary::-webkit-details-marker { display:none; }
+.nav .links .lang > summary::marker { content:""; }
+.nav .links .lang > summary:hover { color:#fff; }
+.nav .links .lang[open] > summary { color:#fff; border-color:var(--disclosure); }
+.lang .caret { font-size:.7rem; line-height:1; }
+.lang .flag { width:18px; height:12px; border-radius:2px; display:inline-block; flex:0 0 auto;
+              box-shadow:0 0 0 1px rgba(255,255,255,.12) inset; }
+.lang-menu {
+  position:absolute; right:0; top:calc(100% + .4rem); margin:0; padding:.3rem; list-style:none;
+  min-width:9.5rem; border-radius:.6rem; border:1px solid var(--edge);
+  background:rgba(24,24,27,.94);
+  -webkit-backdrop-filter:blur(14px) saturate(150%); backdrop-filter:blur(14px) saturate(150%);
+  box-shadow:0 12px 30px -12px rgba(0,0,0,.8); z-index:30;
+}
+.lang-menu li { margin:0; }
+.lang-menu a {
+  display:flex; align-items:center; gap:.55rem; padding:.4rem .5rem; border-radius:.4rem;
+  color:var(--text-dim); font-size:.82rem;
+}
+.lang-menu a:hover { background:rgba(255,255,255,.06); color:#fff; text-decoration:none; }
+.lang-menu a[aria-current="page"] { color:#fff; }
+.lang-menu a[aria-current="page"]::after { content:"✓"; margin-left:auto; color:var(--cli); }
