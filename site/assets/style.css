@@ -220,6 +220,11 @@ footer .credit { color:var(--text-faint); font-size:.8rem; }
 }
 
 /* ---- language selector (native <details> dropdown) ---- */
+/* The nav is a glass primitive with `contain:paint` (shared rule above), which
+   clips descendants that paint outside its box — that would hide this dropdown,
+   which extends below the bar. Drop the nav to layout containment so the menu
+   escapes; layout containment keeps the perf hint without the paint clip. */
+.nav { contain:layout; }
 .nav .links .lang { position:relative; }
 .nav .links .lang > summary {
   list-style:none; cursor:pointer; display:inline-flex; align-items:center; gap:.4rem;
