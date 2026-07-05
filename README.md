@@ -67,8 +67,8 @@ Start here: **[`docs/README.md`](docs/README.md)**.
 
 From there, the docs follow this path:
 
-1. [Getting started](docs/README.md)
-2. [Architecture](docs/README.md)
+1. [Getting started](docs/getting-started.md)
+2. [Architecture](docs/architecture.md)
 3. [Guides](docs/guides/)
 4. [Reference](docs/reference/)
 
