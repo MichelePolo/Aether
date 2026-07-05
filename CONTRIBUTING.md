@@ -1,79 +1,83 @@
-# Contributing — workflow del repository
+# Contributing — repository workflow
 
-Questo repo segue **GitHub Flow** con `main` protetto. `main` è sempre deployabile;
-ogni modifica entra esclusivamente tramite Pull Request approvata dall'owner.
+This repo follows **GitHub Flow** with protected `main`. `main` is always deployable;
+every change lands exclusively via Pull Request approved by the owner.
 
-## Regole d'oro
+## Golden rules
 
-1. **Non si pusha mai direttamente su `main`** (è bloccato per tutti, owner incluso).
-2. Ogni lavoro parte da un branch dedicato e finisce in una **PR verso `main`**.
-3. Una PR si può mergiare **solo dopo l'approvazione di @MichelePolo** (Code Owner).
-4. La cronologia di `main` è **lineare**: si mergia in **squash** (niente merge commit).
+1. **Never push directly to `main`** (it is locked for everyone, owner included).
+2. All work starts on a dedicated branch and ends in a **PR to `main`**.
+3. A PR can only be merged **after approval from @MichelePolo** (Code Owner).
+4. The history of `main` is **linear**: we merge via **squash** (no merge commits).
 
-## Flusso passo-passo
+## Step-by-step flow
 
 ```bash
-# 1. Allineati a main
+# 1. Sync to main
 git checkout main
 git pull
 
-# 2. Crea un branch dal prefisso giusto (vedi convenzioni sotto)
-git checkout -b feat/breve-descrizione
+# 2. Create a branch with the correct prefix (see conventions below)
+git checkout -b feat/short-description
 
-# 3. Lavora, commit piccoli e frequenti
+# 3. Work, small and frequent commits
 git add -A && git commit -m "feat: ..."
 
-# 4. Pusha e apri la PR
-git push -u origin feat/breve-descrizione
-gh pr create --base main --fill   # oppure dalla UI di GitHub
+# 4. Push and open the PR
+git push -u origin feat/short-description
+gh pr create --base main --fill   # or from GitHub's UI
 
-# 5. Attendi la review di @MichelePolo. Applica i feedback sullo stesso branch.
-# 6. A merge avvenuto (squash), il branch viene cancellato automaticamente.
+# 5. Wait for review from @MichelePolo. Apply feedback on the same branch.
+# 6. Once merged (squash), the branch is deleted automatically.
 ```
 
-## Convenzioni nomi branch
+## Branch naming conventions
 
-| Prefisso     | Uso                                            |
+| Prefix       | Usage                                          |
 |--------------|------------------------------------------------|
-| `feat/`      | nuova funzionalità                             |
-| `fix/`       | bugfix                                          |
-| `docs/`      | solo documentazione                            |
-| `refactor/`  | refactor senza cambiare comportamento          |
-| `chore/`     | build, dipendenze, tooling                     |
+| `feat/`      | new feature                                    |
+| `fix/`       | bugfix                                         |
+| `docs/`      | documentation only                             |
+| `refactor/`  | refactor without changing behavior             |
+| `chore/`     | build, dependencies, tooling                   |
 
-Per il lavoro a slice si usa `feat/slice-N-<nome>` (vedi `docs/superpowers/roadmap.md`).
+For slice-based work, use `feat/slice-N-<name>` (see `docs/superpowers/roadmap.md`).
 
 ## Commit & PR
 
-- Messaggi di commit in stile **Conventional Commits** (`feat:`, `fix:`, `docs:`…).
-- La PR deve passare i controlli richiesti (lint/test) prima del merge.
-- Risolvi tutte le conversazioni di review prima del merge.
+- Commit messages follow **Conventional Commits** style (`feat:`, `fix:`, `docs:`, etc.).
+- The PR must pass required checks (lint/test) before merging.
+- Resolve all review conversations before merging.
 
-## Versioning & release (automatico)
+## Versioning & release (automatic)
 
-Il versioning è gestito da **release-please** (`.github/workflows/release-please.yml`): legge i
-Conventional Commits arrivati su `main`, mantiene una **"release PR"** che aggiorna
-`package.json` + `CHANGELOG.md`, e al merge crea il **tag** e la **GitHub Release**. Non si
-bumpano versioni a mano.
+Versioning is managed by **release-please** (`.github/workflows/release-please.yml`): it reads
+Conventional Commits landing on `main`, maintains a **"release PR"** that updates
+`package.json` + `CHANGELOG.md`, and on merge creates the **tag** and **GitHub Release**. Do not
+bump versions manually.
 
 - `feat:` → bump **minor**, `fix:` → bump **patch**, `feat!:`/`BREAKING CHANGE:` → bump major
-  (pre-1.0: minor). `docs/chore/refactor/test` non rilasciano.
-- **Importante**: poiché si mergia in **squash**, è il **titolo della PR** a diventare il
-  messaggio di commit su `main` — quindi il titolo della PR **deve** essere un Conventional
-  Commit valido (es. `feat(context): ...`), altrimenti release-please lo ignora.
+  (pre-1.0: minor). `docs/chore/refactor/test` do not release.
+- **Important**: because we merge via **squash**, the **PR title** becomes the commit message on
+  `main` — so the PR title **must** be a valid Conventional Commit (e.g., `feat(context): ...`),
+  otherwise release-please ignores it.
 
 ## Migrations
 
-Le migrations SQLite sono **append-only** e numerate `NNN_nome.sql`. Il numero è una risorsa
-sequenziale condivisa: branch paralleli possono scegliere lo stesso numero e collidere. Un test
-(`server/db/migrate.naming.test.ts`) fallisce in CI su duplicati/gap. Se due branch finiscono con
-lo stesso `NNN`, la **seconda** PR che entra deve rinumerare la propria migration al numero libero
-successivo.
+SQLite migrations are **append-only** and numbered `NNN_name.sql`. The number is a shared
+sequential resource: parallel branches can pick the same number and collide. A test
+(`server/db/migrate.naming.test.ts`) fails in CI on duplicates/gaps. If two branches end up with
+the same `NNN`, the **second** PR to land must renumber its migration to the next available
+number.
 
-## Checklist prima di aprire la PR
+## Checklist before opening the PR
 
-- [ ] `npm run lint` pulito
-- [ ] `npm run test:run` verde
-- [ ] Branch aggiornato con `main` (no conflitti)
-- [ ] Titolo PR in **Conventional Commits** (guida il versioning automatico)
-- [ ] Descrizione PR con cosa/perché + come testare
+- [ ] `npm run lint` clean
+- [ ] `npm run test:run` green
+- [ ] Branch up-to-date with `main` (no conflicts)
+- [ ] PR title in **Conventional Commits** (guides automatic versioning)
+- [ ] PR description with what/why + how to test
+
+---
+
+For tests and code conventions, see [`docs/development.md`](docs/development.md).
