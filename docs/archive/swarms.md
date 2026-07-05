@@ -123,7 +123,7 @@ user+model alla history. Quindi:
 → L'output di uno step finisce **due volte** nel contesto dello step successivo:
 una come messaggio model nella history, una incorporato nel nuovo user message.
 Combinato con il fatto che la history non viene mai potata (vedi
-[`context_consumption.md`](./context_consumption.md)), **il consumo di token in
+[`context-consumption.md`](./context-consumption.md)), **il consumo di token in
 una swarm cresce più rapidamente** di N dispatch indipendenti. Ogni step cambia
 il `@mention` → cambia il blocco sub-agent del system instruction, ma la history
 accumulata resta condivisa tra sub-agent diversi.
@@ -268,7 +268,7 @@ sopra) — la pipeline è lineare ma non più vincolata a un unico modello. Atte
 all'interazione con il context consumption: la sessione è condivisa, quindi uno
 step eredita l'intero transcript ricostruito secondo il proprio provider
 (tokenizer/finestra/rendering diversi). Vedi
-[`context_consumption.md`](./context_consumption.md).
+[`context-consumption.md`](./context-consumption.md).
 
 ### Vocabolario eventi SSE (swarm-level)
 
