@@ -12,7 +12,7 @@ A local-first, multi-provider **agentic LLM dev studio**. Aether pairs a React s
 
 - **Multi-provider runtime** — switch between **Gemini**, **Anthropic (Claude)**, **OpenAI**, **OpenAI-compatible** endpoints (**vLLM** and any `/v1` server), and **Ollama** (local). Selection is sticky per session. A built-in **Fake provider** powers tests and offline dev.
 - **Secure credential KeyVault** — store API keys encrypted in SQLite via the in-app Provider Auth pane, or supply them through environment variables.
-- **MCP tools** — connect any Model Context Protocol server, plus **1-click built-ins** (filesystem, terminal) you can toggle on/off without touching the CLI.
+- **MCP tools** — connect any Model Context Protocol server, plus **1-click built-ins** (filesystem, terminal, git) you can toggle on/off without touching the CLI.
 - **Agentic breakpoints** — let the agent run freely, but pause for an approval gate (with diff/preview) before irreversible actions.
 - **Cross-model subagents** — dispatch subagents that can target different providers than the parent session.
 - **Workspaces** — add and browse project folders through a GUI; Aether manages the underlying filesystem MCP for you.
@@ -95,7 +95,8 @@ Express API  ──►  Domain layer
                    ├─ providers     (ProviderRegistry + KeyResolver + KeyVault)
                    ├─ mcp           (registry, built-ins, breakpoints/policy)
                    ├─ history       (sessions, forking, export/import)
-                   ├─ context · profiles · subagents · search · workspaces · reasoning
+                   ├─ context · profiles · subagents · swarms · schedules · skills
+                   ├─ search · workspaces · reasoning · git · tdd
                    ▼
               SQLite (better-sqlite3, numbered migrations, FTS, BLOB attachments)
 ```

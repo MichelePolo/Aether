@@ -11,7 +11,8 @@ Express API  ──►  Domain layer
                    ├─ providers     (ProviderRegistry + KeyResolver + KeyVault)
                    ├─ mcp           (registry, built-ins, breakpoints/policy)
                    ├─ history       (sessions, forking, export/import)
-                   ├─ context · profiles · subagents · search · workspaces · reasoning
+                   ├─ context · profiles · subagents · swarms · schedules · skills
+                   ├─ search · workspaces · reasoning · git · tdd
                    ▼
               SQLite (better-sqlite3, numbered migrations, FTS, BLOB attachments)
 ```
