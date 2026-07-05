@@ -31,7 +31,7 @@ npx vitest run --project frontend                                # only the fron
 
 ## Test layout (non-obvious)
 
-Vitest runs **two projects** (`vitest.config.ts`): `frontend` (jsdom, matches `src/**/*.{test,spec}.{ts,tsx}`) and `backend` (node, matches `server/**/*.{test,spec}.ts`). Tests are colocated next to source as `*.test.ts(x)`. Vitest `globals` are on, so `describe/it/expect` need no import. Coverage thresholds of **80%** are enforced on `server/domain/**`, `server/lib/**`, `src/hooks/**`, `src/stores/**`, `src/lib/**`. E2e tests live in `e2e/` and use Playwright (separate from Vitest).
+Vitest runs **two projects** (`vitest.config.ts`): `frontend` (jsdom, matches `src/**/*.{test,spec}.{ts,tsx}`) and `backend` (node, matches `server/**/*.{test,spec}.ts`). Tests are colocated next to source as `*.test.ts(x)`. Vitest `globals` are on, so `describe/it/expect` need no import. Coverage thresholds of **80%** are enforced on `server/domain/**`, `server/lib/**`, `src/hooks/**`, `src/stores/**`, `src/lib/**`, `cli/**`. E2e tests live in `e2e/` and use Playwright (separate from Vitest).
 
 ## Import paths
 
@@ -41,7 +41,7 @@ Vitest runs **two projects** (`vitest.config.ts`): `frontend` (jsdom, matches `s
 
 **Composition root.** `server/index.ts` `bootstrap()` opens the DB, applies migrations, constructs every store/service/provider, then hands them to `createApp(deps)` in `server/app.ts`. `createApp` mounts each route group **only if its dependency is present** (`AppDeps` fields are all optional). This is why unit tests can build a minimal app wired with just the one or two deps they exercise. The Express error middleware is registered **last**; `AppError`/`ValidationError` (`server/lib/errors.ts`) serialize to `{ error: { code, message } }` with the right status.
 
-**Domain layer.** `server/domain/<feature>/` for: `context`, `dispatch`, `history`, `mcp`, `profiles`, `providers`, `reasoning`, `search`, `subagents`, `workspaces`. Each feature typically pairs a SQLite-backed `*.store.ts`, a `*.service.ts`, `*.types.ts`, and a `createXxxRoutes()` factory under `server/routes/*.routes.ts`.
+**Domain layer.** `server/domain/<feature>/` for: `context`, `dispatch`, `git`, `history`, `mcp`, `profiles`, `providers`, `reasoning`, `schedules`, `search`, `skills`, `subagents`, `swarms`, `tdd`, `workspaces`. Each feature typically pairs a SQLite-backed `*.store.ts`, a `*.service.ts`, `*.types.ts`, and a `createXxxRoutes()` factory under `server/routes/*.routes.ts`.
 
 **Persistence.** `better-sqlite3` (synchronous), single file at `${AETHER_DATA_DIR}/aether.sqlite`. Schema evolves via **append-only** numbered migrations in `server/db/migrations/NNN_name.sql`, applied in numeric order on boot, each inside a transaction, tracked in the `_migrations` table (`server/db/migrate.ts`). **Add a new migration file to change schema; never edit an existing one** (it won't re-run). Foreign keys are ON with `ON DELETE CASCADE`/`SET NULL` for cascade behavior.
 
@@ -63,8 +63,9 @@ React 19 + Zustand, one store per domain in `src/stores/*.store.ts`. **Stores ne
 ## Working conventions
 
 - Work is organized as numbered **slices** on `feat/slice-N-*` branches (see `docs/superpowers/roadmap.md`); migration comments and tests reference slice numbers. New features are designed via the superpowers brainstorming → writing-plans → subagent-driven-development flow.
+- Current documentation lives in `docs/` (start at `docs/README.md`; EN canonical, IT translations under `docs/it/`); `docs/archive/` and `docs/superpowers/` are historical — don't cite them as current behavior.
 - `DISABLE_HMR=true` disables Vite HMR **and** file watching (used so agent edits don't trigger reload flicker). The conditional in `vite.config.ts` is intentional — don't "fix" it.
-- Some code comments and the `docs/` audits are written in Italian; this is expected and not a signal to translate.
+- Some code comments and the audits (now in `docs/archive/`) are written in Italian; this is expected and not a signal to translate.
 
 ## Configuration
 
