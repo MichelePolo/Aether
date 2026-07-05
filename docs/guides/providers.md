@@ -4,7 +4,7 @@ What this covers: how Aether discovers, credentials-gates, and names the model b
 
 ## How it works
 
-Every backend implements the small `AIProvider` interface (`server/domain/dispatch/providers/provider.types.ts`): a `model` string, a `capabilities` object (`thinking`, `toolCalling`, `vision`), and a `stream()` method that yields `text` / `thinking` / `function_call` / `done` chunks. There are five transports: `fake`, `gemini`, `ollama`, `anthropic`, `openai`, and `openai-compat` (`ProviderTransport` in `server/domain/providers/registry.ts`).
+Every backend implements the small `AIProvider` interface (`server/domain/dispatch/providers/provider.types.ts`): a `model` string, a `capabilities` object (`thinking`, `toolCalling`, `vision`), and a `stream()` method that yields `text` / `thinking` / `function_call` / `done` chunks. There are six transports: `fake`, `gemini`, `ollama`, `anthropic`, `openai`, and `openai-compat` (`ProviderTransport` in `server/domain/providers/registry.ts`).
 
 `ProviderRegistry.refresh()` (`server/domain/providers/registry.ts`) rebuilds the whole provider map from scratch on every call:
 - `fake:default` is always present.
