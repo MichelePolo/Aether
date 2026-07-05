@@ -97,7 +97,7 @@ Express API  ──►  Domain layer
                    ├─ history       (sessions, forking, export/import)
                    ├─ context · profiles · subagents · search · workspaces · reasoning
                    ▼
-              SQLite (better-sqlite3, migrations 001–009, FTS, BLOB attachments)
+              SQLite (better-sqlite3, numbered migrations, FTS, BLOB attachments)
 ```
 
 Server entrypoint: [`server/index.ts`](server/index.ts). Frontend entrypoint: [`src/main.tsx`](src/main.tsx).

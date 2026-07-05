@@ -13,7 +13,7 @@ Express API  ──►  Domain layer
                    ├─ history       (sessions, forking, export/import)
                    ├─ context · profiles · subagents · search · workspaces · reasoning
                    ▼
-              SQLite (better-sqlite3, migrations 001–009, FTS, BLOB attachments)
+              SQLite (better-sqlite3, numbered migrations, FTS, BLOB attachments)
 ```
 
 ## 1. One process
