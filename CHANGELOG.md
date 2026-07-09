@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.24](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.23...aether-core-v0.1.24) (2026-07-09)
+
+
+### Bug Fixes
+
+* hide console windows of spawned children on Windows ([#120](https://github.com/MichelePolo/Aether/issues/120)) ([135c730](https://github.com/MichelePolo/Aether/commit/135c730874fd30fbffb34c85dfefdb5446665429))
+
 ## [0.1.23](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.22...aether-core-v0.1.23) (2026-07-04)
 
 
