@@ -15,15 +15,16 @@ describe('remote-guard', () => {
     expect(badRef(42)).toBe(true);
   });
 
-  it('configuredRemotes lists the repo remotes', () => {
+  it('configuredRemotes lists the repo remotes', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'aether-rg-'));
     try {
       execFileSync('git', ['init', '-q', dir], { stdio: 'pipe' });
       execFileSync('git', ['-C', dir, 'remote', 'add', 'origin', '/tmp/x'], { stdio: 'pipe' });
-      return configuredRemotes(dir).then((set) => {
-        expect(set.has('origin')).toBe(true);
-        expect(set.has('upstream')).toBe(false);
-      });
+      // await BEFORE the finally: returning the promise let rmSync delete the
+      // temp dir while `git remote` was still running (flaky on loaded CI).
+      const set = await configuredRemotes(dir);
+      expect(set.has('origin')).toBe(true);
+      expect(set.has('upstream')).toBe(false);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
