@@ -100,3 +100,18 @@ describe('runGit (mocked spawn) — slice 29 opts', () => {
     expect(passedEnv.GIT_TERMINAL_PROMPT).toBe('0');
   });
 });
+
+describe('runGit (mocked spawn) — Windows console suppression', () => {
+  it('spawns git with windowsHide so no console window pops on Windows', async () => {
+    const child = fakeChild();
+    spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
+    const p = runGit(['log'], CWD);
+    child.emit('exit', 0);
+    await p;
+    expect(spawnMock).toHaveBeenCalledWith(
+      'git',
+      expect.any(Array),
+      expect.objectContaining({ windowsHide: true }),
+    );
+  });
+});

@@ -36,7 +36,11 @@ function checkClaudeCli(): Promise<boolean> {
     // eseguirlo senza shell, perciò spawn senza `shell:true` emetterebbe sempre
     // 'error' → falso 'none'. Comando e args sono costanti: nessun input utente,
     // quindi `shell:true` qui non introduce injection.
-    const child = spawn('claude', ['--version'], isWindows ? { shell: true } : undefined);
+    const child = spawn(
+      'claude',
+      ['--version'],
+      isWindows ? { shell: true, windowsHide: true } : { windowsHide: true },
+    );
     const timer = setTimeout(() => {
       try {
         child.kill();
