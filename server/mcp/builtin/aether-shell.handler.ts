@@ -44,7 +44,7 @@ export async function executeCommand(input: ExecuteCommandInput): Promise<Execut
   const cwd = input.cwd ?? process.cwd();
 
   return new Promise<ExecuteCommandResult>((resolve) => {
-    const child = spawn(input.cmd, [], { shell: true, cwd });
+    const child = spawn(input.cmd, [], { shell: true, cwd, windowsHide: true });
     let stdoutBuf = '';
     let stderrBuf = '';
     let stdoutTruncated = false;

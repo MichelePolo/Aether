@@ -40,6 +40,9 @@ export class StdioMcpConnection implements McpConnection {
     this.proc = spawn(this.opts.command, this.opts.args, {
       env: { ...process.env, ...this.opts.env },
       stdio: ['pipe', 'pipe', 'pipe'],
+      // The daemon runs detached without a console: on Windows every child
+      // would otherwise allocate a visible terminal window.
+      windowsHide: true,
     });
     this.proc.on('error', (err) => this.failAllPending(err));
     this.proc.on('exit', (code) => {

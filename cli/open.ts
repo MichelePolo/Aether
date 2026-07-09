@@ -10,7 +10,7 @@ export function openBrowser(url: string, platform: NodeJS.Platform = process.pla
     : platform === 'darwin' ? ['open', [url]]
     : ['xdg-open', [url]];
   try {
-    const child = spawn(cmd, args, { stdio: 'ignore', detached: true });
+    const child = spawn(cmd, args, { stdio: 'ignore', detached: true, windowsHide: true });
     child.on('error', () => { /* non-fatal */ });
     child.unref();
   } catch {

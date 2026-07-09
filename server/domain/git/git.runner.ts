@@ -68,6 +68,7 @@ export async function runGit(
       cwd,
       shell: false,
       env: opts?.env ? { ...process.env, ...opts.env } : process.env,
+      windowsHide: true,
     });
 
     let stdoutBuf = '';

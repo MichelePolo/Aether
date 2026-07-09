@@ -13,6 +13,15 @@ describe('openBrowser', () => {
     expect(spawn).toHaveBeenCalledWith('cmd', ['/c', 'start', '', 'http://x'], expect.any(Object));
   });
 
+  it('spawns with windowsHide so no console window pops on Windows', () => {
+    openBrowser('http://x', 'win32');
+    expect(spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      expect.objectContaining({ windowsHide: true }),
+    );
+  });
+
   it('uses open on darwin', () => {
     openBrowser('http://x', 'darwin');
     expect(spawn).toHaveBeenCalledWith('open', ['http://x'], expect.any(Object));
