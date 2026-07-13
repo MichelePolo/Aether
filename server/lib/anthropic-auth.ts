@@ -1,4 +1,5 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { resolveClaudeCodeExecutable } from './claude-code-executable';
 
 type AuthMode = 'oauth' | 'apikey' | 'none';
 
@@ -22,6 +23,7 @@ export async function detectAnthropicAuth(): Promise<AuthMode> {
 
 async function probeOAuth(): Promise<boolean> {
   const aborter = new AbortController();
+  const claudeCodeExecutable = resolveClaudeCodeExecutable();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<boolean>((resolve) => {
     timer = setTimeout(() => {
@@ -39,6 +41,9 @@ async function probeOAuth(): Promise<boolean> {
           maxTurns: 1,
           allowedTools: [],
           abortController: aborter,
+          ...(claudeCodeExecutable
+            ? { pathToClaudeCodeExecutable: claudeCodeExecutable }
+            : {}),
         },
       } as Parameters<typeof query>[0]);
       for await (const ev of iter) {

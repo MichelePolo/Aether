@@ -39,6 +39,7 @@
     "asarUnpack": [
       "node_modules/better-sqlite3/**",
       "node_modules/aether-core/node_modules/better-sqlite3/**",
+      "node_modules/@anthropic-ai/claude-agent-sdk-*/**",
       "node_modules/aether-core/dist/skills/defaults/**"
     ],
     "files": [

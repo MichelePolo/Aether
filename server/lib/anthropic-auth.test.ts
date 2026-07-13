@@ -61,6 +61,7 @@ describe('detectAnthropicAuth', () => {
     const arg = querySpy.mock.calls[0][0] as { options: Record<string, unknown> };
     expect(arg.options.abortController).toBeInstanceOf(AbortController);
     expect(arg.options.abortSignal).toBeUndefined();
+    expect(arg.options.pathToClaudeCodeExecutable).toEqual(expect.any(String));
   });
 
   it("returns 'none' when SDK probe hangs past 5s timeout", async () => {
