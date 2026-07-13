@@ -35,6 +35,7 @@ const initial = {
 };
 
 let hydrationToken = 0;
+let hydrationAbort: AbortController | null = null;
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : 'Operation failed';
@@ -61,6 +62,37 @@ function sortByUpdatedDesc(sessions: SessionMeta[]): SessionMeta[] {
   return [...sessions].sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+function hydrateChatForSession(id: string): void {
+  hydrationAbort?.abort();
+  const controller = new AbortController();
+  hydrationAbort = controller;
+  const token = ++hydrationToken;
+
+  historyApi
+    .fetchById(id, controller.signal)
+    .then((msgs) => {
+      if (
+        controller.signal.aborted ||
+        token !== hydrationToken ||
+        useSessionsStore.getState().activeSessionId !== id
+      ) return;
+      const chat = useChatStore.getState();
+      // Don't clobber: user may have typed during the hydrate window.
+      if (chat.messages.length > 0 && msgs.length === 0) return;
+      chat.hydrate(msgs);
+    })
+    .catch(() => {
+      if (
+        controller.signal.aborted ||
+        token !== hydrationToken ||
+        useSessionsStore.getState().activeSessionId !== id
+      ) return;
+      const chat = useChatStore.getState();
+      if (chat.messages.length > 0) return;
+      chat.hydrate([]);
+    });
+}
+
 export const useSessionsStore = create<SessionsState>((set, get) => ({
   ...initial,
   _reset: () => set(initial),
@@ -83,23 +115,8 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
       }
       persistActive(activeId);
       set({ sessions, activeSessionId: activeId, hydrated: true, error: null });
-      // Hydrate chat for the chosen active session.
-      const token = ++hydrationToken;
-      historyApi
-        .fetchById(activeId)
-        .then((msgs) => {
-          if (token !== hydrationToken) return;
-          const chat = useChatStore.getState();
-          // Don't clobber: user may have typed during the hydrate window
-          if (chat.messages.length > 0 && msgs.length === 0) return;
-          chat.hydrate(msgs);
-        })
-        .catch(() => {
-          if (token !== hydrationToken) return;
-          const chat = useChatStore.getState();
-          if (chat.messages.length > 0) return;
-          chat.hydrate([]);
-        });
+      useChatStore.getState().reset();
+      hydrateChatForSession(activeId);
     } catch (e) {
       set({ sessions: [], activeSessionId: null, hydrated: true, error: errMsg(e) });
     }
@@ -208,32 +225,13 @@ export const useSessionsStore = create<SessionsState>((set, get) => ({
   setActive: (id) => {
     if (useChatStore.getState().streamingId !== null) return;
     if (get().activeSessionId === id) return;
-    const run = () => {
-      persistActive(id);
-      set({ activeSessionId: id, error: null });
-      useChatStore.getState().reset();
-    };
-    if (typeof document !== 'undefined' && 'startViewTransition' in document) {
-      (document as Document & { startViewTransition: (cb: () => void) => unknown }).startViewTransition(run);
-    } else {
-      run();
-    }
-    const token = ++hydrationToken;
-    historyApi
-      .fetchById(id)
-      .then((msgs) => {
-        if (token !== hydrationToken) return;
-        const chat = useChatStore.getState();
-        // Don't clobber: user may have typed during the hydrate window
-        if (chat.messages.length > 0 && msgs.length === 0) return;
-        chat.hydrate(msgs);
-      })
-      .catch(() => {
-        if (token !== hydrationToken) return;
-        const chat = useChatStore.getState();
-        if (chat.messages.length > 0) return;
-        chat.hydrate([]);
-      });
+    // A view-transition callback can run after the fetch resolves in Electron,
+    // wiping freshly hydrated history with reset(). Session identity changes are
+    // intentionally synchronous; the previous in-flight fetch is aborted.
+    persistActive(id);
+    set({ activeSessionId: id, error: null });
+    useChatStore.getState().reset();
+    hydrateChatForSession(id);
   },
 
   setLocalTitle: (id, title) =>

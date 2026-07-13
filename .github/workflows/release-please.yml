@@ -27,6 +27,9 @@ concurrency:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -55,3 +58,17 @@ jobs:
           npm pack
           mv aether-core-*.tgz aether-core.tgz
           gh release upload "$TAG" aether-core.tgz --clobber
+
+  # Build the native Electron installers and attach them to the release that
+  # release-please just cut. Same trap as the tarball above: a release created
+  # with GITHUB_TOKEN does NOT trigger `on: release`, so we drive the packaging
+  # workflow explicitly here, gated on release_created.
+  desktop:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/desktop-package.yml
+    with:
+      release_tag: ${{ needs.release-please.outputs.tag_name }}
+    secrets: inherit

@@ -50,7 +50,7 @@ import { SkillStateStore } from './domain/skills/skill-state.store';
 import { SkillsService } from './domain/skills/skills.service';
 import { seedDefaultSkills } from './domain/skills/seed';
 import { seedSkillSmith } from './domain/subagents/skill-smith';
-import { defaultsDir, skillsDirFor, agentsDirFor } from './domain/skills/skills.paths';
+import { defaultsDir as bundledDefaultsDir, skillsDirFor, agentsDirFor } from './domain/skills/skills.paths';
 import { relocateSkillsDir } from './domain/skills/relocate';
 import { assertWritableDir } from './lib/library-dir';
 import { loadOrCreateVaultKey } from './lib/key-crypto';
@@ -58,8 +58,46 @@ import { migrateVaultToRandomKey } from './lib/vault-migrate';
 
 dotenv.config();
 
-async function bootstrap() {
-  const cfg = loadConfig();
+export interface AetherRuntime {
+  baseUrl: string;
+  host: string;
+  port: number;
+  close(): Promise<void>;
+}
+
+export interface BootstrapOptions {
+  /**
+   * Used by the Electron main process. An embedded runtime must not register
+   * process-level signal handlers: Electron owns the process lifetime and
+   * closes the runtime explicitly on app shutdown.
+   */
+  embedded?: boolean;
+  /** Override the HTTP port for an embedded host. `0` asks the OS for a free port. */
+  port?: number;
+  /** Override persistent paths without mutating the host process environment. */
+  dataDir?: string;
+  libraryDir?: string;
+  /** Physical directory containing bundled default skills for an embedded host. */
+  defaultsDir?: string;
+  /** Override the bind host for an embedded host. */
+  host?: string;
+}
+
+/**
+ * Start Aether's HTTP runtime.
+ *
+ * The CLI invokes this module directly, while desktop hosts import it with
+ * `AETHER_EMBEDDED=1` and call it themselves. Keeping the composition root in
+ * one place makes both hosts run the same API and migrations.
+ */
+export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherRuntime> {
+  const loadedConfig = loadConfig();
+  const cfg = {
+    ...loadedConfig,
+    port: options.port ?? loadedConfig.port,
+    dataDir: options.dataDir ?? loadedConfig.dataDir,
+    libraryDir: options.libraryDir ?? loadedConfig.libraryDir,
+  };
 
   const db = openDatabase(path.join(cfg.dataDir, 'aether.sqlite'));
   const migrated = applyMigrations(db, path.join(__dirname, 'db', 'migrations'));
@@ -78,7 +116,7 @@ async function bootstrap() {
     console.log(`[skills] relocated skills dir to ${skillsDirFor(cfg.libraryDir)}`);
   }
   mkdirSync(agentsDirFor(cfg.libraryDir), { recursive: true });
-  seedDefaultSkills(defaultsDir(), skillsDirFor(cfg.libraryDir));
+  seedDefaultSkills(options.defaultsDir ?? bundledDefaultsDir(), skillsDirFor(cfg.libraryDir));
 
   const contextStore = new ContextStore(db);
   const historyStore = new HistoryStore(db);
@@ -320,7 +358,7 @@ async function bootstrap() {
     skillsService,
   });
 
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' && !options.embedded) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -337,29 +375,36 @@ async function bootstrap() {
     });
   }
 
-  const isDaemon = process.env.AETHER_DAEMON === '1';
+  const isDaemon = !options.embedded && process.env.AETHER_DAEMON === '1';
   // Default to loopback for BOTH daemon and non-daemon. Opting into LAN
   // exposure is deliberate via AETHER_HOST (e.g. '0.0.0.0'). See spec D1.
-  const host = process.env.AETHER_HOST ?? '127.0.0.1';
+  const host = options.host ?? process.env.AETHER_HOST ?? '127.0.0.1';
 
-  const server = app.listen(cfg.port, host, () => {
-    console.log(`Aether server running on http://localhost:${cfg.port}`);
-    const loopback = host === 'localhost' || isLoopbackAddress(host);
-    if (!loopback) {
-      console.warn(
-        `[aether] WARNING: API bound to ${host} — reachable on the network. ` +
-          `Anyone on your LAN can drive dispatch and tools. Unset AETHER_HOST for loopback-only.`,
-      );
-    }
-    if (isDaemon) {
-      writeDaemonFile(cfg.dataDir, {
-        pid: process.pid,
-        host: '127.0.0.1',
-        port: cfg.port,
-        startedAt: new Date().toISOString(),
-      });
-    }
+  const server = app.listen(cfg.port, host);
+  await new Promise<void>((resolve, reject) => {
+    server.once('listening', resolve);
+    server.once('error', reject);
   });
+  const address = server.address();
+  const port = typeof address === 'object' && address ? address.port : cfg.port;
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  console.log(`Aether server running on ${baseUrl}`);
+  const loopback = host === 'localhost' || isLoopbackAddress(host);
+  if (!loopback) {
+    console.warn(
+      `[aether] WARNING: API bound to ${host} — reachable on the network. ` +
+        `Anyone on your LAN can drive dispatch and tools. Unset AETHER_HOST for loopback-only.`,
+    );
+  }
+  if (isDaemon) {
+    writeDaemonFile(cfg.dataDir, {
+      pid: process.pid,
+      host: '127.0.0.1',
+      port,
+      startedAt: new Date().toISOString(),
+    });
+  }
 
   if (process.env.AETHER_SCHEDULER !== '0') scheduler.start();
 
@@ -367,19 +412,34 @@ async function bootstrap() {
   // registered signal handler overrides Node's default terminate-on-signal
   // behavior, so without an explicit process.exit() the still-listening HTTP
   // server keeps the event loop alive and the process hangs.
-  installShutdown({
-    isDaemon,
-    server,
-    scheduler,
-    dataDir: cfg.dataDir,
-    exit: (code) => process.exit(code),
-    clearDaemonFile,
-    onSignal: (signal, handler) => process.on(signal, handler),
-    onExit: (handler) => process.on('exit', handler),
-  });
+  if (!options.embedded) {
+    installShutdown({
+      isDaemon,
+      server,
+      scheduler,
+      dataDir: cfg.dataDir,
+      exit: (code) => process.exit(code),
+      clearDaemonFile,
+      onSignal: (signal, handler) => process.on(signal, handler),
+      onExit: (handler) => process.on('exit', handler),
+    });
+  }
+
+  return {
+    baseUrl,
+    host,
+    port,
+    close: () => new Promise((resolve, reject) => {
+      scheduler.stop();
+      if (isDaemon) clearDaemonFile(cfg.dataDir);
+      server.close((err) => err ? reject(err) : resolve());
+    }),
+  };
 }
 
-bootstrap().catch((err) => {
-  console.error('Bootstrap failed:', err);
-  process.exit(1);
-});
+if (process.env.AETHER_EMBEDDED !== '1') {
+  bootstrap().catch((err) => {
+    console.error('Bootstrap failed:', err);
+    process.exit(1);
+  });
+}

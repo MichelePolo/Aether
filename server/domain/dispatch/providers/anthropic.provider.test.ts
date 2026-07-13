@@ -264,8 +264,11 @@ describe('AnthropicProvider', () => {
     ]));
     const p = new AnthropicProvider({ model: 'claude-haiku-4-5' });
     await collect(p.stream(baseReq(), aborter.signal));
-    const arg = querySpy.mock.calls[0][0] as { options: { abortController?: AbortController } };
+    const arg = querySpy.mock.calls[0][0] as {
+      options: { abortController?: AbortController; pathToClaudeCodeExecutable?: string };
+    };
     expect(arg.options.abortController).toBeInstanceOf(AbortController);
+    expect(arg.options.pathToClaudeCodeExecutable).toEqual(expect.any(String));
   });
 
   it('throws when an assistant event carries an error field', async () => {

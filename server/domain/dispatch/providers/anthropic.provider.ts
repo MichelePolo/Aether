@@ -1,5 +1,6 @@
 import { query, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
+import { resolveClaudeCodeExecutable } from '@/server/lib/claude-code-executable';
 import { jsonSchemaToZod } from './json-schema-zod';
 import type {
   AIProvider,
@@ -96,6 +97,10 @@ export class AnthropicProvider implements AIProvider {
         // WHY instead of the SDK's generic "exited with code 1".
         stderr: (data: string): void => { stderrBuf += data; },
       };
+      const claudeCodeExecutable = resolveClaudeCodeExecutable();
+      if (claudeCodeExecutable) {
+        options.pathToClaudeCodeExecutable = claudeCodeExecutable;
+      }
       // Hand auth to the isolated `claude` explicitly via env. The SDK defaults
       // env to process.env, so we only override (merging over process.env) when
       // there is a resolved token to inject — otherwise leave it unset.
