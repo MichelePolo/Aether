@@ -24,6 +24,18 @@ function embeddedCoreOptions() {
     port: 0,
     dataDir: path.join(userData, 'data'),
     libraryDir: path.join(userData, 'library'),
+    // Default skills are copied once on first run. They must live outside the
+    // ASAR archive because Node's recursive copy is not reliable for ASAR dirs
+    // on Windows.
+    defaultsDir: path.join(
+      process.resourcesPath,
+      'app.asar.unpacked',
+      'node_modules',
+      'aether-core',
+      'dist',
+      'skills',
+      'defaults',
+    ),
   };
 }
 

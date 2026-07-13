@@ -50,7 +50,7 @@ import { SkillStateStore } from './domain/skills/skill-state.store';
 import { SkillsService } from './domain/skills/skills.service';
 import { seedDefaultSkills } from './domain/skills/seed';
 import { seedSkillSmith } from './domain/subagents/skill-smith';
-import { defaultsDir, skillsDirFor, agentsDirFor } from './domain/skills/skills.paths';
+import { defaultsDir as bundledDefaultsDir, skillsDirFor, agentsDirFor } from './domain/skills/skills.paths';
 import { relocateSkillsDir } from './domain/skills/relocate';
 import { assertWritableDir } from './lib/library-dir';
 import { loadOrCreateVaultKey } from './lib/key-crypto';
@@ -77,6 +77,8 @@ export interface BootstrapOptions {
   /** Override persistent paths without mutating the host process environment. */
   dataDir?: string;
   libraryDir?: string;
+  /** Physical directory containing bundled default skills for an embedded host. */
+  defaultsDir?: string;
   /** Override the bind host for an embedded host. */
   host?: string;
 }
@@ -114,7 +116,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
     console.log(`[skills] relocated skills dir to ${skillsDirFor(cfg.libraryDir)}`);
   }
   mkdirSync(agentsDirFor(cfg.libraryDir), { recursive: true });
-  seedDefaultSkills(defaultsDir(), skillsDirFor(cfg.libraryDir));
+  seedDefaultSkills(options.defaultsDir ?? bundledDefaultsDir(), skillsDirFor(cfg.libraryDir));
 
   const contextStore = new ContextStore(db);
   const historyStore = new HistoryStore(db);
