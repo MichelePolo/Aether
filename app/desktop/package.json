@@ -42,6 +42,7 @@
     "files": [
       "main.mjs",
       "preload.cjs",
+      "windows-environment.mjs",
       "package.json",
       "node_modules/**/*"
     ],
