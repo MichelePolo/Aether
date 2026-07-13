@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.25](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.24...aether-core-v0.1.25) (2026-07-13)
+
+
+### Features
+
+* **desktop:** package Aether as an Electron app + ship installers via releases ([#123](https://github.com/MichelePolo/Aether/issues/123)) ([cbbe07c](https://github.com/MichelePolo/Aether/commit/cbbe07c24722e02ad75e9b4f47f7183f8ec3a206))
+
 ## [0.1.24](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.23...aether-core-v0.1.24) (2026-07-09)
 
 
