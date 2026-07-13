@@ -45,7 +45,41 @@
 
   <main>
     <section class="wrap">
-      <p class="mono-label">Install</p>
+      <p class="mono-label">Download</p>
+      <h2>Scarica e installa</h2>
+      <p class="lead prereq">La via più semplice: scarica l'app desktop per il tuo sistema e installala come un programma qualsiasi. Nessun terminale, nessun Node.js da configurare a mano.</p>
+
+      <div class="downloads">
+        <div class="card win">
+          <h3>Windows</h3>
+          <p class="dl-sub">Installer <code>.exe</code> · 64-bit</p>
+          <div class="dl-btns">
+            <a class="btn btn-primary" href="https://github.com/MichelePolo/Aether/releases/latest/download/Aether-windows-x64.exe">Scarica .exe</a>
+          </div>
+        </div>
+        <div class="card mac">
+          <h3>macOS</h3>
+          <p class="dl-sub">Immagine disco <code>.dmg</code></p>
+          <div class="dl-btns">
+            <a class="btn btn-primary" href="https://github.com/MichelePolo/Aether/releases/latest/download/Aether-macos-arm64.dmg">Apple Silicon</a>
+            <a class="btn btn-ghost" href="https://github.com/MichelePolo/Aether/releases/latest/download/Aether-macos-x64.dmg">Intel</a>
+          </div>
+        </div>
+        <div class="card lin">
+          <h3>Linux</h3>
+          <p class="dl-sub"><code>.AppImage</code> o pacchetto <code>.deb</code></p>
+          <div class="dl-btns">
+            <a class="btn btn-primary" href="https://github.com/MichelePolo/Aether/releases/latest/download/Aether-linux-x86_64.AppImage">AppImage</a>
+            <a class="btn btn-ghost" href="https://github.com/MichelePolo/Aether/releases/latest/download/Aether-linux-amd64.deb">.deb</a>
+          </div>
+        </div>
+      </div>
+
+      <p class="prereq" style="margin-top:1.35rem">Gli installer non sono ancora firmati: Windows può mostrare un avviso SmartScreen (<em>Ulteriori informazioni → Esegui comunque</em>) e macOS chiederà conferma a Gatekeeper (tasto destro sull'app → <em>Apri</em>). Preferisci il terminale, o vuoi la versione npm/tarball? Prosegui col <a href="#smanettoni">capitolo per smanettoni</a>.</p>
+    </section>
+
+    <section class="wrap" id="smanettoni">
+      <p class="mono-label">Capitolo per smanettoni</p>
       <h2>Un comando, e sei dentro</h2>
       <p class="prereq">Prerequisito: <strong>Node.js 22+</strong> — l'installazione scarica un <strong>tarball precompilato</strong> (niente build sul client); <code>better-sqlite3</code> scarica un binario nativo precompilato sulla maggior parte delle piattaforme.</p>
 
