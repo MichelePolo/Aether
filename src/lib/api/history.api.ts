@@ -14,8 +14,8 @@ async function asJson<T>(res: Response): Promise<T> {
 }
 
 export const historyApi = {
-  fetchById: async (id: string): Promise<Message[]> => {
-    const res = await fetch(`${BASE}/${id}`);
+  fetchById: async (id: string, signal?: AbortSignal): Promise<Message[]> => {
+    const res = await fetch(`${BASE}/${id}`, { signal });
     const body = await asJson<{ messages: Message[] }>(res);
     return body.messages;
   },

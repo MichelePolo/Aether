@@ -108,6 +108,33 @@ describe('useSessionsStore.setActive', () => {
     expect(useChatStore.getState().messages).toHaveLength(1);
   });
 
+  it('hydrates synchronously even when the browser exposes View Transitions', async () => {
+    useSessionsStore.setState({
+      sessions: [m('A'), m('B')], activeSessionId: 'A', hydrated: true,
+    });
+    server.use(
+      http.get('http://localhost/api/sessions/B', () =>
+        HttpResponse.json({ messages: [{ id: 'x', role: 'user', text: 'B history', timestamp: 1 }] }),
+      ),
+    );
+    const original = Object.getOwnPropertyDescriptor(document, 'startViewTransition');
+    Object.defineProperty(document, 'startViewTransition', {
+      configurable: true,
+      value: () => {
+        throw new Error('session changes must not wait for a View Transition');
+      },
+    });
+    try {
+      useSessionsStore.getState().setActive('B');
+      await new Promise((r) => setTimeout(r, 10));
+      expect(useSessionsStore.getState().activeSessionId).toBe('B');
+      expect(useChatStore.getState().messages.map((message) => message.text)).toEqual(['B history']);
+    } finally {
+      if (original) Object.defineProperty(document, 'startViewTransition', original);
+      else delete (document as { startViewTransition?: unknown }).startViewTransition;
+    }
+  });
+
   it('no-op when streamingId !== null', async () => {
     useSessionsStore.setState({
       sessions: [m('A'), m('B')], activeSessionId: 'A', hydrated: true,
