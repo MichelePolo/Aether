@@ -102,16 +102,16 @@ describe('KeyVaultService', () => {
     const vault = new KeyVaultService(db, TEST_KEY);
     const rows = vault.buildInfoRows({ anthropicCliPresent: true, ollamaHost: 'http://localhost:11434' });
     const anthropicRow = rows.find((r) => r.transport === 'anthropic-oauth')!;
-    expect(anthropicRow.label).toBe('Anthropic OAuth (via claude CLI)');
+    expect(anthropicRow.label).toBe('Anthropic OAuth (Claude Code)');
     expect(anthropicRow.status).toBe('detected');
   });
 
-  it("buildInfoRows with CLI absent → 'no CLI on PATH'", () => {
+  it("buildInfoRows with Claude Code unauthenticated", () => {
     db = makeTestDb();
     const vault = new KeyVaultService(db, TEST_KEY);
     const rows = vault.buildInfoRows({ anthropicCliPresent: false, ollamaHost: 'http://localhost:11434' });
     const anthropicRow = rows.find((r) => r.transport === 'anthropic-oauth')!;
-    expect(anthropicRow.status).toBe('no CLI on PATH');
+    expect(anthropicRow.status).toBe('not authenticated');
     const ollamaRow = rows.find((r) => r.transport === 'ollama')!;
     expect(ollamaRow.label).toBe('Ollama');
     expect(ollamaRow.status).toBe('Host: http://localhost:11434');

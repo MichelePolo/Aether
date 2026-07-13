@@ -101,8 +101,8 @@ export class KeyVaultService {
   }): ReadonlyInfoRow[] {
     const anthropicOauthRow: ReadonlyInfoRow = {
       transport: 'anthropic-oauth' as InfoTransport,
-      label: 'Anthropic OAuth (via claude CLI)',
-      status: opts.anthropicCliPresent ? 'detected' : 'no CLI on PATH',
+      label: 'Anthropic OAuth (Claude Code)',
+      status: opts.anthropicCliPresent ? 'detected' : 'not authenticated',
     };
     const ollamaRow: ReadonlyInfoRow = {
       transport: 'ollama' as InfoTransport,
