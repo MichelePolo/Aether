@@ -84,6 +84,17 @@ jobs:
       - name: Install desktop dependencies for the current platform
         run: npm ci --prefix app/desktop
 
+      # On a release, stamp the released semver (from the root package.json that
+      # release-please just bumped) into app/desktop/package.json so the .deb
+      # Version:, NSIS, macOS Info.plist and AppImage carry a real, increasing
+      # version — otherwise the pinned 0.0.0 makes every .deb look identical to
+      # apt/dpkg and blocks in-place upgrades. Filenames are renamed on upload,
+      # so the download permalinks are unaffected.
+      - name: Sync desktop version to the release
+        if: ${{ inputs.release_tag != '' }}
+        shell: bash
+        run: npm --prefix app/desktop pkg set version="$(node -p "require('./package.json').version")"
+
       - name: Package application
         run: npm --prefix app/desktop run ${{ matrix.command }}
 
