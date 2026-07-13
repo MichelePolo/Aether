@@ -1,0 +1,68 @@
+{
+  "name": "@aether/desktop",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Aether packaged as a secure Electron desktop application.",
+  "author": "Michele Polo",
+  "type": "module",
+  "main": "main.mjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build:core": "npm --prefix ../.. run build && npm install --force --package-lock=false --ignore-scripts",
+    "rebuild:native": "electron-builder install-app-deps",
+    "postinstall": "npm run rebuild:native",
+    "dev": "npm run build:core && npm run rebuild:native && electron .",
+    "start": "electron .",
+    "package": "npm run build:core && electron-builder --dir",
+    "package:win": "npm run build:core && electron-builder --win --dir",
+    "package:mac": "npm run build:core && electron-builder --mac --dir",
+    "dist": "npm run dist:linux",
+    "dist:linux": "npm run build:core && electron-builder --linux",
+    "dist:win": "npm run build:core && electron-builder --win --x64",
+    "dist:mac:x64": "npm run build:core && electron-builder --mac --x64",
+    "dist:mac:arm64": "npm run build:core && electron-builder --mac --arm64",
+    "lint": "node --check main.mjs && node --check preload.cjs"
+  },
+  "dependencies": {
+    "aether-core": "file:../.."
+  },
+  "build": {
+    "appId": "com.michelepolo.aether",
+    "productName": "Aether",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**",
+      "node_modules/aether-core/node_modules/better-sqlite3/**"
+    ],
+    "files": [
+      "main.mjs",
+      "preload.cjs",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Development"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^43.1.0",
+    "electron-builder": "^26.15.3"
+  }
+}

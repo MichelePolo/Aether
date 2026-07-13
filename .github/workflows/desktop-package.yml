@@ -1,0 +1,73 @@
+name: Desktop packages
+
+on:
+  pull_request:
+    paths:
+      - 'app/desktop/**'
+      - 'server/**'
+      - 'src/**'
+      - 'scripts/build.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+  push:
+    paths:
+      - 'app/desktop/**'
+      - 'server/**'
+      - 'src/**'
+      - 'scripts/build.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-packages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Windows x64
+            os: windows-latest
+            command: dist:win
+            artifact: aether-windows-x64
+          - label: macOS Intel
+            os: macos-15-intel
+            command: dist:mac:x64
+            artifact: aether-macos-x64
+          - label: macOS Apple Silicon
+            os: macos-latest
+            command: dist:mac:arm64
+            artifact: aether-macos-arm64
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            app/desktop/package-lock.json
+
+      - name: Install core dependencies
+        run: npm ci
+
+      - name: Install desktop dependencies for the current platform
+        run: npm ci --prefix app/desktop
+
+      - name: Package application
+        run: npm --prefix app/desktop run ${{ matrix.command }}
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            app/desktop/dist/*.exe
+            app/desktop/dist/*.dmg
+          if-no-files-found: error
