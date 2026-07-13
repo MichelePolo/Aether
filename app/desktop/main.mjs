@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, shell } from 'electron';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { configureWindowsClaudeEnvironment } from './windows-environment.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -12,6 +13,7 @@ let quitting = false;
 
 function embeddedCoreOptions() {
   const userData = app.getPath('userData');
+  configureWindowsClaudeEnvironment();
   // Electron owns its lifecycle, while the Aether core owns the HTTP API. The
   // dynamic port eliminates collisions with a browser/CLI server on :3000.
   process.env.AETHER_EMBEDDED = '1';

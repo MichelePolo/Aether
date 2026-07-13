@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 import type { DatabaseHandle } from '@/server/db/database';
 import type { McpServerConfig } from '@/server/domain/context/context.types';
 import type { BuiltinMcpState, BuiltinTransport } from './builtin.types';
@@ -31,31 +32,37 @@ function resolveAetherShellArgs(): string[] {
   // stdio. It is launched as `process.execPath` (node) + the args returned here.
   const here = path.dirname(fileURLToPath(import.meta.url));
   const srcEntry = path.resolve(here, '../../../mcp/builtin/aether-shell.ts');
-  // Prod: `npm run build` bundles the entry to dist/. If it exists, run it directly.
-  const distEntry = path.resolve(process.cwd(), 'dist/server/mcp/builtin/aether-shell.js');
-  try {
-    require.resolve(distEntry);
+  // Prod: `import.meta.url` is the bundled `dist/server.cjs`, so the sibling
+  // MCP entries can be resolved from it even when Electron is launched from
+  // an install directory rather than the repository cwd.
+  const distEntry = path.resolve(here, 'server/mcp/builtin/aether-shell.js');
+  if (existsSync(distEntry)) {
     return [distEntry];
-  } catch {
-    // Dev: only the .ts source exists. A child `node` process does NOT inherit
-    // the tsx loader from the parent dev server, so a plain `node aether-shell.ts`
-    // dies immediately with ERR_UNKNOWN_FILE_EXTENSION. Register the tsx loader
-    // first → effectively `node --import tsx server/mcp/builtin/aether-shell.ts`.
-    return ['--import', 'tsx', srcEntry];
   }
+  // Dev: only the .ts source exists. A child `node` process does NOT inherit
+  // the tsx loader from the parent dev server, so a plain `node aether-shell.ts`
+  // dies immediately with ERR_UNKNOWN_FILE_EXTENSION. Register the tsx loader
+  // first → effectively `node --import tsx server/mcp/builtin/aether-shell.ts`.
+  return ['--import', 'tsx', srcEntry];
 }
 
 function resolveAetherGitArgs(): string[] {
   // Mirrors resolveAetherShellArgs for the aether-git MCP entry.
   const here = path.dirname(fileURLToPath(import.meta.url));
   const srcEntry = path.resolve(here, '../../../mcp/builtin/aether-git.ts');
-  const distEntry = path.resolve(process.cwd(), 'dist/server/mcp/builtin/aether-git.js');
-  try {
-    require.resolve(distEntry);
+  const distEntry = path.resolve(here, 'server/mcp/builtin/aether-git.js');
+  if (existsSync(distEntry)) {
     return [distEntry];
-  } catch {
-    return ['--import', 'tsx', srcEntry];
   }
+  return ['--import', 'tsx', srcEntry];
+}
+
+/**
+ * Electron's executable is also its Node runtime, but it starts a GUI process
+ * unless this flag is set. Built-in MCP servers are stdio Node processes.
+ */
+export function builtinNodeEnv(runtime: Record<string, string | undefined> = process.versions): Record<string, string> {
+  return runtime.electron ? { ELECTRON_RUN_AS_NODE: '1' } : {};
 }
 
 export class BuiltinMcpStore {
@@ -101,7 +108,7 @@ export class BuiltinMcpStore {
           transport: 'stdio',
           command: process.execPath,
           args: [resolveFilesystemServerEntry(), ...allowed],
-          env: {},
+          env: builtinNodeEnv(),
           status: 'offline',
         } as McpServerConfig;
       }
@@ -112,7 +119,7 @@ export class BuiltinMcpStore {
           transport: 'stdio',
           command: process.execPath,
           args: [...resolveAetherGitArgs(), r.fsRoot ?? defaultCwd],
-          env: {},
+          env: builtinNodeEnv(),
           status: 'offline',
         } as McpServerConfig;
       }
@@ -122,7 +129,7 @@ export class BuiltinMcpStore {
         transport: 'stdio',
         command: process.execPath,
         args: resolveAetherShellArgs(),
-        env: {},
+        env: builtinNodeEnv(),
         status: 'offline',
       } as McpServerConfig;
     });
@@ -148,7 +155,7 @@ export class BuiltinMcpStore {
           transport: 'stdio',
           command: process.execPath,
           args: [resolveFilesystemServerEntry(), ...allowed],
-          env: {},
+          env: builtinNodeEnv(),
           status: 'offline',
         } as McpServerConfig);
       } else if (r.transport === 'git') {
@@ -158,7 +165,7 @@ export class BuiltinMcpStore {
           transport: 'stdio',
           command: process.execPath,
           args: [...resolveAetherGitArgs(), root],
-          env: {},
+          env: builtinNodeEnv(),
           status: 'offline',
         } as McpServerConfig);
       }

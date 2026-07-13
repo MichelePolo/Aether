@@ -23,7 +23,7 @@
     "dist:win": "npm run build:core && electron-builder --win --x64",
     "dist:mac:x64": "npm run build:core && electron-builder --mac --x64",
     "dist:mac:arm64": "npm run build:core && electron-builder --mac --arm64",
-    "lint": "node --check main.mjs && node --check preload.cjs"
+    "lint": "node --check main.mjs && node --check preload.cjs && node --check windows-environment.mjs"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.145",
