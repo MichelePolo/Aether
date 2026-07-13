@@ -33,12 +33,24 @@ skill e agenti), separati dai dati dell'esecuzione web/CLI.
 Il `package.json` e il `package-lock.json` nella radice del repository non
 vengono modificati dal lavoro desktop.
 
-## Distribuzione Windows e macOS
+## Distribuzione
 
 Gli installer vengono creati su runner nativi da `desktop-package.yml`: Windows
-x64 su Windows, macOS Intel su `macos-15-intel` e Apple Silicon su
-`macos-latest`. Gli artefatti risultanti sono disponibili nella pagina del run
-GitHub Actions.
+x64 su Windows, macOS Intel su `macos-15-intel`, Apple Silicon su `macos-latest`
+e Linux (`.AppImage` + `.deb`) su Ubuntu.
+
+Il workflow ha due modalità:
+
+- **CI** (PR / push / dispatch): ogni installer è caricato come artefatto del run
+  ed è scaricabile dalla pagina del run GitHub Actions (richiede login, scade).
+- **Release**: quando `release-please` pubblica una release su `main`, richiama
+  questo workflow (`workflow_call`, gate `release_created`) che rinomina ogni
+  installer con un nome stabile e lo allega alla GitHub Release. Così il minisito
+  può linkare permalink `releases/latest/download/<nome>`, esattamente come per il
+  tarball precompilato. I nomi stabili sono:
+  - `Aether-windows-x64.exe`
+  - `Aether-macos-arm64.dmg` · `Aether-macos-x64.dmg`
+  - `Aether-linux-x86_64.AppImage` · `Aether-linux-amd64.deb`
 
 Gli installer non sono ancora firmati né notarizzati. Windows mostrerà quindi
 un avviso SmartScreen e macOS richiederà un'apertura esplicita da Gatekeeper;

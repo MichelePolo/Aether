@@ -1,6 +1,24 @@
 name: Desktop packages
 
+# Builds the native Electron installers (Windows .exe, macOS .dmg, Linux
+# .AppImage + .deb) on native runners.
+#
+# Two modes:
+#  - CI (pull_request / push / workflow_dispatch): uploads each installer as a
+#    workflow artifact for smoke-download from the run page.
+#  - Release (workflow_call with `release_tag`): renames each installer to a
+#    stable, version-independent name and attaches it to that GitHub Release, so
+#    the minisite can link `releases/latest/download/<name>` permalinks — the
+#    same trick the prebuilt tarball uses. Driven from release-please.yml
+#    because a release cut with GITHUB_TOKEN does not trigger `on: release`.
 on:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: 'Attach installers to this GitHub Release tag instead of uploading workflow artifacts.'
+        type: string
+        required: false
+        default: ''
   pull_request:
     paths:
       - 'app/desktop/**'
@@ -20,13 +38,15 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: desktop-packages-${{ github.ref }}
+  group: desktop-packages-${{ github.ref }}-${{ inputs.release_tag }}
   cancel-in-progress: true
 
 jobs:
   package:
     name: ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write # needed to attach installers to a release (unused by CI runs)
     strategy:
       fail-fast: false
       matrix:
@@ -67,7 +87,9 @@ jobs:
       - name: Package application
         run: npm --prefix app/desktop run ${{ matrix.command }}
 
-      - name: Upload installer
+      # --- CI mode: keep the installer as a downloadable workflow artifact ---
+      - name: Upload installer artifact
+        if: ${{ inputs.release_tag == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
@@ -77,3 +99,31 @@ jobs:
             app/desktop/dist/*.deb
             app/desktop/dist/*.AppImage
           if-no-files-found: error
+
+      # --- Release mode: rename to a stable name and attach to the release ---
+      # electron-builder stamps the version into each filename; the minisite
+      # needs a permalink, so we rename to a fixed name before uploading. Each
+      # single-extension glob matches exactly one file on its own platform (the
+      # dmg's arch is read off the filename), so every loop is a no-op on the
+      # platforms that don't produce that extension.
+      - name: Attach installers to the release
+        if: ${{ inputs.release_tag != '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          cd app/desktop/dist
+          shopt -s nullglob
+          for f in *.exe;      do mv -f "$f" Aether-windows-x64.exe;       gh release upload "$TAG" Aether-windows-x64.exe --clobber; done
+          for f in *.AppImage; do mv -f "$f" Aether-linux-x86_64.AppImage; gh release upload "$TAG" Aether-linux-x86_64.AppImage --clobber; done
+          for f in *.deb;      do mv -f "$f" Aether-linux-amd64.deb;        gh release upload "$TAG" Aether-linux-amd64.deb --clobber; done
+          for f in *.dmg; do
+            case "$f" in
+              *arm64*) name=Aether-macos-arm64.dmg ;;
+              *)       name=Aether-macos-x64.dmg ;;
+            esac
+            mv -f "$f" "$name"
+            gh release upload "$TAG" "$name" --clobber
+          done
