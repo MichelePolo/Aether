@@ -212,9 +212,26 @@ footer .credit { color:var(--text-faint); font-size:.8rem; }
 .roadmap strong { font-family:var(--font-mono); font-weight:500; font-size:.92rem; color:var(--disclosure); }
 .roadmap-quote { font-style:italic; color:var(--text-faint); margin:1.5rem 0 0; }
 
+/* ---- friendly download cards (Electron installers, one glass card per OS) ---- */
+.downloads { display:grid; grid-template-columns:repeat(3,1fr); gap:1.1rem; margin-top:1.5rem; }
+.downloads .card { display:flex; flex-direction:column; }
+/* colored top-accent bar per OS, echoing the "Cosa capisci" concept grid */
+.downloads .card::before { content:""; position:absolute; inset:0 0 auto 0; height:3px; }
+.downloads .win::before { background:var(--disclosure);   box-shadow:0 0 22px -1px var(--disclosure); }
+.downloads .mac::before { background:var(--cli);          box-shadow:0 0 22px -1px var(--cli); }
+.downloads .lin::before { background:var(--manipulation); box-shadow:0 0 22px -1px var(--manipulation); }
+.downloads h3 { margin:.3rem 0 .35rem; font-size:1.25rem; color:#fff; font-family:var(--font-mono); }
+.downloads .dl-sub { font-size:.85rem; color:var(--text-dim); margin:0 0 1.15rem; }
+.downloads .dl-sub code { color:var(--disclosure); font-family:var(--font-mono);
+                          background:#0b0b0e; border:1px solid var(--border-subtle);
+                          border-radius:.35rem; padding:.05rem .35rem; font-size:.85em; }
+.dl-btns { display:flex; gap:.55rem; flex-wrap:wrap; margin-top:auto; }
+.dl-btns .btn { padding:.55rem .95rem; font-size:.82rem; }
+
 /* ---- responsive ---- */
 @media (max-width:720px) {
   .concepts { grid-template-columns:1fr; }
+  .downloads { grid-template-columns:1fr; }
   /* let the nav links wrap so the language selector can't be pushed off the
      right edge (where `body{overflow-x:hidden}` would clip it) on narrow phones. */
   .nav .links { gap:.9rem; flex-wrap:wrap; justify-content:flex-end; row-gap:.5rem; }

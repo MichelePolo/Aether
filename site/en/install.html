@@ -45,7 +45,41 @@
 
   <main>
     <section class="wrap">
-      <p class="mono-label">Install</p>
+      <p class="mono-label">Download</p>
+      <h2>Download and install</h2>
+      <p class="lead prereq">The easy way: grab the desktop app for your system and install it like any other program. No terminal, no Node.js to set up by hand.</p>
+
+      <div class="downloads">
+        <div class="card win">
+          <h3>Windows</h3>
+          <p class="dl-sub"><code>.exe</code> installer · 64-bit</p>
+          <div class="dl-btns">
+            <a class="btn btn-primary" href="https://github.com/MichelePolo/Aether/releases/latest/download/Aether-windows-x64.exe">Download .exe</a>
+          </div>
+        </div>
+        <div class="card mac">
+          <h3>macOS</h3>
+          <p class="dl-sub"><code>.dmg</code> disk image</p>
+          <div class="dl-btns">
+            <a class="btn btn-primary" href="https://github.com/MichelePolo/Aether/releases/latest/download/Aether-macos-arm64.dmg">Apple Silicon</a>
+            <a class="btn btn-ghost" href="https://github.com/MichelePolo/Aether/releases/latest/download/Aether-macos-x64.dmg">Intel</a>
+          </div>
+        </div>
+        <div class="card lin">
+          <h3>Linux</h3>
+          <p class="dl-sub"><code>.AppImage</code> or <code>.deb</code> package</p>
+          <div class="dl-btns">
+            <a class="btn btn-primary" href="https://github.com/MichelePolo/Aether/releases/latest/download/Aether-linux-x86_64.AppImage">AppImage</a>
+            <a class="btn btn-ghost" href="https://github.com/MichelePolo/Aether/releases/latest/download/Aether-linux-amd64.deb">.deb</a>
+          </div>
+        </div>
+      </div>
+
+      <p class="prereq" style="margin-top:1.35rem">The installers aren't signed yet: Windows may show a SmartScreen warning (<em>More info → Run anyway</em>) and macOS will ask Gatekeeper for confirmation (right-click the app → <em>Open</em>). Prefer the terminal, or want the npm/tarball build? Continue with the <a href="#smanettoni">chapter for tinkerers</a>.</p>
+    </section>
+
+    <section class="wrap" id="smanettoni">
+      <p class="mono-label">Chapter for tinkerers</p>
       <h2>One command, and you're in</h2>
       <p class="prereq">Prerequisite: <strong>Node.js 22+</strong> — the install downloads a <strong>prebuilt tarball</strong> (no build on the client); <code>better-sqlite3</code> downloads a prebuilt native binary on most platforms.</p>
 
