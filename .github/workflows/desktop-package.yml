@@ -35,6 +35,10 @@ jobs:
             os: windows-latest
             command: dist:win
             artifact: aether-windows-x64
+          - label: Ubuntu x64
+            os: ubuntu-latest
+            command: dist:linux
+            artifact: aether-ubuntu-x64
           - label: macOS Intel
             os: macos-15-intel
             command: dist:mac:x64
@@ -70,4 +74,6 @@ jobs:
           path: |
             app/desktop/dist/*.exe
             app/desktop/dist/*.dmg
+            app/desktop/dist/*.deb
+            app/desktop/dist/*.AppImage
           if-no-files-found: error

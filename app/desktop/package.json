@@ -3,7 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "description": "Aether packaged as a secure Electron desktop application.",
-  "author": "Michele Polo",
+  "author": "Michele Polo <michele.polo@gmail.com>",
+  "homepage": "https://github.com/MichelePolo/Aether",
+  "desktopName": "aether.desktop",
   "type": "module",
   "main": "main.mjs",
   "engines": {
@@ -47,8 +49,12 @@
       "node_modules/**/*"
     ],
     "linux": {
+      "executableName": "aether",
+      "syncDesktopName": true,
+      "maintainer": "Michele Polo <michele.polo@gmail.com>",
       "target": [
-        "AppImage"
+        "AppImage",
+        "deb"
       ],
       "category": "Development"
     },
