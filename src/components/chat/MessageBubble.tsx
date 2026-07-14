@@ -1,7 +1,7 @@
 import { memo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { File as FileIcon, Brain, Copy, Check } from 'lucide-react';
+import { File as FileIcon, Brain, Copy, Check, Download } from 'lucide-react';
 import { useChatStore } from '@/src/stores/chat.store';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useStreamingDispatch } from '@/src/hooks/useStreamingDispatch';
@@ -70,6 +70,17 @@ export const MessageBubble = memo(function MessageBubble({ id, onRetry }: Messag
       .catch(() => {});
   };
 
+  const handleDownloadMarkdown = () => {
+    const blob = new Blob([message.text], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeId = message.id.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48) || 'message';
+    link.href = url;
+    link.download = `aether-message-${safeId}.md`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+
   const tooltip =
     message.role === 'model' && message.tokensIn != null && message.tokensOut != null
       ? `Prompt: ${message.tokensIn} / Reply: ${message.tokensOut} tokens`
@@ -102,19 +113,30 @@ export const MessageBubble = memo(function MessageBubble({ id, onRetry }: Messag
         )}
       >
         {!isStreaming && message.text.length > 0 && (
-          <button
-            type="button"
-            onClick={handleCopy}
-            aria-label={copied ? t('messageBubble.copied') : t('messageBubble.copy')}
-            title={copied ? t('messageBubble.copied') : t('messageBubble.copy')}
-            className="absolute top-1.5 right-1.5 z-10 rounded-md p-1 text-zinc-400 bg-surface-3/80 backdrop-blur-sm opacity-0 transition-opacity hover:bg-surface-4 hover:text-zinc-100 focus-visible:opacity-100 group-hover:opacity-100"
-          >
-            {copied ? (
-              <Check size={13} className="text-status-online" aria-hidden="true" />
-            ) : (
-              <Copy size={13} aria-hidden="true" />
-            )}
-          </button>
+          <div className="absolute top-1.5 right-1.5 z-10 flex gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+            <button
+              type="button"
+              onClick={handleDownloadMarkdown}
+              aria-label={t('messageBubble.downloadMarkdown')}
+              title={t('messageBubble.downloadMarkdown')}
+              className="rounded-md p-1 text-zinc-400 bg-surface-3/80 backdrop-blur-sm hover:bg-surface-4 hover:text-zinc-100"
+            >
+              <Download size={13} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={handleCopy}
+              aria-label={copied ? t('messageBubble.copied') : t('messageBubble.copy')}
+              title={copied ? t('messageBubble.copied') : t('messageBubble.copy')}
+              className="rounded-md p-1 text-zinc-400 bg-surface-3/80 backdrop-blur-sm hover:bg-surface-4 hover:text-zinc-100"
+            >
+              {copied ? (
+                <Check size={13} className="text-status-online" aria-hidden="true" />
+              ) : (
+                <Copy size={13} aria-hidden="true" />
+              )}
+            </button>
+          </div>
         )}
 
         {isUser ? (

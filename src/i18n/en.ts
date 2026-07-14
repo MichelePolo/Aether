@@ -23,6 +23,7 @@ export const messages = {
     assistant: 'Aether',
     copy: 'Copy as Markdown',
     copied: 'Copied',
+    downloadMarkdown: 'Download Markdown',
   },
   sessionsSection: {
     heading: 'Sessions',
