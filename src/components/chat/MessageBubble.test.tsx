@@ -213,6 +213,33 @@ describe('MessageBubble', () => {
     expect(await screen.findByRole('button', { name: /copied/i })).toBeInTheDocument();
   });
 
+  it('downloads the message markdown source as a .md file', async () => {
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    const createObjectURL = vi.fn(() => 'blob:aether-message');
+    const revokeObjectURL = vi.fn();
+    Object.assign(URL, { createObjectURL, revokeObjectURL });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    try {
+      seed({ id: 'message:1', role: 'model', text: '# Heading\n\nBody' });
+      render(<MessageBubble id="message:1" />);
+      await userEvent.click(screen.getByRole('button', { name: /download markdown/i }));
+      expect(createObjectURL).toHaveBeenCalledOnce();
+      expect(click).toHaveBeenCalledOnce();
+      const link = click.mock.instances[0] as HTMLAnchorElement;
+      expect(link.href).toBe('blob:aether-message');
+      expect(link.download).toBe('aether-message-message1.md');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:aether-message');
+    } finally {
+      click.mockRestore();
+      Object.assign(URL, {
+        createObjectURL: originalCreateObjectURL,
+        revokeObjectURL: originalRevokeObjectURL,
+      });
+    }
+  });
+
   it('does not render a copy button for an empty model bubble', () => {
     seed({ id: 'empty', role: 'model', text: '' });
     render(<MessageBubble id="empty" />);
