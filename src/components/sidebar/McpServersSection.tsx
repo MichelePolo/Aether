@@ -114,6 +114,11 @@ export function McpServersSection() {
                 {'url' in server && server.url && (
                   <div className="text-[9px] font-mono text-fg-faint truncate">{String(server.url)}</div>
                 )}
+                {server.command && (
+                  <div className="text-[9px] font-mono text-fg-faint truncate">
+                    {[server.command, ...(server.args ?? [])].join(' ')}
+                  </div>
+                )}
                 {err && (
                   <div role="alert" className="text-[9px] font-mono text-status-error flex items-center gap-1">
                     <span className="flex-1">⚠ {err}</span>

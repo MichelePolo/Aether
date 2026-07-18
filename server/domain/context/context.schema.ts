@@ -23,6 +23,7 @@ export const McpServerSchema = z.object({
   command: z.string().optional(),
   args: z.array(z.string()).optional(),
   env: z.record(z.string(), z.string()).optional(),
+  headers: z.record(z.string(), z.string()).optional(),
   toolPolicies: z.record(z.string(), McpToolPolicySchema).optional(),
 });
 
@@ -40,6 +41,7 @@ const MockMcpSchema = z.object({
 const HttpMcpSchema = z.object({
   transport: z.literal('http'),
   url: z.string().min(1),
+  headers: z.record(z.string(), z.string()).optional(),
 });
 
 const BaseMcpSchema = z.object({

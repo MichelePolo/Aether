@@ -313,7 +313,7 @@ export class McpRegistry {
     if (cfg.transport === 'mock') return new MockMcpConnection();
     if (cfg.transport === 'http') {
       if (!cfg.url) throw new Error('http transport requires url');
-      return new HttpMcpConnection({ url: cfg.url });
+      return new HttpMcpConnection({ url: cfg.url, headers: cfg.headers });
     }
     return new StdioMcpConnection({
       command: cfg.command ?? '',
