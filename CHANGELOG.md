@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.26](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.25...aether-core-v0.1.26) (2026-07-18)
+
+
+### Features
+
+* **mcp:** full MCP server config from the UI — transport choice, headers, stdio ([#127](https://github.com/MichelePolo/Aether/issues/127)) ([427a2f5](https://github.com/MichelePolo/Aether/commit/427a2f5d70fd4ddb754c465d410071183895cc48))
+
 ## [0.1.25](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.24...aether-core-v0.1.25) (2026-07-13)
 
 
