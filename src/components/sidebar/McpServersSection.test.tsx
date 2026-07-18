@@ -37,17 +37,21 @@ describe('McpServersSection', () => {
     expect(screen.getByText(/no active mcp/i)).toBeInTheDocument();
   });
 
-  it('adds a server via 2-step prompt', async () => {
+  it('adds an http server via the multi-step prompt', async () => {
     const user = userEvent.setup();
     render(<><DialogHost /><McpServersSection /></>);
     await user.click(screen.getByRole('button', { name: /add mcp server/i }));
     // step 1: name
     await user.type(screen.getByRole('textbox'), 'TestSrv');
     await user.click(screen.getByRole('button', { name: /^(confirm|ok)$/i }));
-    // step 2: url (default)
+    // step 2: transport choice
+    await user.click(screen.getByRole('button', { name: /^http$/i }));
+    // step 3: url (default)
+    await user.click(screen.getByRole('button', { name: /^(confirm|ok)$/i }));
+    // step 4: headers (leave empty)
     await user.click(screen.getByRole('button', { name: /^(confirm|ok)$/i }));
     expect(useContextStore.getState().context?.mcpServers).toContainEqual(
-      expect.objectContaining({ name: 'TestSrv', status: 'connecting' }),
+      expect.objectContaining({ name: 'TestSrv', transport: 'http', status: 'connecting' }),
     );
   });
 
