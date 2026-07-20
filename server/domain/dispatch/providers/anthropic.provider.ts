@@ -1,6 +1,7 @@
 import { query, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { resolveClaudeCodeExecutable } from '@/server/lib/claude-code-executable';
+import { renderConversation } from './conversation';
 import { jsonSchemaToZod } from './json-schema-zod';
 import type {
   AIProvider,
@@ -215,28 +216,6 @@ function toolDefFor(decl: ProviderToolDecl, req: ProviderRequest): {
       return { content: [{ type: 'text', text: outcome.error ?? 'tool failed' }], isError: true };
     },
   };
-}
-
-/**
- * Render the whole turn as ONE user-role message. The Claude Agent SDK's
- * streaming input only accepts role:'user'; prior assistant turns cannot be
- * replayed structurally, so they are flattened into a text transcript.
- */
-function renderConversation(req: ProviderRequest): string {
-  const parts: string[] = [];
-  if (req.history.length > 0) {
-    parts.push('# Conversation so far');
-    for (const h of req.history) {
-      parts.push(`${h.role === 'model' ? 'Assistant' : 'User'}: ${h.text}`);
-    }
-    parts.push('');
-  }
-  if (req.pendingAssistantText && req.pendingAssistantText.length > 0) {
-    parts.push(`Assistant (interrupted — continue this response): ${req.pendingAssistantText}`);
-    parts.push('');
-  }
-  parts.push(req.userMessage);
-  return parts.join('\n');
 }
 
 async function* buildPromptStream(req: ProviderRequest): AsyncGenerator<SdkUserMessageEnvelope> {

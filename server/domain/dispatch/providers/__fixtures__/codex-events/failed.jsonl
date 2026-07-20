@@ -1,0 +1,3 @@
+{"type":"thread.started","thread_id":"t2"}
+{"type":"turn.started"}
+{"type":"turn.failed","error":{"message":"You've hit your usage limit."}}
