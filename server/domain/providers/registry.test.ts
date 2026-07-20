@@ -265,3 +265,60 @@ describe('ProviderRegistry', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('ProviderRegistry — codex transport', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 } as Response));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('registers codex entries when auth is oauth', async () => {
+    const reg = new ProviderRegistry(baseDeps({
+      detectCodexAuth: async () => 'oauth' as const,
+      codexModels: () => ['gpt-5.6-sol', 'gpt-5.6-sol-mini'],
+      codexBuilder: (model) => makeFake(model),
+    }));
+    await reg.refresh();
+    expect(reg.get('codex:gpt-5.6-sol')).not.toBeNull();
+    const d = reg.describe('codex:gpt-5.6-sol-mini');
+    expect(d?.transport).toBe('codex');
+    expect(d?.displayName).toBe('Codex CLI / gpt-5.6-sol-mini');
+  });
+
+  it('skips codex when not logged in', async () => {
+    const reg = new ProviderRegistry(baseDeps({
+      detectCodexAuth: async () => 'none' as const,
+      codexModels: () => ['gpt-5.6-sol'],
+      codexBuilder: (model) => makeFake(model),
+    }));
+    await reg.refresh();
+    expect(reg.get('codex:gpt-5.6-sol')).toBeNull();
+  });
+
+  it('skips codex when deps are not wired (minimal registries)', async () => {
+    const reg = new ProviderRegistry(baseDeps());
+    await reg.refresh();
+    expect(reg.list().some((d) => d.transport === 'codex')).toBe(false);
+  });
+
+  it('codex never displaces an existing default but beats fake', async () => {
+    const reg = new ProviderRegistry(baseDeps({
+      detectCodexAuth: async () => 'oauth' as const,
+      codexModels: () => ['gpt-5.6-sol'],
+      codexBuilder: (model) => makeFake(model),
+      detectAnthropicAuth: async () => 'oauth' as const,
+    }));
+    await reg.refresh();
+    expect(reg.defaultName()).toMatch(/^anthropic:/);
+
+    const onlyCodex = new ProviderRegistry(baseDeps({
+      detectCodexAuth: async () => 'oauth' as const,
+      codexModels: () => ['gpt-5.6-sol'],
+      codexBuilder: (model) => makeFake(model),
+    }));
+    await onlyCodex.refresh();
+    expect(onlyCodex.defaultName()).toBe('codex:gpt-5.6-sol');
+  });
+});

@@ -32,6 +32,10 @@ import { OllamaProvider } from './domain/dispatch/providers/ollama.provider';
 import { AnthropicProvider } from './domain/dispatch/providers/anthropic.provider';
 import { OpenAIProvider } from './domain/dispatch/providers/openai.provider';
 import { detectAnthropicAuth } from './lib/anthropic-auth';
+import { detectCodexAuth, resolveCodexBinary } from './lib/codex-auth';
+import { CodexProvider } from './domain/dispatch/providers/codex.provider';
+import { McpBridgeService } from './domain/mcp/bridge/bridge.service';
+import { codexHardcodedModels, readCodexDefaultModel } from './domain/providers/discovery';
 import { SearchService } from './domain/search/search.service';
 import { GitService } from './domain/git/git.service';
 import { AuthStatusService } from './domain/providers/auth-status';
@@ -184,9 +188,26 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
   const openAICompatEndpointStore = new OpenAICompatEndpointStore(db, vaultKey);
   const listOpenAICompatEndpoints = () => openAICompatEndpointStore.listResolved();
 
+  // Loopback MCP bridge for agentic-CLI providers (Codex). The actual bound
+  // port is only known after listen(), so the provider takes a lazy getter.
+  const mcpBridgeService = new McpBridgeService();
+  let bridgePort = cfg.port;
+
   const providers = new ProviderRegistry({
     resolveKey: (t) => resolver.get(t),
     detectAnthropicAuth,
+    detectCodexAuth,
+    codexModels: () => {
+      const configDefault = readCodexDefaultModel();
+      return [...new Set([...(configDefault ? [configDefault] : []), ...codexHardcodedModels()])];
+    },
+    codexBuilder: (model) =>
+      new CodexProvider({
+        model,
+        binaryPath: resolveCodexBinary() ?? 'codex',
+        bridgeBaseUrl: () => `http://127.0.0.1:${bridgePort}/api/mcp-bridge`,
+        bridge: mcpBridgeService,
+      }),
     fakeProvider,
     geminiBuilder: (model) => new GeminiProvider({ apiKey: resolver.get('gemini') ?? '', model }),
     listOllamaEndpoints,
@@ -245,6 +266,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
 
   const authStatusService = new AuthStatusService({
     detectAnthropicAuth,
+    detectCodexAuth,
     getAnthropicKey: () => resolver.get('anthropic'),
     getOpenAIKey: () => resolver.get('openai'),
     getGeminiKey: () => resolver.get('gemini'),
@@ -335,6 +357,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
     profilesStore,
     subAgentsStore,
     mcpRegistry,
+    mcpBridgeService,
     builtinStore,
     providers,
     searchService,
@@ -387,6 +410,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
   });
   const address = server.address();
   const port = typeof address === 'object' && address ? address.port : cfg.port;
+  bridgePort = port;
   const baseUrl = `http://127.0.0.1:${port}`;
 
   console.log(`Aether server running on ${baseUrl}`);

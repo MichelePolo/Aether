@@ -2,7 +2,7 @@ import type { AIProvider, ProviderCapabilities } from '@/server/domain/dispatch/
 import { discoverOllama, discoverOpenAICompat, geminiHardcodedModels, anthropicHardcodedModels, openAIHardcodedModels, discoverAnthropic } from './discovery';
 import type { ResolvedOpenAICompatEndpoint } from './openai-endpoints.types';
 
-export type ProviderTransport = 'fake' | 'gemini' | 'ollama' | 'anthropic' | 'openai' | 'openai-compat';
+export type ProviderTransport = 'fake' | 'gemini' | 'ollama' | 'anthropic' | 'openai' | 'openai-compat' | 'codex';
 
 export interface ProviderDescriptor {
   name: string;
@@ -28,6 +28,11 @@ export interface ProviderRegistryDeps {
   openAIBuilder: (model: string) => AIProvider;
   listOpenAICompatEndpoints: () => ResolvedOpenAICompatEndpoint[];
   openAICompatBuilder: (baseUrl: string, model: string, headers?: Record<string, string>) => AIProvider;
+  /** Codex CLI (ChatGPT-subscription auth, local-only detection). All three
+   *  optional so minimal test registries need no codex wiring. */
+  detectCodexAuth?: () => Promise<'oauth' | 'none'>;
+  codexModels?: () => string[];
+  codexBuilder?: (model: string) => AIProvider;
   defaultOverride?: string;
 }
 
@@ -37,6 +42,7 @@ function displayNameFor(transport: ProviderTransport, model: string, label?: str
   if (transport === 'anthropic') return `Anthropic / ${model}`;
   if (transport === 'openai') return `OpenAI / ${model}`;
   if (transport === 'openai-compat') return label ? `${label} / ${model}` : `OpenAI Compat / ${model}`;
+  if (transport === 'codex') return `Codex CLI / ${model}`;
   return `Ollama / ${model}`;
 }
 
@@ -139,6 +145,26 @@ export class ProviderRegistry {
       }
     }
 
+    // Codex CLI — subscription auth handled entirely by the CLI itself.
+    if (this.deps.detectCodexAuth && this.deps.codexBuilder) {
+      const codexAuth = await this.deps.detectCodexAuth();
+      if (codexAuth === 'oauth') {
+        for (const model of this.deps.codexModels?.() ?? []) {
+          const provider = this.deps.codexBuilder(model);
+          next.set(`codex:${model}`, {
+            provider,
+            descriptor: {
+              name: `codex:${model}`,
+              transport: 'codex',
+              model,
+              capabilities: provider.capabilities,
+              displayName: displayNameFor('codex', model),
+            },
+          });
+        }
+      }
+    }
+
     // Ollama (per-endpoint discovery). Local endpoint keeps `ollama:<model>`
     // for backward-compatibility with sessions saved before multi-endpoint.
     const ollamaEndpoints = this.deps.listOllamaEndpoints();
@@ -223,6 +249,11 @@ export class ProviderRegistry {
     }
     for (const e of this.entries.values()) {
       if (e.descriptor.transport === 'ollama') return e.descriptor.name;
+    }
+    // Codex last among real providers: it never displaces an existing default,
+    // but beats the fake fallback when it is the only transport configured.
+    for (const e of this.entries.values()) {
+      if (e.descriptor.transport === 'codex') return e.descriptor.name;
     }
     if (this.entries.has('fake:default')) return 'fake:default';
     return null;
