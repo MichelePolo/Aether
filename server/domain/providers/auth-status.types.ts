@@ -1,4 +1,4 @@
-export type ProviderTransport = 'anthropic' | 'openai' | 'gemini' | 'ollama';
+export type ProviderTransport = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'codex';
 export type AuthState = 'ok' | 'unconfigured' | 'error';
 
 export interface TransportStatus {
@@ -34,6 +34,7 @@ export interface AuthStatusReport {
 
 export const TRANSPORT_ORDER: ProviderTransport[] = [
   'anthropic',
+  'codex',
   'openai',
   'gemini',
   'ollama',

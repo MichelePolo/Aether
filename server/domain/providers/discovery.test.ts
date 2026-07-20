@@ -154,3 +154,42 @@ describe('discoverAnthropic', () => {
     expect(await discoverAnthropic('sk-ant')).toEqual({ models: [], error: 'ENOTFOUND' });
   });
 });
+
+describe('codex model sources', () => {
+  it('codexHardcodedModels returns a non-empty list', async () => {
+    const { codexHardcodedModels } = await import('./discovery');
+    expect(codexHardcodedModels().length).toBeGreaterThan(0);
+  });
+
+  it('readCodexDefaultModel parses model from config.toml under CODEX_HOME', async () => {
+    const { readCodexDefaultModel } = await import('./discovery');
+    const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const home = mkdtempSync(join(tmpdir(), 'codex-home-'));
+    try {
+      writeFileSync(
+        join(home, 'config.toml'),
+        'model = "gpt-5.6-sol"\nmodel_reasoning_effort = "xhigh"\n',
+      );
+      expect(readCodexDefaultModel({ CODEX_HOME: home })).toBe('gpt-5.6-sol');
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it('readCodexDefaultModel returns null on missing file or missing key', async () => {
+    const { readCodexDefaultModel } = await import('./discovery');
+    const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    expect(readCodexDefaultModel({ CODEX_HOME: '/nonexistent-codex-home' })).toBeNull();
+    const home = mkdtempSync(join(tmpdir(), 'codex-home-'));
+    try {
+      writeFileSync(join(home, 'config.toml'), 'sandbox_mode = "read-only"\n');
+      expect(readCodexDefaultModel({ CODEX_HOME: home })).toBeNull();
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+});

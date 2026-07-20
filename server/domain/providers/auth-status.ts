@@ -13,6 +13,8 @@ type AnthropicAuth = 'oauth' | 'apikey' | 'none';
 
 export interface AuthStatusServiceDeps {
   detectAnthropicAuth: () => Promise<AnthropicAuth>;
+  /** Optional so existing minimal test setups need no codex wiring. */
+  detectCodexAuth?: () => Promise<'oauth' | 'none'>;
   getAnthropicKey: () => string | undefined;
   getOpenAIKey: () => string | undefined;
   getGeminiKey: () => string | undefined;
@@ -50,6 +52,7 @@ export class AuthStatusService {
   ): Promise<TransportStatus> {
     try {
       if (transport === 'anthropic') return await this.probeAnthropic();
+      if (transport === 'codex') return await this.probeCodex();
       if (transport === 'openai') return await this.probeOpenAI();
       return await this.probeGemini();
     } catch (err) {
@@ -75,6 +78,15 @@ export class AuthStatusService {
       };
     }
     return { transport: 'anthropic', state: 'unconfigured', reason: 'no api key' };
+  }
+
+  private async probeCodex(): Promise<TransportStatus> {
+    if (!this.deps.detectCodexAuth) {
+      return { transport: 'codex', state: 'unconfigured', reason: 'not wired' };
+    }
+    const result = await this.deps.detectCodexAuth();
+    if (result === 'oauth') return { transport: 'codex', state: 'ok', reason: 'oauth chatgpt' };
+    return { transport: 'codex', state: 'unconfigured', reason: 'not logged in' };
   }
 
   private async probeOpenAI(): Promise<TransportStatus> {

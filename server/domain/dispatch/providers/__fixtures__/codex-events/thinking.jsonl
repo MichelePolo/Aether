@@ -1,0 +1,4 @@
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"r1","type":"reasoning","text":"pondering the request"}}
+{"type":"item.completed","item":{"id":"i1","type":"agent_message","text":"Answer"}}
+{"type":"turn.completed","usage":{"input_tokens":5,"output_tokens":5}}

@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { z } from 'zod';
+import { codexHome } from '@/server/lib/codex-auth';
 
 const TagsResponse = z.object({
   models: z.array(z.object({ name: z.string() })),
@@ -91,4 +94,21 @@ export function anthropicHardcodedModels(): string[] {
 
 export function openAIHardcodedModels(): string[] {
   return ['gpt-5', 'gpt-5-mini', 'gpt-4.1', 'o3'];
+}
+
+export function codexHardcodedModels(): string[] {
+  return ['gpt-5.6-sol'];
+}
+
+/** Default model the user picked in Codex (`model = "…"` in
+ *  `$CODEX_HOME/config.toml`). Light regex parse — no TOML dependency;
+ *  null on any error (missing file, no model line). */
+export function readCodexDefaultModel(env: NodeJS.ProcessEnv = process.env): string | null {
+  try {
+    const text = readFileSync(join(codexHome(env), 'config.toml'), 'utf8');
+    const match = text.match(/^\s*model\s*=\s*"([^"]+)"/m);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
 }

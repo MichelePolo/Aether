@@ -28,6 +28,7 @@ describe('AuthStatusService.probe — all-OK path', () => {
     });
     const svc = makeService({
       detectAnthropicAuth: async () => 'oauth',
+      detectCodexAuth: async () => 'oauth',
       getOpenAIKey: () => 'sk-x',
       getGeminiKey: () => 'gk-x',
       fetch: fetchMock as typeof fetch,
@@ -64,6 +65,7 @@ describe('AuthStatusService.probe — mixed', () => {
     const report = await svc.probe();
     expect(report.statuses).toEqual([
       { transport: 'anthropic', state: 'ok', reason: 'api key set' },
+      expect.objectContaining({ transport: 'codex', state: 'unconfigured' }),
       { transport: 'openai', state: 'unconfigured', reason: 'no api key' },
       expect.objectContaining({ transport: 'gemini', state: 'error', reason: '401' }),
     ]);
@@ -113,8 +115,8 @@ describe('AuthStatusService.probe — error isolation', () => {
       },
     });
     const report = await svc.probe();
-    // 3 keyed transports (not ollama) + 1 ollama endpoint
-    expect(report.statuses).toHaveLength(3);
+    // 4 keyed transports (not ollama) + 1 ollama endpoint
+    expect(report.statuses).toHaveLength(4);
     expect(report.statuses[0]).toEqual(
       expect.objectContaining({ transport: 'anthropic', state: 'error' }),
     );
@@ -347,5 +349,30 @@ describe('AuthStatusService.probe — openai-compat endpoints', () => {
     expect(report.ollama[0].state).toBe('ok');
     // headers Authorization should win over token
     expect(capturedHeaders.Authorization).toBe('Bearer custom');
+  });
+});
+
+describe('AuthStatusService — codex probe', () => {
+  it('ok/oauth chatgpt when the CLI is logged in', async () => {
+    const svc = makeService({ detectCodexAuth: async () => 'oauth' });
+    const report = await svc.probe(['codex']);
+    expect(report.statuses).toEqual([
+      { transport: 'codex', state: 'ok', reason: 'oauth chatgpt' },
+    ]);
+  });
+
+  it('unconfigured when not logged in', async () => {
+    const svc = makeService({ detectCodexAuth: async () => 'none' });
+    const report = await svc.probe(['codex']);
+    expect(report.statuses[0]).toEqual({
+      transport: 'codex',
+      state: 'unconfigured',
+      reason: 'not logged in',
+    });
+  });
+
+  it('unconfigured when detection is not wired (minimal deps)', async () => {
+    const report = await makeService().probe(['codex']);
+    expect(report.statuses[0]?.state).toBe('unconfigured');
   });
 });

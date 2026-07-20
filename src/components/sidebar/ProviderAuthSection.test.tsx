@@ -12,19 +12,21 @@ beforeEach(() => {
 
 const allStatuses = [
   { transport: 'anthropic' as const, state: 'ok' as const, reason: 'API key set', detail: 'sk-ant-***' },
+  { transport: 'codex' as const, state: 'unconfigured' as const, reason: 'not logged in', detail: '' },
   { transport: 'openai' as const, state: 'unconfigured' as const, reason: 'No key', detail: '' },
   { transport: 'gemini' as const, state: 'error' as const, reason: 'Invalid key', detail: 'Bad format' },
 ];
 
 describe('ProviderAuthSection', () => {
-  it('renders 3 keyed rows in order (anthropic, openai, gemini) — Ollama is its own sub-block', () => {
+  it('renders 4 keyed rows in order (anthropic, codex, openai, gemini) — Ollama is its own sub-block', () => {
     useProviderAuthStore.setState({ statuses: allStatuses });
     render(<ProviderAuthSection />);
     const rows = screen.getAllByTestId('provider-auth-row');
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(4);
     expect(rows[0].textContent).toContain('Anthropic');
-    expect(rows[1].textContent).toContain('OpenAI');
-    expect(rows[2].textContent).toContain('Gemini');
+    expect(rows[1].textContent).toContain('Codex CLI');
+    expect(rows[2].textContent).toContain('OpenAI');
+    expect(rows[3].textContent).toContain('Gemini');
   });
 
   it('title= attribute equals detail when present, empty string when absent', () => {
@@ -34,9 +36,9 @@ describe('ProviderAuthSection', () => {
     // anthropic has detail 'sk-ant-***'
     expect(rows[0]).toHaveAttribute('title', 'sk-ant-***');
     // openai has detail '' (empty)
-    expect(rows[1]).toHaveAttribute('title', '');
+    expect(rows[2]).toHaveAttribute('title', '');
     // gemini has detail 'Bad format'
-    expect(rows[2]).toHaveAttribute('title', 'Bad format');
+    expect(rows[3]).toHaveAttribute('title', 'Bad format');
   });
 
   it('renders error banner when store.error is set', () => {
@@ -73,17 +75,27 @@ describe('ProviderAuthSection — click-to-open vault', () => {
     const user = userEvent.setup();
 
     const rows = screen.getAllByTestId('provider-auth-row');
-    // openai is unconfigured (index 1)
-    await user.click(rows[1]);
+    // openai is unconfigured (index 2)
+    await user.click(rows[2]);
     expect(useUiStore.getState().keyVaultOpen).toBe(true);
     expect(useUiStore.getState().keyVaultFocusTransport).toBe('openai');
 
     useUiStore.getState()._reset();
 
-    // gemini is error (index 2)
-    await user.click(rows[2]);
+    // gemini is error (index 3)
+    await user.click(rows[3]);
     expect(useUiStore.getState().keyVaultOpen).toBe(true);
     expect(useUiStore.getState().keyVaultFocusTransport).toBe('gemini');
+  });
+
+  it('clicking the codex row does NOT open the vault (no key to enter)', async () => {
+    useProviderAuthStore.setState({ statuses: allStatuses });
+    render(<ProviderAuthSection />);
+    const user = userEvent.setup();
+    const rows = screen.getAllByTestId('provider-auth-row');
+    // codex is unconfigured (index 1) but auth comes from `codex login`, not the vault
+    await user.click(rows[1]);
+    expect(useUiStore.getState().keyVaultOpen).toBe(false);
   });
 
   it('clicking an ok row does NOT open the vault', async () => {

@@ -1,7 +1,7 @@
 import type { OllamaEndpointStatus } from './ollama-endpoints.types';
 import type { OpenAICompatEndpointStatus } from './openai-endpoints.types';
 
-export type ProviderTransport = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'openai-compat';
+export type ProviderTransport = 'anthropic' | 'codex' | 'openai' | 'gemini' | 'ollama' | 'openai-compat';
 export type AuthState = 'ok' | 'unconfigured' | 'error';
 
 export interface TransportStatus {
@@ -19,5 +19,5 @@ export interface AuthStatusReport {
 }
 
 export const TRANSPORT_ORDER: ProviderTransport[] = [
-  'anthropic', 'openai', 'gemini', 'ollama', 'openai-compat',
+  'anthropic', 'codex', 'openai', 'gemini', 'ollama', 'openai-compat',
 ];

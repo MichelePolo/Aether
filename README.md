@@ -10,7 +10,7 @@ A local-first, multi-provider **agentic LLM dev studio**. Aether pairs a React s
 
 ## Features
 
-- **Multi-provider runtime** — switch between **Gemini**, **Anthropic (Claude)**, **OpenAI**, **OpenAI-compatible** endpoints (**vLLM** and any `/v1` server), and **Ollama** (local). Selection is sticky per session. A built-in **Fake provider** powers tests and offline dev.
+- **Multi-provider runtime** — switch between **Gemini**, **Anthropic (Claude)**, **OpenAI**, **Codex CLI** (ChatGPT-subscription auth, no API key), **OpenAI-compatible** endpoints (**vLLM** and any `/v1` server), and **Ollama** (local). Selection is sticky per session. A built-in **Fake provider** powers tests and offline dev.
 - **Secure credential KeyVault** — store API keys encrypted in SQLite via the in-app Provider Auth pane, or supply them through environment variables.
 - **MCP tools** — connect any Model Context Protocol server, plus **1-click built-ins** (filesystem, terminal, git) you can toggle on/off without touching the CLI.
 - **Agentic breakpoints** — let the agent run freely, but pause for an approval gate (with diff/preview) before irreversible actions.

@@ -34,6 +34,8 @@ import type { PreviewService } from '@/server/domain/mcp/breakpoints/preview.ser
 import { createBreakpointsRoutes } from './routes/breakpoints.routes';
 import type { OllamaEndpointStore } from '@/server/domain/providers/ollama-endpoints.store';
 import type { OpenAICompatEndpointStore } from '@/server/domain/providers/openai-endpoints.store';
+import { createMcpBridgeRoutes } from './routes/mcp-bridge.routes';
+import type { McpBridgeService } from '@/server/domain/mcp/bridge/bridge.service';
 import { createSwarmRoutes } from './routes/swarms.routes';
 import { createTddRoutes } from './routes/tdd.routes';
 import { createScheduleRoutes } from './routes/schedules.routes';
@@ -47,6 +49,7 @@ export interface AppDeps {
   profilesStore?: ProfilesStore;
   subAgentsStore?: SubAgentsStore;
   mcpRegistry?: McpRegistry;
+  mcpBridgeService?: McpBridgeService;
   builtinStore?: BuiltinMcpStore;
   providers?: ProviderRegistry;
   searchService?: SearchService;
@@ -121,6 +124,10 @@ export function createApp(
 
   if (deps.mcpRegistry) {
     app.use('/api/mcp', createMcpRoutes(deps.mcpRegistry, deps.dispatcher));
+  }
+
+  if (deps.mcpBridgeService) {
+    app.use('/api/mcp-bridge', createMcpBridgeRoutes(deps.mcpBridgeService));
   }
 
   if (deps.skillsService) {

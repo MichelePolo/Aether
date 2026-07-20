@@ -10,6 +10,7 @@ import type { OpenAICompatEndpointStatus } from '@/src/types/openai-endpoints.ty
 
 const TRANSPORT_LABELS: Record<ProviderTransport, string> = {
   anthropic: 'Anthropic',
+  codex: 'Codex CLI',
   openai: 'OpenAI',
   gemini: 'Gemini',
   ollama: 'Ollama',
