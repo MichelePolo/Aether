@@ -26,13 +26,14 @@ beforeEach(() => {
 });
 
 describe('provider-auth integration', () => {
-  it('App mounts and renders 3 keyed provider auth rows plus an Ollama status row', async () => {
+  it('App mounts and renders 4 keyed provider auth rows plus an Ollama status row', async () => {
     server.use(
       http.get('http://localhost/api/providers/auth-status', () =>
         HttpResponse.json({
           checkedAt: Date.now(),
           statuses: [
             { transport: 'anthropic', state: 'ok', reason: '' },
+            { transport: 'codex', state: 'unconfigured', reason: 'not logged in' },
             { transport: 'openai', state: 'unconfigured', reason: 'no api key' },
             { transport: 'gemini', state: 'unconfigured', reason: 'no api key' },
           ],
@@ -47,13 +48,14 @@ describe('provider-auth integration', () => {
 
     await waitFor(() => {
       const rows = screen.getAllByTestId('provider-auth-row');
-      expect(rows).toHaveLength(3);
+      expect(rows).toHaveLength(4);
     });
 
     const rows = screen.getAllByTestId('provider-auth-row');
     expect(rows[0]).toHaveTextContent('Anthropic');
-    expect(rows[1]).toHaveTextContent('OpenAI');
-    expect(rows[2]).toHaveTextContent('Gemini');
+    expect(rows[1]).toHaveTextContent('Codex CLI');
+    expect(rows[2]).toHaveTextContent('OpenAI');
+    expect(rows[3]).toHaveTextContent('Gemini');
 
     // Ollama renders as a dedicated sub-block with ollama-status-row testids
     await waitFor(() => {
