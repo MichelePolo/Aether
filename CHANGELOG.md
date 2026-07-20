@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.27](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.26...aether-core-v0.1.27) (2026-07-20)
+
+
+### Features
+
+* **codex:** Codex CLI as a first-class provider (ChatGPT subscription, no API key) ([#129](https://github.com/MichelePolo/Aether/issues/129)) ([b61433a](https://github.com/MichelePolo/Aether/commit/b61433a3c6f04b13bf0f474f2d52b118229db057))
+
 ## [0.1.26](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.25...aether-core-v0.1.26) (2026-07-18)
 
 
