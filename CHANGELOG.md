@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.28](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.27...aether-core-v0.1.28) (2026-08-01)
+
+
+### Bug Fixes
+
+* **providers:** openai-compat endpoints usable against a per-model vLLM ([#131](https://github.com/MichelePolo/Aether/issues/131)) ([6d9ed2a](https://github.com/MichelePolo/Aether/commit/6d9ed2afa1722d1f0f3f870f5d363fddeef78f8a))
+
 ## [0.1.27](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.26...aether-core-v0.1.27) (2026-07-20)
 
 
