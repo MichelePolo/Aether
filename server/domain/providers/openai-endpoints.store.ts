@@ -112,8 +112,8 @@ export class OpenAICompatEndpointStore {
     this.db.prepare(`DELETE FROM openai_compat_endpoints WHERE id = ?`).run(id);
   }
 
-  private encryptHeaders(headers: Record<string, string>) {
-    if (Object.keys(headers).length === 0) return null;
+  private encryptHeaders(headers: Record<string, string> | null) {
+    if (!headers || Object.keys(headers).length === 0) return null;
     return encrypt(JSON.stringify(headers), this.key);
   }
 

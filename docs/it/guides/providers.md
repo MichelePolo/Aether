@@ -26,6 +26,10 @@ Il `name` di ogni voce (la chiave della mappa del registro, es. `gemini:gemini-1
 
 **Gli endpoint openai-compat** sono gestiti dal pannello Provider Auth: ogni endpoint ha un `label`, un `baseUrl`, un `model` fissato opzionale, e header personalizzati opzionali. Gli header sono cifrati a riposo (`OpenAICompatEndpointStore`, `server/domain/providers/openai-endpoints.store.ts`) usando la stessa chiave di vault AES-256-GCM delle chiavi API dei provider; solo le **chiavi** degli header, mai i valori, sono esposte tramite l'API HTTP (`OpenAICompatEndpointRecord.headerKeys`). La scoperta dei modelli chiama `/models` sul `baseUrl` configurato (quindi il `baseUrl` di un endpoint vLLM/LM Studio in genere include già `/v1`).
 
+**Server senza catalogo `/models`** — il caso comune è un vLLM che espone un modello per endpoint — richiedono il campo `model` compilato: è il valore su cui ricade il registry, e senza di esso l'endpoint non registra alcuna voce (il registry lo segnala come issue e lo stato dell'endpoint riporta `no /models — pin a model`). Con un modello fissato, un 404/405 su `/models` viene riportato come `ok — pinned <model>` invece che come errore; 401/403 ed errori di connessione restano errori, così credenziali sbagliate restano visibili.
+
+Poiché i **valori** degli header non vengono mai restituiti al browser, l'editor header del form di modifica si apre sempre vuoto e il pannello elenca invece i nomi degli header salvati. Lasciarlo intatto conserva gli header salvati; aggiungere righe li sostituisce in blocco; svuotarlo dopo averlo toccato (`headers: null` sul filo) li cancella, con la stessa convenzione già usata da `token` e `model`.
+
 ## File chiave
 
 - `server/domain/dispatch/providers/provider.types.ts` — l'interfaccia `AIProvider` e i tipi condivisi di richiesta/chunk

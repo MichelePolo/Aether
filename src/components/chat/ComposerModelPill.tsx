@@ -86,10 +86,13 @@ export function ComposerModelPill() {
             );
           })}
           {issues
-            .filter((iss) => !list.some((p) => p.transport === iss.transport))
+            // Per-transport issues are noise once that transport has entries,
+            // but openai-compat issues are per-endpoint: one broken endpoint
+            // still deserves a warning while the others work.
+            .filter((iss) => iss.transport === 'openai-compat' || !list.some((p) => p.transport === iss.transport))
             .map((iss) => (
               <div
-                key={`issue:${iss.transport}`}
+                key={`issue:${iss.transport}:${iss.reason}`}
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-mono text-zinc-500 cursor-not-allowed"
                 aria-disabled="true"
               >

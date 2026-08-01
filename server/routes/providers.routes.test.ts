@@ -594,6 +594,45 @@ describe('openai-endpoints routes', () => {
     expect(res.status).toBe(404);
   });
 
+  it('PUT without a headers field keeps the stored headers', async () => {
+    const { app } = await makeApp();
+    const created = await request(app)
+      .post('/api/providers/openai-endpoints')
+      .send({ label: 'keep-hdr', baseUrl: 'http://k.lan/v1', headers: { Authorization: 'Bearer sk-1' } });
+    const id = created.body.endpoint.id as string;
+    const res = await request(app)
+      .put(`/api/providers/openai-endpoints/${id}`)
+      .send({ model: 'my-corp-model' });
+    expect(res.status).toBe(200);
+    expect(res.body.endpoint.model).toBe('my-corp-model');
+    expect(res.body.endpoint.headerKeys).toEqual(['Authorization']);
+  });
+
+  it('PUT with headers: null clears them instead of failing validation', async () => {
+    const { app } = await makeApp();
+    const created = await request(app)
+      .post('/api/providers/openai-endpoints')
+      .send({ label: 'clear-hdr', baseUrl: 'http://c.lan/v1', headers: { Authorization: 'Bearer sk-1' } });
+    const id = created.body.endpoint.id as string;
+    const res = await request(app)
+      .put(`/api/providers/openai-endpoints/${id}`)
+      .send({ headers: null });
+    expect(res.status).toBe(200);
+    expect(res.body.endpoint.headerKeys).toEqual([]);
+  });
+
+  it('PUT still rejects a non-object headers value', async () => {
+    const { app } = await makeApp();
+    const created = await request(app)
+      .post('/api/providers/openai-endpoints')
+      .send({ label: 'bad-hdr', baseUrl: 'http://b.lan/v1' });
+    const id = created.body.endpoint.id as string;
+    const res = await request(app)
+      .put(`/api/providers/openai-endpoints/${id}`)
+      .send({ headers: 'Authorization: Bearer sk' });
+    expect(res.status).toBe(400);
+  });
+
   it('DELETE removes an endpoint', async () => {
     const { app } = await makeApp();
     const created = await request(app)

@@ -24,6 +24,10 @@ Every entry's `name` (the registry map key, e.g. `gemini:gemini-1.5-pro` or `ope
 
 **openai-compat endpoints** are managed from the Provider Auth pane: each endpoint has a `label`, `baseUrl`, optional pinned `model`, and optional custom headers. Headers are encrypted at rest (`OpenAICompatEndpointStore`, `server/domain/providers/openai-endpoints.store.ts`) using the same AES-256-GCM vault key as provider API keys; only header **keys**, never values, are exposed over the HTTP API (`OpenAICompatEndpointRecord.headerKeys`). Model discovery hits `/models` on the configured `baseUrl` (so a vLLM/LM Studio endpoint's `baseUrl` typically already includes `/v1`).
 
+**Servers with no `/models` catalog** — a vLLM that serves one model per endpoint is the common case — need the `model` field filled in: it is what the registry falls back to, and without it the endpoint registers no entries at all (the registry reports this as an issue, and the endpoint's status reads `no /models — pin a model`). When a model is pinned, a 404/405 on `/models` is reported as `ok — pinned <model>` rather than an error; 401/403 and connection failures stay errors so bad credentials still surface.
+
+Because header **values** are never returned to the browser, the edit form's header editor always opens empty and the panel lists the stored header names instead. Leaving it untouched keeps the stored headers; adding rows replaces them wholesale; emptying it after touching it (`headers: null` on the wire) clears them, the same convention `token` and `model` already use.
+
 ## Key files
 
 - `server/domain/dispatch/providers/provider.types.ts` — the `AIProvider` interface and shared request/chunk types

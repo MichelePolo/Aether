@@ -164,6 +164,20 @@ export class AuthStatusService {
       const url = `${ep.baseUrl.replace(/\/$/, '')}/models`;
       const res = await this.fetchWithTimeout(url, { headers: ep.headers });
       if (!res.ok) {
+        // A backend that serves one model per endpoint (typical vLLM) has no
+        // catalog at all. The server answered, so it is reachable and the
+        // credentials passed — what matters is whether a model is pinned.
+        const noCatalog = res.status === 404 || res.status === 405;
+        if (noCatalog) {
+          return ep.model
+            ? { ...base, state: 'ok', reason: `pinned ${ep.model}`, detail: 'no /models catalog' }
+            : {
+                ...base,
+                state: 'unconfigured',
+                reason: 'no /models — pin a model',
+                detail: `${url} returned ${res.status}; set the endpoint's model field so Aether can register it`,
+              };
+        }
         return { ...base, state: 'error', reason: String(res.status), detail: res.statusText || `HTTP ${res.status}` };
       }
       const body = (await res.json().catch(() => ({ data: [] }))) as { data?: unknown[] };

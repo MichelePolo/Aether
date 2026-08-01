@@ -24,6 +24,10 @@ function EndpointRow({ ep }: { ep: OllamaEndpoint }) {
   const [baseUrl, setBaseUrl] = useState(ep.baseUrl);
   const [token, setToken] = useState('');
   const [headers, setHeaders] = useState<Record<string, string>>({});
+  // Header values never come back from the server, so the editor starts empty.
+  // Only send `headers` once the user edits them, otherwise saving another
+  // field would wipe the stored ones.
+  const [headersTouched, setHeadersTouched] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -37,6 +41,7 @@ function EndpointRow({ ep }: { ep: OllamaEndpoint }) {
       setLabel(ep.label);
       setBaseUrl(ep.baseUrl);
       setHeaders({});
+      setHeadersTouched(false);
     }
   }, [ep.label, ep.baseUrl, editing]);
 
@@ -54,12 +59,15 @@ function EndpointRow({ ep }: { ep: OllamaEndpoint }) {
         label: label.trim(),
         baseUrl: baseUrl.trim(),
         token: token === '' ? undefined : token.trim(),
-        headers: Object.keys(headers).length > 0 ? headers : null,
+        ...(headersTouched
+          ? { headers: Object.keys(headers).length > 0 ? headers : null }
+          : {}),
       });
       if (!useOllamaEndpointsStore.getState().error) {
         setEditing(false);
         setToken('');
         setHeaders({});
+        setHeadersTouched(false);
       }
     } finally {
       setSaving(false);
@@ -105,12 +113,19 @@ function EndpointRow({ ep }: { ep: OllamaEndpoint }) {
           <input aria-label={`Edit token ${ep.label}`} type="password" value={token} onChange={(e) => setToken(e.target.value)}
             placeholder={ep.hasToken ? 'token set — type to replace' : 'no auth'}
             className="bg-surface-2 border border-border-subtle rounded px-2 py-1 text-[11px] font-mono text-zinc-200 placeholder:text-zinc-600" />
-          <div className="mono-label text-zinc-500 text-[10px]">Headers (replaces existing)</div>
-          <HeadersEditor value={headers} onChange={setHeaders} />
+          <div className="mono-label text-zinc-500 text-[10px]">
+            {ep.headerKeys.length > 0
+              ? `Headers — stored: ${ep.headerKeys.join(', ')} (values hidden). Leave empty to keep them, add rows to replace.`
+              : 'Headers'}
+          </div>
+          <HeadersEditor
+            value={headers}
+            onChange={(next) => { setHeadersTouched(true); setHeaders(next); }}
+          />
           <div className="flex gap-1.5 mt-1">
             <button type="button" onClick={handleSaveEdit} disabled={saving} aria-busy={saving}
               className="px-2 py-1 rounded text-[10px] font-mono bg-manipulation/15 text-manipulation hover:bg-manipulation/25 disabled:opacity-40 disabled:cursor-not-allowed">Save</button>
-            <button type="button" onClick={() => { setEditing(false); setToken(''); setHeaders({}); }}
+            <button type="button" onClick={() => { setEditing(false); setToken(''); setHeaders({}); setHeadersTouched(false); }}
               className="px-2 py-1 rounded text-[10px] font-mono bg-surface-2 text-zinc-400 border border-border-subtle">Cancel</button>
           </div>
         </div>

@@ -376,3 +376,58 @@ describe('AuthStatusService — codex probe', () => {
     expect(report.statuses[0]?.state).toBe('unconfigured');
   });
 });
+
+describe('AuthStatusService — openai-compat without a /models catalog', () => {
+  const ep = (over: Partial<{ id: string; label: string; baseUrl: string; model: string | null }> = {}) => ({
+    id: 'ep1', label: 'corp-vllm', baseUrl: 'http://vllm.lan/v1', model: null,
+    headers: { Authorization: 'Bearer sk-1' }, ...over,
+  });
+
+  it('404 on /models with a pinned model reports ok, not an error', async () => {
+    const svc = makeService({
+      listOpenAICompatEndpoints: () => [ep({ model: 'my-corp-model' })],
+      fetch: vi.fn(async () => new Response(null, { status: 404 })) as unknown as typeof fetch,
+    });
+    const report = await svc.probe([]);
+    expect(report.openaiCompat[0]).toMatchObject({ state: 'ok', reason: 'pinned my-corp-model' });
+  });
+
+  it('405 is treated the same as 404', async () => {
+    const svc = makeService({
+      listOpenAICompatEndpoints: () => [ep({ model: 'm' })],
+      fetch: vi.fn(async () => new Response(null, { status: 405 })) as unknown as typeof fetch,
+    });
+    const report = await svc.probe([]);
+    expect(report.openaiCompat[0].state).toBe('ok');
+  });
+
+  it('404 with no pinned model reports the actionable fix', async () => {
+    const svc = makeService({
+      listOpenAICompatEndpoints: () => [ep()],
+      fetch: vi.fn(async () => new Response(null, { status: 404 })) as unknown as typeof fetch,
+    });
+    const report = await svc.probe([]);
+    expect(report.openaiCompat[0]).toMatchObject({
+      state: 'unconfigured',
+      reason: 'no /models — pin a model',
+    });
+  });
+
+  it('401 stays an error even with a pinned model (bad credentials must show)', async () => {
+    const svc = makeService({
+      listOpenAICompatEndpoints: () => [ep({ model: 'm' })],
+      fetch: vi.fn(async () => new Response(null, { status: 401 })) as unknown as typeof fetch,
+    });
+    const report = await svc.probe([]);
+    expect(report.openaiCompat[0]).toMatchObject({ state: 'error', reason: '401' });
+  });
+
+  it('an unreachable host stays an error even with a pinned model', async () => {
+    const svc = makeService({
+      listOpenAICompatEndpoints: () => [ep({ model: 'm' })],
+      fetch: vi.fn(async () => { throw new Error('ECONNREFUSED'); }) as unknown as typeof fetch,
+    });
+    const report = await svc.probe([]);
+    expect(report.openaiCompat[0].state).toBe('error');
+  });
+});

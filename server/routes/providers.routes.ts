@@ -77,8 +77,11 @@ export function createProvidersRoutes(
     typeof (err as { code?: string })?.code === 'string' &&
     (err as { code: string }).code.startsWith('SQLITE_CONSTRAINT');
 
-  const validateHeaders = (h: unknown): Record<string, string> => {
-    if (typeof h !== 'object' || h === null || Array.isArray(h)) {
+  /** `null` means "clear the stored headers", mirroring how `token` and `model`
+   *  already treat null. Omitting the field entirely leaves them untouched. */
+  const validateHeaders = (h: unknown): Record<string, string> | null => {
+    if (h === null) return null;
+    if (typeof h !== 'object' || Array.isArray(h)) {
       throw new ValidationError('headers must be an object');
     }
     for (const [k, v] of Object.entries(h as Record<string, unknown>)) {
@@ -289,7 +292,7 @@ export function createProvidersRoutes(
       const token = typeof req.body?.token === 'string' && req.body.token.trim() !== '' ? req.body.token.trim() : undefined;
       if (!label) throw new ValidationError('label required');
       if (!isHttpUrl(baseUrl)) throw new ValidationError('baseUrl must be a valid http(s) URL');
-      const headers = req.body?.headers !== undefined ? validateHeaders(req.body.headers) : undefined;
+      const headers = (req.body?.headers !== undefined ? validateHeaders(req.body.headers) : undefined) ?? undefined;
       let endpoint: OllamaEndpointRecord;
       try {
         endpoint = ollamaEndpointStore.create({ label, baseUrl, token, headers });
@@ -316,7 +319,7 @@ export function createProvidersRoutes(
         res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Endpoint not found' } });
         return;
       }
-      const patch: { label?: string; baseUrl?: string; token?: string | null; headers?: Record<string, string> } = {};
+      const patch: { label?: string; baseUrl?: string; token?: string | null; headers?: Record<string, string> | null } = {};
       if (typeof req.body?.label === 'string') {
         const l = req.body.label.trim();
         if (!l) throw new ValidationError('label must not be empty');
@@ -387,7 +390,7 @@ export function createProvidersRoutes(
       const model = typeof req.body?.model === 'string' && req.body.model.trim() !== '' ? req.body.model.trim() : undefined;
       if (!label) throw new ValidationError('label required');
       if (!isHttpUrl(baseUrl)) throw new ValidationError('baseUrl must be a valid http(s) URL');
-      const headers = req.body?.headers !== undefined ? validateHeaders(req.body.headers) : undefined;
+      const headers = (req.body?.headers !== undefined ? validateHeaders(req.body.headers) : undefined) ?? undefined;
       let endpoint;
       try {
         endpoint = openaiEndpointStore.create({ label, baseUrl, model, headers });
@@ -413,7 +416,7 @@ export function createProvidersRoutes(
         res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Endpoint not found' } });
         return;
       }
-      const patch: { label?: string; baseUrl?: string; model?: string | null; headers?: Record<string, string> } = {};
+      const patch: { label?: string; baseUrl?: string; model?: string | null; headers?: Record<string, string> | null } = {};
       if (typeof req.body?.label === 'string') {
         const l = req.body.label.trim();
         if (!l) throw new ValidationError('label must not be empty');

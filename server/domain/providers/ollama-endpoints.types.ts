@@ -32,5 +32,5 @@ export interface UpdateOllamaEndpointInput {
   label?: string;
   baseUrl?: string;
   token?: string | null;     // null or '' clears the token; undefined leaves it
-  headers?: Record<string, string>;
+  headers?: Record<string, string> | null; // null clears them; undefined leaves them
 }

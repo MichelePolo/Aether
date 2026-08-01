@@ -5,6 +5,8 @@ export interface OllamaEndpoint {
   hasToken: boolean;
   tokenMasked: string | null;
   fixed: boolean;
+  /** Names of the stored custom headers; values stay server-side, encrypted. */
+  headerKeys: string[];
   createdAt: number | null;
   updatedAt: number | null;
 }
