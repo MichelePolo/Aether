@@ -26,4 +26,7 @@ export interface CreateOpenAICompatEndpointInput {
   headers?: Record<string, string>;
 }
 
-export type UpdateOpenAICompatEndpointInput = Partial<CreateOpenAICompatEndpointInput>;
+/** `headers: null` clears the stored headers; omitting the field keeps them. */
+export type UpdateOpenAICompatEndpointInput = Partial<
+  Omit<CreateOpenAICompatEndpointInput, 'headers'>
+> & { headers?: Record<string, string> | null };

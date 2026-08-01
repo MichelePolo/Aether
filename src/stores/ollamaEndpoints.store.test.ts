@@ -5,11 +5,11 @@ import type { OllamaEndpoint } from '@/src/types/ollama-endpoints.types';
 
 const local: OllamaEndpoint = {
   id: 'local', label: 'local', baseUrl: 'http://localhost:11434',
-  hasToken: false, tokenMasked: null, fixed: true, createdAt: null, updatedAt: null,
+  hasToken: false, tokenMasked: null, headerKeys: [], fixed: true, createdAt: null, updatedAt: null,
 };
 const gpu: OllamaEndpoint = {
   id: 'abc', label: 'gpu', baseUrl: 'http://gpu.lan:11434',
-  hasToken: false, tokenMasked: null, fixed: false, createdAt: 1, updatedAt: 1,
+  hasToken: false, tokenMasked: null, headerKeys: [], fixed: false, createdAt: 1, updatedAt: 1,
 };
 
 beforeEach(() => {

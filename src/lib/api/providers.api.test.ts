@@ -163,8 +163,8 @@ describe('providersApi', () => {
 
   it('listOllamaEndpoints GETs /api/providers/ollama-endpoints and unwraps .endpoints', async () => {
     const endpoints: OllamaEndpoint[] = [
-      { id: 'ep-1', label: 'Local', baseUrl: 'http://localhost:11434', hasToken: false, tokenMasked: null, fixed: true, createdAt: null, updatedAt: null },
-      { id: 'ep-2', label: 'Remote', baseUrl: 'http://remote:11434', hasToken: true, tokenMasked: 'tok****', fixed: false, createdAt: 1000, updatedAt: 2000 },
+      { id: 'ep-1', label: 'Local', baseUrl: 'http://localhost:11434', hasToken: false, tokenMasked: null, headerKeys: [], fixed: true, createdAt: null, updatedAt: null },
+      { id: 'ep-2', label: 'Remote', baseUrl: 'http://remote:11434', hasToken: true, tokenMasked: 'tok****', headerKeys: [], fixed: false, createdAt: 1000, updatedAt: 2000 },
     ];
     server.use(
       http.get('http://localhost/api/providers/ollama-endpoints', () =>
@@ -178,7 +178,7 @@ describe('providersApi', () => {
   });
 
   it('createOllamaEndpoint POSTs to /api/providers/ollama-endpoints and returns endpoint + status', async () => {
-    const endpoint: OllamaEndpoint = { id: 'ep-3', label: 'New', baseUrl: 'http://new:11434', hasToken: false, tokenMasked: null, fixed: false, createdAt: 3000, updatedAt: 3000 };
+    const endpoint: OllamaEndpoint = { id: 'ep-3', label: 'New', baseUrl: 'http://new:11434', hasToken: false, tokenMasked: null, headerKeys: [], fixed: false, createdAt: 3000, updatedAt: 3000 };
     const response: SaveOllamaEndpointResponse = { endpoint, status: null };
     let capturedBody: unknown;
     server.use(
@@ -195,7 +195,7 @@ describe('providersApi', () => {
   });
 
   it('updateOllamaEndpoint PUTs to /api/providers/ollama-endpoints/:id and returns updated endpoint', async () => {
-    const endpoint: OllamaEndpoint = { id: 'ep-2', label: 'Updated', baseUrl: 'http://remote:11434', hasToken: true, tokenMasked: 'tok****', fixed: false, createdAt: 1000, updatedAt: 5000 };
+    const endpoint: OllamaEndpoint = { id: 'ep-2', label: 'Updated', baseUrl: 'http://remote:11434', hasToken: true, tokenMasked: 'tok****', headerKeys: [], fixed: false, createdAt: 1000, updatedAt: 5000 };
     const response: SaveOllamaEndpointResponse = { endpoint, status: { id: 'ep-2', label: 'Updated', fixed: false, state: 'ok', reason: 'reachable' } };
     let capturedBody: unknown;
     server.use(

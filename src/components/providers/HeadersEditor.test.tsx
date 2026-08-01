@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { useState as useReactState } from 'react';
 import { HeadersEditor } from './HeadersEditor';
 
@@ -19,7 +20,6 @@ describe('HeadersEditor', () => {
   it('adds a K=V row and calls onChange with { K: "V" }', () => {
     render(<Controlled />);
     fireEvent.click(screen.getByRole('button', { name: 'Add header' }));
-    // After Add, the wrapper re-renders with the new header key ('Header')
     expect(screen.getAllByPlaceholderText('Key')).toHaveLength(1);
     expect(screen.getAllByPlaceholderText('Value')).toHaveLength(1);
     // Rename key to 'K'
@@ -46,5 +46,85 @@ describe('HeadersEditor', () => {
     expect(screen.getByDisplayValue('Bearer tok')).toBeInTheDocument();
     expect(screen.getByDisplayValue('X-Foo')).toBeInTheDocument();
     expect(screen.getByDisplayValue('bar')).toBeInTheDocument();
+  });
+});
+
+describe('HeadersEditor — focus retention while typing', () => {
+  it('keeps focus in the key field for the whole header name', async () => {
+    const user = userEvent.setup();
+    render(<Controlled />);
+    await user.click(screen.getByRole('button', { name: 'Add header' }));
+
+    await user.click(screen.getByPlaceholderText('Key'));
+    // Typing char-by-char only lands in the field if it is never remounted:
+    // keying rows by the (editable) header name dropped focus after every
+    // character, so the field ended up holding just "A".
+    await user.keyboard('Authorization');
+
+    expect(screen.getByPlaceholderText('Key')).toHaveValue('Authorization');
+    expect(document.activeElement).toBe(screen.getByPlaceholderText('Key'));
+  });
+
+  it('keeps focus in the value field while typing a bearer token', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial={{ Authorization: '' }} />);
+    await user.click(screen.getByPlaceholderText('Value'));
+    await user.keyboard('Bearer sk-123');
+
+    expect(screen.getByPlaceholderText('Value')).toHaveValue('Bearer sk-123');
+    expect(document.activeElement).toBe(screen.getByPlaceholderText('Value'));
+  });
+
+  it('keeps rows independent when a second header is added', async () => {
+    const user = userEvent.setup();
+    render(<Controlled initial={{ Authorization: 'Bearer x' }} />);
+    await user.click(screen.getByRole('button', { name: 'Add header' }));
+
+    await user.click(screen.getAllByPlaceholderText('Key')[1]);
+    await user.keyboard('X-Tenant');
+
+    expect(screen.getAllByPlaceholderText('Key')[0]).toHaveValue('Authorization');
+    expect(screen.getAllByPlaceholderText('Key')[1]).toHaveValue('X-Tenant');
+  });
+
+  it('emits the full record once the name is typed', async () => {
+    const onChange = vi.fn();
+    function Harness() {
+      const [value, setValue] = useReactState<Record<string, string>>({});
+      return (
+        <HeadersEditor
+          value={value}
+          onChange={(next) => {
+            onChange(next);
+            setValue(next);
+          }}
+        />
+      );
+    }
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByRole('button', { name: 'Add header' }));
+    await user.click(screen.getByPlaceholderText('Key'));
+    await user.keyboard('X-Key');
+    await user.click(screen.getByPlaceholderText('Value'));
+    await user.keyboard('abc');
+
+    expect(onChange).toHaveBeenLastCalledWith({ 'X-Key': 'abc' });
+  });
+
+  it('does not emit a row whose name is still empty', async () => {
+    const onChange = vi.fn();
+    render(<HeadersEditor value={{}} onChange={onChange} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Add header' }));
+    expect(onChange).toHaveBeenLastCalledWith({});
+    expect(screen.getByPlaceholderText('Key')).toBeInTheDocument();
+  });
+
+  it('re-syncs when the parent replaces the value (form reset after save)', () => {
+    const { rerender } = render(<HeadersEditor value={{ A: '1' }} onChange={vi.fn()} />);
+    expect(screen.getByDisplayValue('A')).toBeInTheDocument();
+    rerender(<HeadersEditor value={{}} onChange={vi.fn()} />);
+    expect(screen.queryByPlaceholderText('Key')).not.toBeInTheDocument();
   });
 });

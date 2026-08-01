@@ -98,6 +98,46 @@ describe('OpenAIEndpointsModal', () => {
     );
   });
 
+  it('an untouched headers editor omits `headers`, so stored ones survive the edit', async () => {
+    vi.spyOn(providersApi, 'listOpenAIEndpoints').mockResolvedValue([withHeaders]);
+    const updateSpy = vi.spyOn(providersApi, 'updateOpenAIEndpoint')
+      .mockResolvedValue({ endpoint: withHeaders, status: null });
+    render(<OpenAIEndpointsModal />);
+    await screen.findByText('headered');
+    fireEvent.click(screen.getByLabelText('Edit headered'));
+    // Change only the model — the exact vLLM workflow that used to 400 with
+    // "headers must be an object" and silently lose the edit.
+    fireEvent.change(screen.getByLabelText('Edit model headered'), { target: { value: 'my-corp-model' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updateSpy).toHaveBeenCalled());
+    const patch = updateSpy.mock.calls[0]![1];
+    expect(patch).toEqual({ label: 'headered', baseUrl: 'http://api.lan:8080', model: 'my-corp-model' });
+    expect('headers' in patch).toBe(false);
+  });
+
+  it('names the stored headers in the edit panel', async () => {
+    vi.spyOn(providersApi, 'listOpenAIEndpoints').mockResolvedValue([withHeaders]);
+    render(<OpenAIEndpointsModal />);
+    await screen.findByText('headered');
+    fireEvent.click(screen.getByLabelText('Edit headered'));
+    expect(screen.getByText(/stored: Authorization/i)).toBeInTheDocument();
+  });
+
+  it('editing then emptying the headers editor sends headers: null to clear them', async () => {
+    vi.spyOn(providersApi, 'listOpenAIEndpoints').mockResolvedValue([withHeaders]);
+    const updateSpy = vi.spyOn(providersApi, 'updateOpenAIEndpoint')
+      .mockResolvedValue({ endpoint: withHeaders, status: null });
+    render(<OpenAIEndpointsModal />);
+    await screen.findByText('headered');
+    fireEvent.click(screen.getByLabelText('Edit headered'));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Add header' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove header (new)' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(updateSpy).toHaveBeenCalledWith('ep2', expect.objectContaining({ headers: null })),
+    );
+  });
+
   it('shows headerKeys as indicator (headers set)', async () => {
     vi.spyOn(providersApi, 'listOpenAIEndpoints').mockResolvedValue([withHeaders]);
     useOpenAIEndpointsStore.getState()._reset();

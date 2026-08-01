@@ -8,11 +8,11 @@ import type { OllamaEndpoint } from '@/src/types/ollama-endpoints.types';
 
 const local: OllamaEndpoint = {
   id: 'local', label: 'local', baseUrl: 'http://localhost:11434',
-  hasToken: false, tokenMasked: null, fixed: true, createdAt: null, updatedAt: null,
+  hasToken: false, tokenMasked: null, headerKeys: [], fixed: true, createdAt: null, updatedAt: null,
 };
 const gpu: OllamaEndpoint = {
   id: 'abc', label: 'gpu', baseUrl: 'http://gpu.lan:11434',
-  hasToken: false, tokenMasked: null, fixed: false, createdAt: 1, updatedAt: 1,
+  hasToken: false, tokenMasked: null, headerKeys: [], fixed: false, createdAt: 1, updatedAt: 1,
 };
 
 beforeEach(() => {
@@ -57,11 +57,47 @@ describe('OllamaEndpointsModal', () => {
     fireEvent.click(screen.getByLabelText('Edit gpu'));
     fireEvent.change(screen.getByLabelText('Edit label gpu'), { target: { value: '  gpu2  ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    // `headers` is absent, not null: an untouched editor must leave the stored
+    // headers alone (sending null used to be rejected with a 400, so no edit
+    // could ever be saved).
     await waitFor(() =>
-      expect(updateSpy).toHaveBeenCalledWith('abc', { label: 'gpu2', baseUrl: 'http://gpu.lan:11434', token: undefined, headers: null }),
+      expect(updateSpy).toHaveBeenCalledWith('abc', { label: 'gpu2', baseUrl: 'http://gpu.lan:11434', token: undefined }),
     );
     // form closed → edit inputs gone
     await waitFor(() => expect(screen.queryByLabelText('Edit label gpu2')).not.toBeInTheDocument());
+  });
+
+  it('clearing every header row sends headers: null to drop them', async () => {
+    const withHeaders = { ...gpu, headerKeys: ['X-Old'] };
+    vi.spyOn(providersApi, 'listOllamaEndpoints').mockResolvedValue([local, withHeaders]);
+    const updateSpy = vi.spyOn(providersApi, 'updateOllamaEndpoint')
+      .mockResolvedValue({ endpoint: withHeaders, status: null });
+    render(<OllamaEndpointsModal />);
+    await screen.findByText('gpu');
+    fireEvent.click(screen.getByLabelText('Edit gpu'));
+    const rows = screen.getAllByTestId('ollama-endpoint-row');
+    const gpuRow = rows.find((r) => within(r).queryByLabelText('Edit label gpu') !== null)!;
+    // add a row then remove it → the editor was touched but ends up empty
+    fireEvent.click(within(gpuRow).getByRole('button', { name: 'Add header' }));
+    fireEvent.click(within(gpuRow).getByRole('button', { name: 'Remove header (new)' }));
+    fireEvent.click(within(gpuRow).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(updateSpy).toHaveBeenCalledWith('abc', {
+        label: 'gpu',
+        baseUrl: 'http://gpu.lan:11434',
+        token: undefined,
+        headers: null,
+      }),
+    );
+  });
+
+  it('shows which header names are already stored', async () => {
+    vi.spyOn(providersApi, 'listOllamaEndpoints')
+      .mockResolvedValue([local, { ...gpu, headerKeys: ['Authorization'] }]);
+    render(<OllamaEndpointsModal />);
+    await screen.findByText('gpu');
+    fireEvent.click(screen.getByLabelText('Edit gpu'));
+    expect(screen.getByText(/stored: Authorization/i)).toBeInTheDocument();
   });
 
   it('edits an endpoint: adding a header via HeadersEditor includes headers in update call', async () => {

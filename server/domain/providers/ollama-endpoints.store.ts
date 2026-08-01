@@ -147,8 +147,8 @@ export class OllamaEndpointStore {
     }
   }
 
-  private encryptHeaders(headers: Record<string, string>) {
-    if (Object.keys(headers).length === 0) return null;
+  private encryptHeaders(headers: Record<string, string> | null) {
+    if (!headers || Object.keys(headers).length === 0) return null;
     return encrypt(JSON.stringify(headers), this.key);
   }
 
