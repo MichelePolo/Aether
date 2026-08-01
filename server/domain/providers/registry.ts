@@ -198,6 +198,14 @@ export class ProviderRegistry {
     );
     for (const { ep, models } of discoveredCompat) {
       const tags = models.length > 0 ? models : (ep.model ? [ep.model] : []);
+      if (tags.length === 0) {
+        // Discovery found nothing and no model is pinned, so this endpoint
+        // contributes zero entries. Surface it instead of vanishing silently.
+        nextIssues.push({
+          transport: 'openai-compat',
+          reason: `${ep.label}: no models discovered — set the endpoint's model field`,
+        });
+      }
       for (const model of tags) {
         const provider = this.deps.openAICompatBuilder(ep.baseUrl, model, ep.headers);
         const name = `openai-compat:${ep.id}:${model}`;

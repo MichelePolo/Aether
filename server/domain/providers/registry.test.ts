@@ -322,3 +322,37 @@ describe('ProviderRegistry — codex transport', () => {
     expect(onlyCodex.defaultName()).toBe('codex:gpt-5.6-sol');
   });
 });
+
+describe('ProviderRegistry — openai-compat endpoints yielding no models', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 } as Response));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('records an issue naming the endpoint instead of silently registering nothing', async () => {
+    const reg = new ProviderRegistry(baseDeps({
+      listOpenAICompatEndpoints: () => [
+        { id: 'ep1', label: 'corp-vllm', baseUrl: 'http://vllm.lan/v1', model: null, headers: {} },
+      ],
+    }));
+    await reg.refresh();
+    expect(reg.list().some((d) => d.transport === 'openai-compat')).toBe(false);
+    expect(reg.issues()).toEqual([
+      { transport: 'openai-compat', reason: "corp-vllm: no models discovered — set the endpoint's model field" },
+    ]);
+  });
+
+  it('registers the pinned model and records no issue when one is set', async () => {
+    const reg = new ProviderRegistry(baseDeps({
+      listOpenAICompatEndpoints: () => [
+        { id: 'ep1', label: 'corp-vllm', baseUrl: 'http://vllm.lan/v1', model: 'my-corp-model', headers: {} },
+      ],
+      openAICompatBuilder: (_baseUrl: string, model: string) => makeFake(model),
+    }));
+    await reg.refresh();
+    expect(reg.get('openai-compat:ep1:my-corp-model')).not.toBeNull();
+    expect(reg.issues()).toEqual([]);
+  });
+});

@@ -112,7 +112,7 @@ function EndpointRow({ ep }: { ep: OpenAICompatEndpoint }) {
           <input aria-label={`Edit URL ${ep.label}`} value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)}
             className="bg-surface-2 border border-border-subtle rounded px-2 py-1 text-[11px] font-mono text-zinc-200" />
           <input aria-label={`Edit model ${ep.label}`} value={model} onChange={(e) => setModel(e.target.value)}
-            placeholder="Model (optional)"
+            placeholder="Model — required if the server has no /models"
             className="bg-surface-2 border border-border-subtle rounded px-2 py-1 text-[11px] font-mono text-zinc-200 placeholder:text-zinc-600" />
           <div className="mono-label text-zinc-500 text-[10px]">
             {ep.headerKeys.length > 0
@@ -168,7 +168,8 @@ function AddForm() {
         className="bg-surface-2 border border-border-subtle rounded px-2 py-1 text-[11px] font-mono text-zinc-200 placeholder:text-zinc-600" />
       <input aria-label="Endpoint URL" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="http://host:8000/v1"
         className="bg-surface-2 border border-border-subtle rounded px-2 py-1 text-[11px] font-mono text-zinc-200 placeholder:text-zinc-600" />
-      <input aria-label="Model (optional)" value={model} onChange={(e) => setModel(e.target.value)} placeholder="model name (optional)"
+      <input aria-label="Model (optional)" value={model} onChange={(e) => setModel(e.target.value)}
+        placeholder="model name — required if the server has no /models"
         className="bg-surface-2 border border-border-subtle rounded px-2 py-1 text-[11px] font-mono text-zinc-200 placeholder:text-zinc-600" />
       <div className="mono-label text-zinc-500 text-[10px]">Headers</div>
       <HeadersEditor value={headers} onChange={setHeaders} />
