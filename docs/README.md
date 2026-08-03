@@ -14,6 +14,7 @@ A reading path, in order. Each step assumes the previous ones.
 - [Providers](guides/providers.md) — registry, key resolution, sticky selection, vLLM
 - [Key vault](guides/key-vault.md) — encrypted credentials at rest
 - [MCP tools](guides/mcp-tools.md) — connecting tool servers, built-ins, call caps
+- [Built-in MCP deep dive](guides/builtin-mcp.md) — how Filesystem, Terminal and Git are implemented, and the strategies behind them
 - [Breakpoints](guides/breakpoints.md) — approval gates on dangerous tool calls
 - [Workspaces](guides/workspaces.md) — project folders and the filesystem MCP
 - [History](guides/history.md) — sessions, forking, export/import, search

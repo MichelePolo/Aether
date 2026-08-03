@@ -16,6 +16,7 @@ Un percorso di lettura, in ordine. Ogni passo presuppone i precedenti.
 - [Provider](guides/providers.md) — registro, risoluzione delle chiavi, selezione persistente, vLLM
 - [Vault delle chiavi](guides/key-vault.md) — credenziali cifrate a riposo
 - [Strumenti MCP](guides/mcp-tools.md) — connessione dei server di strumenti, built-in, limiti di chiamata
+- [Approfondimento MCP builtin](guides/builtin-mcp.md) — come sono implementati Filesystem, Terminal e Git, e le strategie dietro
 - [Breakpoint](guides/breakpoints.md) — gate di approvazione sulle chiamate a strumenti pericolosi
 - [Workspace](guides/workspaces.md) — cartelle di progetto e l'MCP filesystem
 - [Cronologia](guides/history.md) — sessioni, fork, esportazione/importazione, ricerca
