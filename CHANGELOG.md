@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.29](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.28...aether-core-v0.1.29) (2026-08-04)
+
+
+### Bug Fixes
+
+* **providers:** pinned openai-compat model always wins over discovery; filter LiteLLM no-default-models placeholder ([#133](https://github.com/MichelePolo/Aether/issues/133)) ([04b1c29](https://github.com/MichelePolo/Aether/commit/04b1c2941c6fa9a87ab7d20e6196976a0cbb2e53))
+
 ## [0.1.28](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.27...aether-core-v0.1.28) (2026-08-01)
 
 
