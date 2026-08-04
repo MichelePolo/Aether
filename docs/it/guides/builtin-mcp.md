@@ -23,7 +23,7 @@ Il formato utilizzato è **JSON-RPC 2.0** su un transport: **stdio** (l'host spa
 
 Il client di Aether — come la maggior parte degli host agentici oggi — usa **solo la primitiva tools**: `mcp.schema.ts` valida esattamente `tools/list` e `tools/call`, nient'altro. È un taglio di scope deliberato, ad oggi si fa così.
 
-Il modello mentale da tenere è che **il risultato di un tool deve essere preparto per il modello LLM, non una risposta API per un software**. I risultati sono blocchi `content` (di solito testo) più un flag `isError`. `isError: true` significa "l'operazione è fallita in un modo che il modello deve poter leggere, capire e a cui deve reagire" (file non trovato, exit code 1, bloccato dalla policy) — distinto da un errore *di protocollo* JSON-RPC, che significa che la chiamata stessa era malformata. 
+Il modello mentale da tenere è che **il risultato di un tool deve essere preparato per il modello LLM, non una risposta API per un software**. I risultati sono blocchi `content` (di solito testo) più un flag `isError`. `isError: true` significa "l'operazione è fallita in un modo che il modello deve poter leggere, capire e a cui deve reagire" (file non trovato, exit code 1, bloccato dalla policy) — distinto da un errore *di protocollo* JSON-RPC, che significa che la chiamata stessa era malformata. 
 Niente di diverso dalle API rest nel Richardson Maturity Model: 
 SYSTEM ERROR
 *KO 500 = Il server è esploso. All'LLM non deve interessare un errore di sistema.*
@@ -79,12 +79,12 @@ Segue una checklist distillata dall'esperienza dell'ecosistema MCP. Ogni voce in
 | # | Best practice | Perché | Dove in Aether |
 |---|---|---|---|
 | 1 | **Least privilege per costruzione** — limita il server al set minimo di capacità che servono al lavoro; passa i confini allo spawn, non come check a runtime | Un server che non può cancellare un database non lo farà | Filesystem riceve le root consentite come argv (§5); i tool git operano solo sui remote configurati (§7) |
-| 2 | **Tool specializzari quando ci sono invarianti, tool generici solo dietro gate** | N tool specifici codificano garanzie che una descrizione non può dare, non si può scrivere a una AI "ricordati di non cancellare il database"; un tool generico massimizza la superficie d'attacco | L'intero confronto Terminal↔Git (§6 vs §7) |
-| 3 | **Le descrizioni sono prompt** — scrivile per il modello: dichiara limiti, default e rifiuti direttamente nella descrizione | La descrizione è l'unica "documentazione" che il modello vede al momento della decisione | `execute_command` dichiara timeout e cap; `git_push` dice "Never force", ma c'è un'altro strato di sicurezza nell'implementazione di Aether **l'MCP non implementa il parametro force** (§6, §7) |
+| 2 | **Tool specializzati quando ci sono invarianti, tool generici solo dietro gate** | N tool specifici codificano garanzie che una descrizione non può dare, non si può scrivere a una AI "ricordati di non cancellare il database"; un tool generico massimizza la superficie d'attacco | L'intero confronto Terminal↔Git (§6 vs §7) |
+| 3 | **Le descrizioni sono prompt** — scrivile per il modello: dichiara limiti, default e rifiuti direttamente nella descrizione | La descrizione è l'unica "documentazione" che il modello vede al momento della decisione | `execute_command` dichiara timeout e cap; `git_push` dice "Never force", ma c'è un altro strato di sicurezza nell'implementazione di Aether: **l'MCP non implementa il parametro force** (§6, §7) |
 | 4 | **Tratta gli argomenti come ostili** — valida i tipi, rifiuta valori a forma di flag, usa il separatore `--`, costruisci l'argv esplicitamente, mai interpolare in una stringa shell | Gli argomenti dei tool sono testo generato dal modello; la prompt injection ci arriva | `badPath()`, `badRef()`, `['add', '--', ...paths]` (§7) |
 | 5 | **Delimita tutto** — timeout con tetto rigido, cap sull'output con marker di troncamento espliciti | Protegge l'event loop dell'host *e* il context window del modello | `SHELL_DEFAULTS`: 30s/120s, 1 MiB + `[output truncated]` (§6) |
 | 6 | **I ko di dominio sono contenuto `isError`, non errori di protocollo** | Il modello può leggere il fallimento e tentare altro; un errore di protocollo uccide lo scambio e basta | Ogni handler restituisce `{ isError, content }` — pattern bloccati, timeout, exit non-zero (§6, §7) |
-| 7 | **Stato per-chiamata nella chiamata, stato di sessione nell'host** | I server stateless si pingano, riavviano e scalano banalmente | Terminal prende `cwd` per chiamata ed è un'unica istanza globale; è l'*host* a ruotare le istanze fs/git rooted (§6, §8) |
+| 7 | **Stato per-chiamata nella chiamata, stato di sessione nell'host** | I server stateless si possono raggruppare in un pool, riavviare e scalare banalmente | Terminal prende `cwd` per chiamata ed è un'unica istanza globale; è l'*host* a ruotare le istanze fs/git rooted (§6, §8) |
 | 8 | **L'autorizzazione vive nell'host, non nel server** | Un gate fuori dai server ha priorità sopra tutti — inclusi i server che non hai scritto tu | Il gate breakpoints classifica e filtra ogni chiamata, builtin o custom (§9) |
 | 9 | **Emetti output stabile e parsable dalle macchine** | Il modello impara la forma una volta e smette di indovinare | `git status --porcelain=v2`; il layout fisso `stdout/---/stderr/---/exit` (§6, §7) |
 | 10 | **Nomina i tool in modo prevedibile** — i nomi sono superficie d'API: classificazione, policy e UI vanno in chiave tutti sui nomi | Un tool con nome esplicito si classifica per rischio senza eseguirlo | `DANGEROUS_NAME_PATTERNS` lavora solo sui nomi qualificati (§9) |
@@ -95,7 +95,7 @@ Aether è un *client* MCP: parla JSON-RPC con server esterni via stdio o HTTP. I
 
 I tre MCP builtin implementano **tre strategie implementative distinte**, ed è questo che li rende un buon caso di studio ;-)
 
-| | Strategia | Processo spawannato | Rooted per workspace |
+| | Strategia | Processo spawnato | Rooted per workspace |
 |---|---|---|---|
 | **Filesystem** | riusa il pacchetto ufficiale | `@modelcontextprotocol/server-filesystem` | sì |
 | **Terminal** | server fatto in casa, 1 tool generico | `server/mcp/builtin/aether-shell.ts` | **no** (globale) |
@@ -136,7 +136,7 @@ Per i file Aether non scrive una riga di logica: `resolveFilesystemServerEntry()
 node …/server-filesystem/dist/index.js /root/del/workspace /path/libreria-skill
 ```
 
-La sicurezza (path traversal, symlink escape, confinamento alle root) è delegata al pacchetto di riferimento del protocollo, mantenuto e testato altrove. La *strategia*: quando esiste un server MCP ufficiale e, il valore che Aether aggiunge non è reimplementarlo ma **rootarlo per workspace** e classificarne i tool (§9).
+La sicurezza (path traversal, symlink escape, confinamento alle root) è delegata al pacchetto di riferimento del protocollo, mantenuto e testato altrove. La *strategia*: quando esiste un server MCP ufficiale, il valore che Aether aggiunge non è reimplementarlo ma **rootarlo per workspace** e classificarne i tool (§9).
 
 Due strati indipendenti proteggono una chiamata Filesystem - il gate lato host decide *se* la chiamata parte, le root fissate allo spawn decidono *dove può arrivare*. Nota che il secondo strato non è un check a runtime fatto da Aether: **il server è *nato* incapace di uscire dalle sue root (best practice n. 1)**:
 
