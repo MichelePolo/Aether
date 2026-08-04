@@ -20,6 +20,39 @@ Aether's client — like most agentic hosts today — uses the **tools primitive
 
 One mental model matters more than the rest: **a tool result is data for the model, not an API response for code**. Results are `content` blocks (usually text) plus an `isError` flag. `isError: true` means "the operation failed in a way the model should read and react to" (file not found, exit code 1, blocked by policy) — distinct from a JSON-RPC *protocol* error, which means the call itself was malformed. Well-designed servers reserve protocol errors for protocol problems and report domain failures as content, so the agent loop can recover instead of crashing.
 
+Here is the full round-trip on the canonical example — a weather tool. Two things to notice: the **LLM never talks to the MCP server** (it only emits an *intention*; the host executes), and the **permission gate lives in the host**, between the model's intention and the actual call — which is why it works identically for every server, including ones you didn't write:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant H as Harness / host (Aether)
+    participant L as LLM
+    participant C as MCP client
+    participant S as MCP server (weather)
+    participant W as Weather API
+
+    C->>S: initialize + tools/list
+    S-->>C: get_weather(city) + JSON Schema
+    U->>H: "What's the weather in Milan?"
+    H->>L: prompt + tool declarations
+    L-->>H: function_call get_weather {city: Milan}
+    rect rgb(255, 243, 224)
+        Note over U,H: PERMISSION GATE — the host classifies the call:<br/>auto-run, or pause and ask the user
+        H->>U: approve get_weather?
+        U-->>H: approve
+    end
+    H->>C: run tool call
+    C->>S: tools/call get_weather (JSON-RPC)
+    S->>W: GET /forecast?city=Milan
+    W-->>S: 18°C, clear
+    S-->>C: content [text: 18°C, clear], isError false
+    C-->>H: tool result
+    H->>L: result fed back as context
+    L-->>H: "In Milan it's 18°C and clear"
+    H-->>U: answer
+```
+
 ## 2. Best practices — and where the built-ins apply them
 
 A checklist distilled from the MCP ecosystem's collective experience. Each item names the section where Aether's built-ins put it into practice — the rest of this guide is, in a sense, this table expanded.
@@ -86,6 +119,23 @@ node …/server-filesystem/dist/index.js /workspace/root /skills/library/path
 
 Safety (path traversal, symlink escape, root confinement) is delegated to the protocol's reference package, maintained and tested elsewhere. The *strategy*: when a mature official MCP server exists for a domain, Aether's added value is not reimplementing it but **rooting it per workspace** and classifying its tools (§9).
 
+Two independent layers protect a Filesystem call — the host-side gate decides *whether* the call runs, the spawn-time roots decide *where it can possibly reach*. Note that the second layer is not a runtime check Aether performs: the server was *born* unable to leave its roots (best practice #1):
+
+```mermaid
+flowchart TD
+    L["LLM emits a Filesystem tool call"] --> G{"Layer 1 — breakpoint gate: classify by name"}
+    G -- "read_file, list_directory → safe" --> RUN["auto-run"]
+    G -- "write_file, move_file → dangerous" --> WAIT["gated: wait for user approval"]
+    WAIT -- "approved" --> RUN
+    WAIT -- "rejected / timeout" --> ERR1["isError back to the model"]
+    RUN --> SRV["official server-filesystem (stdio child)"]
+    subgraph SB["Layer 2 — server boundary, fixed at spawn via argv"]
+        SRV --> CHK{"path inside an allowed root?"}
+        CHK -- "workspace root / skills library" --> OK["execute"]
+        CHK -- "anywhere else" --> ERR2["refused by the server itself"]
+    end
+```
+
 ## 6. Terminal: the minimal home-grown server
 
 `aether-shell.ts` (100 lines) demonstrates how little a stdio MCP server is: a loop that buffers stdin, splits on newlines, `JSON.parse`s, and answers three methods — `initialize`, `tools/list` (a single tool, `execute_command`), `tools/call`. That's the whole protocol.
@@ -102,6 +152,20 @@ Output has a fixed shape, `stdout\n---\nstderr\n---\nexit code: N`, so the model
 
 Terminal is also the only built-in **started at boot** (`bootstrap()` calls `startBuiltin('terminal')`) and **never rooted**: one global process, id `builtin:terminal`, because `cwd` is a per-call tool argument, not an instance property.
 
+Because the tool is generic, the layers stack differently than for Filesystem: the *entire* tool is classified dangerous, so **every** call waits for the user — and the in-server blocklist sits *behind* the approval, catching what must not run **even if a human said yes** (a distracted click on "approve" for `sudo rm -rf /` still does nothing):
+
+```mermaid
+flowchart TD
+    L["LLM emits Terminal.execute_command"] --> G{"Layer 1 — breakpoint gate: the WHOLE tool is dangerous"}
+    G -- "user approves" --> SH["aether-shell (stdio child)"]
+    G -- "rejected / timeout" --> E1["isError back to the model"]
+    SH --> BP{"Layer 2 — BLOCKED_PATTERNS? (sudo, rm -rf /, fork bomb, dd, mkfs…)"}
+    BP -- "match" --> E2["refused even after approval — the in-server safety net"]
+    BP -- "clean" --> RUN["spawn with hard limits"]
+    RUN --> LIM["Layer 3 — timeout 30s (ceiling 120s) + output cap 1 MiB"]
+    LIM --> RES["stdout / stderr / exit code → isError if non-zero"]
+```
+
 ## 7. Git: surgical tools instead of a shell
 
 The most interesting choice is what Git is **not**: it is not `execute_command` with a `git` prefix. It is **10 narrow-signature tools** (`git_status`, `git_diff`, `git_add`, `git_commit`, `git_checkout`, `git_restore`, `git_fetch`, `git_push`, `git_pull`, `git_merge`), each mapped to a handler that builds argv explicitly. The defensive strategies in `aether-git.handler.ts`:
@@ -112,6 +176,30 @@ The most interesting choice is what Git is **not**: it is not `execute_command` 
 - **Parseable output**: `git_status` uses `--porcelain=v2 --branch`, the machine-oriented format.
 
 The Terminal↔Git contrast is the lesson: **one generic tool buys flexibility and pays in attack surface; N specific tools buy invariants** (here: "history is never rewritten") **and pay in maintenance**. Aether uses both — the agent *could* run `git rebase` via Terminal, but there it falls into the breakpoint gate (§9), which is the point.
+
+Git shows the strongest form of safety: **layer 0 is what the model cannot even ask for**. `git_rebase`, `git_reset` and force-push are not gated, not blocked — they *do not exist* in `tools/list`, so no amount of prompt injection can invoke them through this server. The layers below then enrich that first net:
+
+```mermaid
+flowchart TD
+    subgraph N0["Layer 0 — surface reduction: these DO NOT EXIST in tools/list"]
+        A1["git_rebase"]:::absent
+        A2["git_reset"]:::absent
+        A3["git push --force"]:::absent
+    end
+    L["LLM sees only 10 narrow tools"] --> G{"Layer 1 — breakpoint gate: classify by name"}
+    G -- "git_status, git_diff → safe" --> H["aether-git handlers"]
+    G -- "git_add, git_commit, git_push… → dangerous" --> W["gated: wait for user approval"]
+    W -- "approved" --> H
+    W -- "rejected / timeout" --> E0["isError back to the model"]
+    H --> V{"Layer 2 — argument hygiene: badPath / badRef / '--' separator"}
+    V -- "invalid" --> E1["isError"]
+    V -- "remote operation" --> R{"Layer 3 — remote configured in the repo?"}
+    R -- "no" --> E1
+    R -- "yes" --> FF["fenced run: --ff-only, never force, GIT_TERMINAL_PROMPT=0"]
+    V -- "local operation" --> X["run git with explicit argv"]
+    FF --> X
+    classDef absent fill:#f6f6f6,stroke:#999,stroke-dasharray: 4 4
+```
 
 ## 8. Lifecycle: per-root pooling with LRU eviction
 

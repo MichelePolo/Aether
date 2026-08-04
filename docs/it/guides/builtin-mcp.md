@@ -22,6 +22,39 @@ Il client di Aether — come la maggior parte degli host agentici oggi — usa *
 
 Un modello mentale conta più di tutti gli altri: **il risultato di un tool è dato per il modello, non una risposta API per il codice**. I risultati sono blocchi `content` (di solito testo) più un flag `isError`. `isError: true` significa "l'operazione è fallita in un modo che il modello deve leggere e a cui deve reagire" (file non trovato, exit code 1, bloccato dalla policy) — distinto da un errore *di protocollo* JSON-RPC, che significa che la chiamata stessa era malformata. I server ben progettati riservano gli errori di protocollo ai problemi di protocollo e riportano i fallimenti di dominio come contenuto, così il loop agentico può recuperare invece di schiantarsi.
 
+Ecco il giro completo sull'esempio canonico — un tool meteo. Due cose da notare: **l'LLM non parla mai col server MCP** (emette solo un'*intenzione*; è l'host a eseguire), e il **gate dei permessi vive nell'host**, tra l'intenzione del modello e la chiamata reale — motivo per cui funziona identico per ogni server, inclusi quelli che non hai scritto tu:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Utente
+    participant H as Harness / host (Aether)
+    participant L as LLM
+    participant C as Client MCP
+    participant S as Server MCP (meteo)
+    participant W as API Meteo
+
+    C->>S: initialize + tools/list
+    S-->>C: get_weather(city) + JSON Schema
+    U->>H: "Che tempo fa a Milano?"
+    H->>L: prompt + dichiarazioni dei tool
+    L-->>H: function_call get_weather {city: Milano}
+    rect rgb(255, 243, 224)
+        Note over U,H: GATE DEI PERMESSI — l'host classifica la chiamata:<br/>esegue in automatico, o si ferma e chiede all'utente
+        H->>U: approvi get_weather?
+        U-->>H: approvo
+    end
+    H->>C: esegui la tool call
+    C->>S: tools/call get_weather (JSON-RPC)
+    S->>W: GET /forecast?city=Milano
+    W-->>S: 18°C, sereno
+    S-->>C: content [text: 18°C, sereno], isError false
+    C-->>H: risultato del tool
+    H->>L: risultato reimmesso come contesto
+    L-->>H: "A Milano ci sono 18°C ed è sereno"
+    H-->>U: risposta
+```
+
 ## 2. Best practice — e dove i builtin le applicano
 
 Una checklist distillata dall'esperienza collettiva dell'ecosistema MCP. Ogni voce indica la sezione in cui i builtin di Aether la mettono in pratica — il resto della guida è, in un certo senso, questa tabella espansa.
@@ -88,6 +121,23 @@ node …/server-filesystem/dist/index.js /root/del/workspace /path/libreria-skil
 
 La sicurezza (path traversal, symlink escape, confinamento alle root) è delegata al pacchetto di riferimento del protocollo, mantenuto e testato altrove. La *strategia*: quando esiste un server MCP ufficiale maturo per il dominio, il valore che Aether aggiunge non è reimplementarlo ma **rootarlo per workspace** e classificarne i tool (§9).
 
+Due strati indipendenti proteggono una chiamata Filesystem — il gate lato host decide *se* la chiamata parte, le root fissate allo spawn decidono *dove può arrivare*. Nota che il secondo strato non è un check a runtime fatto da Aether: il server è *nato* incapace di uscire dalle sue root (best practice n. 1):
+
+```mermaid
+flowchart TD
+    L["L'LLM emette una tool call Filesystem"] --> G{"Strato 1 — gate breakpoints: classifica per nome"}
+    G -- "read_file, list_directory → safe" --> RUN["esecuzione automatica"]
+    G -- "write_file, move_file → dangerous" --> WAIT["gated: attende l'approvazione dell'utente"]
+    WAIT -- "approvata" --> RUN
+    WAIT -- "rifiutata / timeout" --> ERR1["isError torna al modello"]
+    RUN --> SRV["server-filesystem ufficiale (figlio stdio)"]
+    subgraph SB["Strato 2 — confine del server, fissato allo spawn via argv"]
+        SRV --> CHK{"path dentro una root consentita?"}
+        CHK -- "root del workspace / libreria skill" --> OK["esegue"]
+        CHK -- "qualunque altro posto" --> ERR2["rifiutato dal server stesso"]
+    end
+```
+
 ## 6. Terminal: il server minimale fatto in casa
 
 `aether-shell.ts` (100 righe) dimostra quanto poco sia un server MCP stdio: un loop che accumula stdin, spezza per newline, fa `JSON.parse`, e risponde a tre metodi — `initialize`, `tools/list` (un solo tool, `execute_command`), `tools/call`. Fine del protocollo.
@@ -104,6 +154,20 @@ L'output ha un formato fisso `stdout\n---\nstderr\n---\nexit code: N`, così il 
 
 Terminal è anche l'unico builtin **avviato al boot** (`bootstrap()` chiama `startBuiltin('terminal')`) e **mai rooted**: un solo processo globale, id `builtin:terminal`, perché il `cwd` è un argomento per-chiamata del tool, non una proprietà dell'istanza.
 
+Essendo il tool generico, gli strati si impilano diversamente rispetto a Filesystem: l'*intero* tool è classificato dangerous, quindi **ogni** chiamata attende l'utente — e la blocklist in-server sta *dietro* l'approvazione, a catturare ciò che non deve girare **nemmeno se un umano ha detto sì** (un click distratto su "approva" per `sudo rm -rf /` continua a non fare nulla):
+
+```mermaid
+flowchart TD
+    L["L'LLM emette Terminal.execute_command"] --> G{"Strato 1 — gate breakpoints: TUTTO il tool è dangerous"}
+    G -- "l'utente approva" --> SH["aether-shell (figlio stdio)"]
+    G -- "rifiutata / timeout" --> E1["isError torna al modello"]
+    SH --> BP{"Strato 2 — BLOCKED_PATTERNS? (sudo, rm -rf /, fork bomb, dd, mkfs…)"}
+    BP -- "match" --> E2["rifiutato anche dopo l'approvazione — la rete di sicurezza in-server"]
+    BP -- "pulito" --> RUN["spawn con limiti rigidi"]
+    RUN --> LIM["Strato 3 — timeout 30s (tetto 120s) + cap output 1 MiB"]
+    LIM --> RES["stdout / stderr / exit code → isError se non-zero"]
+```
+
 ## 7. Git: tool chirurgici invece di una shell
 
 La scelta più interessante è cosa Git **non** è: non è `execute_command` con prefisso `git`. Sono **10 tool a firma stretta** (`git_status`, `git_diff`, `git_add`, `git_commit`, `git_checkout`, `git_restore`, `git_fetch`, `git_push`, `git_pull`, `git_merge`), ognuno mappato a un handler che costruisce l'argv esplicitamente. Le strategie difensive in `aether-git.handler.ts`:
@@ -114,6 +178,30 @@ La scelta più interessante è cosa Git **non** è: non è `execute_command` con
 - **Output parsabile**: `git_status` usa `--porcelain=v2 --branch`, il formato pensato per le macchine.
 
 Il confronto Terminal↔Git è la lezione: **un tool generico compra flessibilità pagando in superficie d'attacco; N tool specifici comprano invarianti** (qui: "la storia non si riscrive mai") **pagando in manutenzione**. Aether li usa entrambi — l'agente *potrebbe* fare `git rebase` via Terminal, ma lì casca nel gate dei breakpoint (§9), che è il punto.
+
+Git mostra la forma più forte di sicurezza: **lo strato 0 è ciò che il modello non può nemmeno chiedere**. `git_rebase`, `git_reset` e il force-push non sono gated né bloccati — semplicemente *non esistono* in `tools/list`, quindi nessuna prompt injection può invocarli attraverso questo server. Gli strati sotto arricchiscono quella prima rete:
+
+```mermaid
+flowchart TD
+    subgraph N0["Strato 0 — riduzione della superficie: questi NON ESISTONO in tools/list"]
+        A1["git_rebase"]:::absent
+        A2["git_reset"]:::absent
+        A3["git push --force"]:::absent
+    end
+    L["L'LLM vede solo 10 tool stretti"] --> G{"Strato 1 — gate breakpoints: classifica per nome"}
+    G -- "git_status, git_diff → safe" --> H["handler di aether-git"]
+    G -- "git_add, git_commit, git_push… → dangerous" --> W["gated: attende l'approvazione dell'utente"]
+    W -- "approvata" --> H
+    W -- "rifiutata / timeout" --> E0["isError torna al modello"]
+    H --> V{"Strato 2 — igiene degli argomenti: badPath / badRef / separatore '--'"}
+    V -- "invalidi" --> E1["isError"]
+    V -- "operazione remota" --> R{"Strato 3 — remote configurato nel repo?"}
+    R -- "no" --> E1
+    R -- "sì" --> FF["esecuzione recintata: --ff-only, mai force, GIT_TERMINAL_PROMPT=0"]
+    V -- "operazione locale" --> X["esegue git con argv esplicito"]
+    FF --> X
+    classDef absent fill:#f6f6f6,stroke:#999,stroke-dasharray: 4 4
+```
 
 ## 8. Ciclo di vita: pooling per-root con eviction LRU
 
