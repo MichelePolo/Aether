@@ -36,6 +36,11 @@ export interface ProviderRegistryDeps {
   defaultOverride?: string;
 }
 
+// LiteLLM proxies answer `/v1/models` with 200 and a fake model literally named
+// "no-default-models" when the key has no models assigned. Treating it as a
+// real catalog entry would shadow the endpoint's pinned model.
+const PLACEHOLDER_MODEL_IDS = new Set(['no-default-models']);
+
 function displayNameFor(transport: ProviderTransport, model: string, label?: string): string {
   if (transport === 'fake') return 'Fake (default)';
   if (transport === 'gemini') return `Gemini / ${model}`;
@@ -197,13 +202,20 @@ export class ProviderRegistry {
       })),
     );
     for (const { ep, models } of discoveredCompat) {
-      const tags = models.length > 0 ? models : (ep.model ? [ep.model] : []);
+      const placeholderOnly = models.length > 0 && models.every((m) => PLACEHOLDER_MODEL_IDS.has(m));
+      const discoveredModels = models.filter((m) => !PLACEHOLDER_MODEL_IDS.has(m));
+      // The pinned model always wins (listed first → endpoint default), even
+      // when discovery succeeds: gateways can return catalogs that omit models
+      // the key is actually allowed to call.
+      const tags = [...new Set([...(ep.model ? [ep.model] : []), ...discoveredModels])];
       if (tags.length === 0) {
         // Discovery found nothing and no model is pinned, so this endpoint
         // contributes zero entries. Surface it instead of vanishing silently.
         nextIssues.push({
           transport: 'openai-compat',
-          reason: `${ep.label}: no models discovered — set the endpoint's model field`,
+          reason: placeholderOnly
+            ? `${ep.label}: the gateway reports no models assigned to this key — ask the gateway admin, or set the endpoint's model field`
+            : `${ep.label}: no models discovered — set the endpoint's model field`,
         });
       }
       for (const model of tags) {
