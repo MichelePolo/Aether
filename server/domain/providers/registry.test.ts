@@ -356,3 +356,68 @@ describe('ProviderRegistry — openai-compat endpoints yielding no models', () =
     expect(reg.issues()).toEqual([]);
   });
 });
+
+describe('ProviderRegistry — openai-compat pinned model vs discovery', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function stubModelsResponse(ids: string[]) {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/v1/models')) {
+        return new Response(JSON.stringify({ data: ids.map((id) => ({ id })) }), { status: 200 });
+      }
+      return new Response('{}', { status: 404 });
+    }));
+  }
+
+  it('the pinned model survives even when discovery returns other models', async () => {
+    stubModelsResponse(['qwen']);
+    const reg = new ProviderRegistry(baseDeps({
+      listOpenAICompatEndpoints: () => [
+        { id: 'ep1', label: 'gw', baseUrl: 'https://gw/v1', model: 'my-corp-model', headers: {} },
+      ],
+    }));
+    await reg.refresh();
+    expect(reg.get('openai-compat:ep1:my-corp-model')).not.toBeNull();
+    expect(reg.get('openai-compat:ep1:qwen')).not.toBeNull();
+  });
+
+  it('filters the LiteLLM "no-default-models" placeholder and keeps the pinned model', async () => {
+    stubModelsResponse(['no-default-models']);
+    const reg = new ProviderRegistry(baseDeps({
+      listOpenAICompatEndpoints: () => [
+        { id: 'ep1', label: 'gw', baseUrl: 'https://gw/v1', model: 'my-corp-model', headers: {} },
+      ],
+    }));
+    await reg.refresh();
+    expect(reg.get('openai-compat:ep1:my-corp-model')).not.toBeNull();
+    expect(reg.get('openai-compat:ep1:no-default-models')).toBeNull();
+    expect(reg.issues()).toEqual([]);
+  });
+
+  it('placeholder-only discovery with no pinned model surfaces a key-has-no-models issue', async () => {
+    stubModelsResponse(['no-default-models']);
+    const reg = new ProviderRegistry(baseDeps({
+      listOpenAICompatEndpoints: () => [
+        { id: 'ep1', label: 'gw', baseUrl: 'https://gw/v1', model: null, headers: {} },
+      ],
+    }));
+    await reg.refresh();
+    expect(reg.list().some((d) => d.transport === 'openai-compat')).toBe(false);
+    expect(reg.issues()).toEqual([
+      { transport: 'openai-compat', reason: "gw: the gateway reports no models assigned to this key — ask the gateway admin, or set the endpoint's model field" },
+    ]);
+  });
+
+  it('does not duplicate the pinned model when discovery also returns it', async () => {
+    stubModelsResponse(['my-corp-model', 'qwen']);
+    const reg = new ProviderRegistry(baseDeps({
+      listOpenAICompatEndpoints: () => [
+        { id: 'ep1', label: 'gw', baseUrl: 'https://gw/v1', model: 'my-corp-model', headers: {} },
+      ],
+    }));
+    await reg.refresh();
+    expect(reg.list().filter((d) => d.transport === 'openai-compat')).toHaveLength(2);
+  });
+});
