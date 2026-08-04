@@ -2,9 +2,44 @@
 
 > 🇮🇹 Traduzione derivata — la versione di riferimento è quella inglese: [Built-in MCP servers](../../guides/builtin-mcp.md).
 
-Cosa copre: come i tre tool preconfezionati — Filesystem, Terminal, Git — sono implementati come server MCP, le tre strategie implementative diverse che incarnano, il loro ciclo di vita (pooling per-root, eviction LRU) e come funziona davvero il modello di sicurezza a strati. Leggilo quando vuoi capire i builtin oltre la panoramica di [MCP tools](mcp-tools.md), o prima di aggiungerne un quarto.
+Cosa copre: come i tre tool preconfezionati — Filesystem, Terminal, Git — sono implementati come server MCP, le tre strategie implementative diverse che incarnano, il loro ciclo di vita (pooling per-root, eviction LRU) e come funziona davvero il modello di sicurezza a strati. Si apre con un'introduzione al protocollo (§1) e una checklist di best practice MCP (§2) a cui il resto della guida rimanda di continuo. Leggilo quando vuoi capire i builtin oltre la panoramica di [MCP tools](mcp-tools.md), o prima di aggiungerne un quarto.
 
-## 1. L'idea di fondo: mangiare il proprio protocollo
+## 1. MCP in due parole
+
+Il **Model Context Protocol** è un protocollo aperto (introdotto da Anthropic a fine 2024, poi adottato da tutta l'industria) che standardizza il modo in cui un'applicazione LLM parla con fornitori esterni di capacità. Prima di MCP ogni assistente integrava ogni tool con colla su misura; con MCP un server scritto una volta funziona con qualunque host conforme. Tre ruoli:
+
+- **Host** — l'applicazione LLM (Aether, Claude Code, un assistente in IDE). Decide *quali* server connettere e *quando* un tool può girare.
+- **Client** — l'oggetto-connessione posseduto dall'host, uno per server (in Aether: `StdioMcpConnection` / `HttpMcpConnection`).
+- **Server** — un processo o un endpoint che espone capacità. Non sa nulla del modello; risponde e basta.
+
+Il formato sul filo è **JSON-RPC 2.0** su un transport: **stdio** (l'host spawna il server come processo figlio e scambia JSON delimitato da newline su stdin/stdout — il transport usato da tutti e tre i builtin) oppure **streamable HTTP** (un endpoint remoto; ciò che configura il dialog "Add Connection" di Aether). Una sessione parte con un handshake — `initialize` (versione del protocollo + negoziazione delle capability) seguito dalla notifica `notifications/initialized` — e poi parla le primitive:
+
+- **Tools** — funzioni che il *modello* decide di invocare, ognuna descritta da nome, descrizione in linguaggio naturale e JSON Schema degli argomenti. Scoperte con `tools/list`, invocate con `tools/call`.
+- **Resources** — dati che l'*host* legge e inietta come contesto (file, tabelle, documenti).
+- **Prompts** — template invocati dall'utente (la primitiva "slash command").
+
+Il client di Aether — come la maggior parte degli host agentici oggi — usa **solo la primitiva tools**: `mcp.schema.ts` valida esattamente `tools/list` e `tools/call`, nient'altro. È un taglio di scope deliberato, non un incidente storico.
+
+Un modello mentale conta più di tutti gli altri: **il risultato di un tool è dato per il modello, non una risposta API per il codice**. I risultati sono blocchi `content` (di solito testo) più un flag `isError`. `isError: true` significa "l'operazione è fallita in un modo che il modello deve leggere e a cui deve reagire" (file non trovato, exit code 1, bloccato dalla policy) — distinto da un errore *di protocollo* JSON-RPC, che significa che la chiamata stessa era malformata. I server ben progettati riservano gli errori di protocollo ai problemi di protocollo e riportano i fallimenti di dominio come contenuto, così il loop agentico può recuperare invece di schiantarsi.
+
+## 2. Best practice — e dove i builtin le applicano
+
+Una checklist distillata dall'esperienza collettiva dell'ecosistema MCP. Ogni voce indica la sezione in cui i builtin di Aether la mettono in pratica — il resto della guida è, in un certo senso, questa tabella espansa.
+
+| # | Best practice | Perché | Dove in Aether |
+|---|---|---|---|
+| 1 | **Least privilege per costruzione** — limita il server al set minimo di capacità che basta al lavoro; passa i confini allo spawn, non come check a runtime | Un server che non riceve mai una capacità non può essere convinto a usarla | Filesystem riceve le root consentite come argv (§5); i tool git operano solo sui remote configurati (§7) |
+| 2 | **Tool stretti quando ci sono invarianti, tool generici solo dietro limiti duri** | N tool specifici codificano garanzie che una descrizione non può dare; un tool generico massimizza la superficie d'attacco | L'intero confronto Terminal↔Git (§6 vs §7) |
+| 3 | **Le descrizioni sono prompt** — scrivile per il modello: dichiara limiti, default e rifiuti direttamente nella descrizione | La descrizione è l'unica "documentazione" che il modello vede al momento della decisione | `execute_command` dichiara timeout e cap; `git_push` dice "Never force" (§6, §7) |
+| 4 | **Tratta gli argomenti come ostili** — valida i tipi, rifiuta valori a forma di flag, usa il separatore `--`, costruisci l'argv esplicitamente, mai interpolare in una stringa shell | Gli argomenti dei tool sono testo generato dal modello; la prompt injection ci arriva | `badPath()`, `badRef()`, `['add', '--', ...paths]` (§7) |
+| 5 | **Delimita tutto** — timeout con tetto rigido, cap sull'output con marker di troncamento espliciti | Protegge l'event loop dell'host *e* il context window del modello | `SHELL_DEFAULTS`: 30s/120s, 1 MiB + `[output truncated]` (§6) |
+| 6 | **I fallimenti di dominio sono contenuto `isError`, non errori di protocollo** | Il modello può leggere il fallimento e tentare altro; un errore di protocollo uccide lo scambio e basta | Ogni handler restituisce `{ isError, content }` — pattern bloccati, timeout, exit non-zero (§6, §7) |
+| 7 | **Stato per-chiamata nella chiamata, stato di sessione nell'host** | I server stateless si poolano, riavviano e scalano banalmente | Terminal prende `cwd` per chiamata ed è un'unica istanza globale; è l'*host* a poolare le istanze fs/git rooted (§6, §8) |
+| 8 | **L'autorizzazione vive nell'host, non nel server** | Un gate fuori dai server compone su tutti — inclusi i server che non hai scritto tu | Il gate breakpoints classifica e gata ogni chiamata, builtin o custom (§9) |
+| 9 | **Emetti output stabile e parsabile dalle macchine** | Il modello impara la forma una volta e smette di indovinare | `git status --porcelain=v2`; il layout fisso `stdout/---/stderr/---/exit` (§6, §7) |
+| 10 | **Nomina i tool in modo prevedibile** — i nomi sono superficie d'API: classificazione, policy e UI keyano tutti sui nomi | Un tool ben nominato si classifica per rischio senza eseguirlo | `DANGEROUS_NAME_PATTERNS` lavora solo sui nomi qualificati (§9) |
+
+## 3. L'idea di fondo: mangiare il proprio protocollo
 
 Aether è un *client* MCP: parla JSON-RPC con server esterni via stdio o HTTP. I tre tool preconfezionati riusano esattamente quell'infrastruttura invece di aggiungerne una parallela: sono **normali server MCP stdio che Aether spawna da solo**. Niente percorso privilegiato, niente API interna — dal punto di vista del registry sono server come gli altri. Le uniche differenze: l'`id` inizia per `builtin:` e la config non viene dal context dell'utente ma viene **sintetizzata** da `BuiltinMcpStore` (`server/domain/mcp/builtin/builtin.store.ts`).
 
@@ -16,7 +51,7 @@ I tre incarnano **tre strategie implementative distinte**, ed è questo che li r
 | **Terminal** | server fatto in casa, 1 tool generico | `server/mcp/builtin/aether-shell.ts` | **no** (globale) |
 | **Git** | server fatto in casa, 10 tool chirurgici | `server/mcp/builtin/aether-git.ts` | sì |
 
-## 2. La fabbrica di config: `BuiltinMcpStore`
+## 4. La fabbrica di config: `BuiltinMcpStore`
 
 Lo stato persistente è minimale — una tabella SQLite `builtin_mcp_state` con tre righe (`transport`, `enabled`, `fs_root`). Il lavoro interessante è in `toConfigs()` / `rootedConfigs()`, che trasformano quelle righe in `McpServerConfig` stdio già pronti per il registry:
 
@@ -36,14 +71,14 @@ Tre dettagli valgono da soli il tutorial:
 
 **b) Risoluzione dev/prod dell'entry.** In produzione esiste `dist/server/mcp/builtin/aether-shell.js` accanto al bundle; in dev esiste solo il sorgente `.ts`, e un figlio `node` non eredita il loader tsx del dev server padre — morirebbe con `ERR_UNKNOWN_FILE_EXTENSION`. Quindi `resolveAetherShellArgs()` restituisce `['--import', 'tsx', srcEntry]` in dev e `[distEntry]` in prod. Il classico problema "il child process non è il tuo processo".
 
-**c) La root dentro l'id.** `builtin:filesystem@/home/x/progetto` non è cosmetica: è la chiave di pooling (§6).
+**c) La root dentro l'id.** `builtin:filesystem@/home/x/progetto` non è cosmetica: è la chiave di pooling (§8).
 
 Due note di design:
 
 - Il pattern "config sintetizzata" tiene i builtin **fuori** da `context.mcpServers`: l'utente non può cancellarli o corromperli dal dialog MCP, e la UI li gestisce con toggle dedicati (`BuiltinMcpToggles`) invece che con le card generiche.
 - Nota l'asimmetria voluta: Filesystem aggiunge sempre `libraryDir` (la cartella delle skill) alle root consentite, Git no. Le skill devono essere leggibili ovunque; ma non c'è motivo per cui l'agente faccia commit dentro la libreria.
 
-## 3. Filesystem: comprare, non costruire
+## 5. Filesystem: comprare, non costruire
 
 Per i file Aether non scrive una riga di logica di dominio: `resolveFilesystemServerEntry()` risolve con `require.resolve` l'entry del pacchetto **ufficiale** `@modelcontextprotocol/server-filesystem` e lo lancia con le root consentite come argv:
 
@@ -51,9 +86,9 @@ Per i file Aether non scrive una riga di logica di dominio: `resolveFilesystemSe
 node …/server-filesystem/dist/index.js /root/del/workspace /path/libreria-skill
 ```
 
-La sicurezza (path traversal, symlink escape, confinamento alle root) è delegata al pacchetto di riferimento del protocollo, mantenuto e testato altrove. La *strategia*: quando esiste un server MCP ufficiale maturo per il dominio, il valore che Aether aggiunge non è reimplementarlo ma **rootarlo per workspace** e classificarne i tool (§7).
+La sicurezza (path traversal, symlink escape, confinamento alle root) è delegata al pacchetto di riferimento del protocollo, mantenuto e testato altrove. La *strategia*: quando esiste un server MCP ufficiale maturo per il dominio, il valore che Aether aggiunge non è reimplementarlo ma **rootarlo per workspace** e classificarne i tool (§9).
 
-## 4. Terminal: il server minimale fatto in casa
+## 6. Terminal: il server minimale fatto in casa
 
 `aether-shell.ts` (100 righe) dimostra quanto poco sia un server MCP stdio: un loop che accumula stdin, spezza per newline, fa `JSON.parse`, e risponde a tre metodi — `initialize`, `tools/list` (un solo tool, `execute_command`), `tools/call`. Fine del protocollo.
 
@@ -69,7 +104,7 @@ L'output ha un formato fisso `stdout\n---\nstderr\n---\nexit code: N`, così il 
 
 Terminal è anche l'unico builtin **avviato al boot** (`bootstrap()` chiama `startBuiltin('terminal')`) e **mai rooted**: un solo processo globale, id `builtin:terminal`, perché il `cwd` è un argomento per-chiamata del tool, non una proprietà dell'istanza.
 
-## 5. Git: tool chirurgici invece di una shell
+## 7. Git: tool chirurgici invece di una shell
 
 La scelta più interessante è cosa Git **non** è: non è `execute_command` con prefisso `git`. Sono **10 tool a firma stretta** (`git_status`, `git_diff`, `git_add`, `git_commit`, `git_checkout`, `git_restore`, `git_fetch`, `git_push`, `git_pull`, `git_merge`), ognuno mappato a un handler che costruisce l'argv esplicitamente. Le strategie difensive in `aether-git.handler.ts`:
 
@@ -78,9 +113,9 @@ La scelta più interessante è cosa Git **non** è: non è `execute_command` con
 - **Niente riscritture di storia**: `git_pull` e `git_merge` sono hardcoded `--ff-only`; `git_push` "Never force" (dalla description del tool); `git_rebase` e `git_reset` semplicemente non esistono.
 - **Output parsabile**: `git_status` usa `--porcelain=v2 --branch`, il formato pensato per le macchine.
 
-Il confronto Terminal↔Git è la lezione: **un tool generico compra flessibilità pagando in superficie d'attacco; N tool specifici comprano invarianti** (qui: "la storia non si riscrive mai") **pagando in manutenzione**. Aether li usa entrambi — l'agente *potrebbe* fare `git rebase` via Terminal, ma lì casca nel gate dei breakpoint (§7), che è il punto.
+Il confronto Terminal↔Git è la lezione: **un tool generico compra flessibilità pagando in superficie d'attacco; N tool specifici comprano invarianti** (qui: "la storia non si riscrive mai") **pagando in manutenzione**. Aether li usa entrambi — l'agente *potrebbe* fare `git rebase` via Terminal, ma lì casca nel gate dei breakpoint (§9), che è il punto.
 
-## 6. Ciclo di vita: pooling per-root con eviction LRU
+## 8. Ciclo di vita: pooling per-root con eviction LRU
 
 Il registry (`server/domain/mcp/registry.ts`) gestisce i builtin rooted come un pool:
 
@@ -92,7 +127,7 @@ C'è poi il problema dei **duplicati**: possono coesistere più istanze fs/git (
 
 Il `qualifiedName` è la convenzione che lega tutto: `<serverName>.<toolName>` → `Filesystem.read_file`, `Terminal.execute_command`, `Git.git_push`.
 
-## 7. La sicurezza è a strati — i pattern block non sono il gate
+## 9. La sicurezza è a strati — i pattern block non sono il gate
 
 È il punto concettuale più importante. I `BLOCKED_PATTERNS` fermano solo la catastrofe ovvia; la vera governance è nel **BreakpointService**, fuori dai server:
 
@@ -107,7 +142,7 @@ Due osservazioni:
 - La classificazione avviene sul **nome qualificato**, non sul contenuto — ed è il motivo per cui i tool git sono chirurgici. `Git.git_push` è riconoscibile e gateabile come nome; lo stesso push dentro `Terminal.execute_command` è gateabile solo perché `execute_command` è dangerous *in blocco*.
 - È lo stesso identico gate che attraversano le tool call quando il provider è un CLI agentico che rientra dal bridge MCP loopback: la stratificazione ripaga perché è indipendente da *chi* invoca il tool.
 
-## 8. Ricetta: aggiungere un quarto builtin
+## 10. Ricetta: aggiungere un quarto builtin
 
 Se domani volessi un builtin "Database", il percorso tracciato dai tre esistenti è:
 
@@ -121,6 +156,7 @@ Il tutto senza toccare dispatch, breakpoints o UI delle policy: è la ricompensa
 
 ## File chiave
 
+- `server/domain/mcp/mcp.schema.ts` — la superficie di protocollo lato client (`tools/list`, `tools/call`)
 - `server/domain/mcp/builtin/builtin.store.ts` — sintesi delle config, risoluzione entry dev/prod, gestione Electron
 - `server/domain/mcp/builtin/builtin.types.ts` — `BLOCKED_PATTERNS`, `SHELL_DEFAULTS`
 - `server/mcp/builtin/aether-shell.ts` / `aether-shell.handler.ts` — server e handler Terminal
