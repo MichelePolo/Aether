@@ -30,6 +30,7 @@ Every tool call — built-in or custom — is still subject to the approval gate
 
 ## See also
 
+- [Built-in MCP deep dive](builtin-mcp.md) — implementation strategies, lifecycle and layered safety of Filesystem/Terminal/Git
 - [Breakpoints](breakpoints.md) — the approval gate every tool call passes through
 - [Architecture](../architecture.md) — the dispatch loop and where tool assembly fits
 - [Configuration](../reference/configuration.md) — `AETHER_MAX_TOOL_CALLS`

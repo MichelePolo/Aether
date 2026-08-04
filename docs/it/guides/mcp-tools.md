@@ -32,6 +32,7 @@ Ogni chiamata a strumento — integrata o personalizzata — è comunque soggett
 
 ## Vedi anche
 
+- [Approfondimento MCP builtin](builtin-mcp.md) — strategie implementative, ciclo di vita e sicurezza a strati di Filesystem/Terminal/Git
 - [Breakpoint](breakpoints.md) — il gate di approvazione che ogni chiamata a strumento attraversa
 - [Architettura](../../architecture.md) (in inglese) — il ciclo di dispatch e dove si colloca l'assemblaggio degli strumenti
 - [Configurazione](../../reference/configuration.md) (in inglese) — `AETHER_MAX_TOOL_CALLS`
