@@ -36,36 +36,39 @@ BUSINESS ERROR
 }*
 Well-designed servers reserve protocol errors for protocol problems and report domain failures as content, so an LLM in the agentic loop can recover instead of crashing.
 
-Here is the full round-trip on the canonical example — a weather tool. Two things to notice: the **LLM never talks to the MCP server** (it only emits an *intention*; the host executes), and the **permission gate lives in the host**, between the model's intention and the actual call — which is why it works identically for every server, including ones you didn't write:
+Here is the full round-trip on a minimal example — a hypothetical filesystem MCP server started together with the harness, and the request "add eggs to the shopping list". Two things to notice: the **LLM never talks to the MCP server** (it only emits an *intention*; the host executes), and the **permission gate lives in the host**, between the model's intention and the actual call — which is why it works identically for every server, including ones you didn't write:
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor U as User
-    participant H as Harness / host (Aether)
+    participant H as Harness / host
     participant L as LLM
-    participant C as MCP client
-    participant S as MCP server (weather)
-    participant W as Weather API
+    participant S as MCP server (filesystem)
 
-    C->>S: initialize + tools/list
-    S-->>C: get_weather(city) + JSON Schema
-    U->>H: "What's the weather in Milan?"
+    Note over H,S: HARNESS STARTUP
+    H->>S: spawn + initialize
+    S-->>H: negotiated capabilities
+    H->>S: tools/list
+    S-->>H: read_file, write_file (+ JSON Schema)
+
+    U->>H: "add eggs to the shopping list"
     H->>L: prompt + tool declarations
-    L-->>H: function_call get_weather {city: Milan}
+    L-->>H: function_call read_file {path: shopping-list.txt}
+    Note over H: read_file is safe → auto-run
+    H->>S: tools/call read_file (JSON-RPC)
+    S-->>H: content [text: milk, bread], isError false
+    H->>L: result fed back as context
+    L-->>H: function_call write_file {content: milk, bread, eggs}
     rect rgb(255, 243, 224)
-        Note over U,H: PERMISSION GATE — the host classifies the call:<br/>auto-run, or pause and ask the user
-        H->>U: approve get_weather?
+        Note over U,H: PERMISSION GATE — writing is risky:<br/>the host pauses and asks the user
+        H->>U: approve write_file?
         U-->>H: approve
     end
-    H->>C: run tool call
-    C->>S: tools/call get_weather (JSON-RPC)
-    S->>W: GET /forecast?city=Milan
-    W-->>S: 18°C, clear
-    S-->>C: content [text: 18°C, clear], isError false
-    C-->>H: tool result
+    H->>S: tools/call write_file (JSON-RPC)
+    S-->>H: content [text: file updated], isError false
     H->>L: result fed back as context
-    L-->>H: "In Milan it's 18°C and clear"
+    L-->>H: "Done: eggs added to the list"
     H-->>U: answer
 ```
 

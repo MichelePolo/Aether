@@ -40,36 +40,39 @@ BUSINESS ERROR
 }*
 I server ben progettati riservano gli errori di protocollo ai problemi di protocollo e riportano i fallimenti di dominio come contenuto, così un LLM nel loop agentico può recuperare invece di schiantarsi.
 
-Ecco il giro completo sull'esempio canonico - un tool meteo. Due cose da notare: **l'LLM non parla mai col server MCP** (emette solo un'*intenzione*; è l'host a eseguire), e il **gate dei permessi vive nell'host**, tra l'intenzione del modello e la chiamata reale - motivo per cui funziona identico per ogni server, inclusi quelli che non hai scritto tu:
+Ecco il giro completo su un esempio minimo - un ipotetico server MCP filesystem avviato insieme all'harness, e la richiesta "aggiungi uova alla lista della spesa". Due cose da notare: **l'LLM non parla mai col server MCP** (emette solo un'*intenzione*; è l'host a eseguire), e il **gate dei permessi vive nell'host**, tra l'intenzione del modello e la chiamata reale - motivo per cui funziona identico per ogni server, inclusi quelli che non hai scritto tu:
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor U as Utente
-    participant H as Harness / host (Aether)
+    participant H as Harness / host
     participant L as LLM
-    participant C as Client MCP
-    participant S as Server MCP (meteo)
-    participant W as API Meteo
+    participant S as Server MCP (filesystem)
 
-    C->>S: initialize + tools/list
-    S-->>C: get_weather(city) + JSON Schema
-    U->>H: "Che tempo fa a Milano?"
+    Note over H,S: AVVIO DELL'HARNESS
+    H->>S: spawn + initialize
+    S-->>H: capability negoziate
+    H->>S: tools/list
+    S-->>H: read_file, write_file (+ JSON Schema)
+
+    U->>H: "aggiungi uova alla lista della spesa"
     H->>L: prompt + dichiarazioni dei tool
-    L-->>H: function_call get_weather {city: Milano}
+    L-->>H: function_call read_file {path: lista-spesa.txt}
+    Note over H: read_file è safe → esegue in automatico
+    H->>S: tools/call read_file (JSON-RPC)
+    S-->>H: content [text: latte, pane], isError false
+    H->>L: risultato reimmesso come contesto
+    L-->>H: function_call write_file {content: latte, pane, uova}
     rect rgb(255, 243, 224)
-        Note over U,H: GATE DEI PERMESSI — l'host classifica la chiamata:<br/>esegue in automatico, o si ferma e chiede all'utente
-        H->>U: approvi get_weather?
+        Note over U,H: GATE DEI PERMESSI — scrivere è rischioso:<br/>l'host si ferma e chiede all'utente
+        H->>U: approvi write_file?
         U-->>H: approvo
     end
-    H->>C: esegui la tool call
-    C->>S: tools/call get_weather (JSON-RPC)
-    S->>W: GET /forecast?city=Milano
-    W-->>S: 18°C, sereno
-    S-->>C: content [text: 18°C, sereno], isError false
-    C-->>H: risultato del tool
+    H->>S: tools/call write_file (JSON-RPC)
+    S-->>H: content [text: file aggiornato], isError false
     H->>L: risultato reimmesso come contesto
-    L-->>H: "A Milano ci sono 18°C ed è sereno"
+    L-->>H: "Fatto: ho aggiunto le uova alla lista"
     H-->>U: risposta
 ```
 
