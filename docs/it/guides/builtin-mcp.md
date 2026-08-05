@@ -25,8 +25,10 @@ Il client di Aether — come la maggior parte degli host agentici oggi — usa *
 
 Il modello mentale da tenere è che **il risultato di un tool deve essere preparato per il modello LLM, non una risposta API per un software**. I risultati sono blocchi `content` (di solito testo) più un flag `isError`. `isError: true` significa "l'operazione è fallita in un modo che il modello deve poter leggere, capire e a cui deve reagire" (file non trovato, exit code 1, bloccato dalla policy) — distinto da un errore *di protocollo* JSON-RPC, che significa che la chiamata stessa era malformata. 
 Niente di diverso dalle API rest nel Richardson Maturity Model: 
+
 SYSTEM ERROR
 *KO 500 = Il server è esploso. All'LLM non deve interessare un errore di sistema.*
+
 BUSINESS ERROR
 *{
   "type": "https://esempio.com",
