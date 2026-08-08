@@ -14,6 +14,30 @@ Ogni chiamata a strumento che il modello vuole effettuare viene classificata in 
 
 **`auto`** significa che il ciclo di dispatch esegue subito lo strumento. **`gate`** significa che il ciclo di dispatch chiama `McpRegistry.awaitDecision(callId)` (`server/domain/mcp/registry.ts`), che restituisce una promise che si risolve solo quando qualcosa chiama `resolveDecision(callId, 'approve' | 'reject')` — oppure **viene rifiutata dopo un timeout di 24 ore** (`timeoutMs = 24 * 60 * 60 * 1000`, parametro predefinito hardcoded), momento in cui la decisione in sospeso viene scartata e la chiamata è trattata come rifiutata.
 
+L'intera valutazione in un colpo d'occhio — le operazioni di **lettura** osservano e partono da sole, le operazioni di **modifica** cambiano file/stato/storia e ti aspettano, le operazioni **esterne** mandano dati fuori dalla macchina e ti aspettano anche loro. Ogni arco "default" qui sotto è un radio per-categoria nella sidebar (auto/gate), e l'override per singolo tool può deviare qualunque strumento:
+
+```mermaid
+flowchart TD
+    L["Il modello emette una tool call"] --> AA{"flag autoApprove per-tool?"}
+    AA -- "true" --> AUTO
+    AA -- "false" --> GATE
+    AA -- "non impostato" --> CL{"classifyTool() — euristica sul nome qualificato;<br/>un override di categoria per-tool vince su di essa"}
+
+    CL -- "operazioni di LETTURA<br/>read_file, list_directory, git_status, git_diff…" --> SAFE["SAFE — osserva, nessun effetto collaterale"]
+    CL -- "operazioni di MODIFICA<br/>write_/delete_/move_…, execute_command,<br/>git_push / git_commit / git_checkout…" --> DANG["DANGEROUS — cambia file, stato o storia"]
+    CL -- "operazioni ESTERNE — escono dalla macchina<br/>(oggi nessuna euristica la assegna: solo override)" --> EXT["EXTERNAL — servizi terzi vedono i tuoi dati"]
+
+    SAFE -- "policy: auto (default)" --> AUTO["auto — esegue subito"]
+    DANG -- "policy: gate (default)" --> GATE
+    EXT -- "policy: gate (default)" --> GATE["gate — il dispatch si ferma"]
+
+    AUTO --> EXEC["esegue → risultato al modello,<br/>step tool_call registrato nella trace"]
+    GATE --> PREV["SSE tool_call_request + anteprima<br/>(diff / gitDiff / commitList / plain)"]
+    PREV --> DEC{"l'utente decide in chat"}
+    DEC -- "approva (volendo sticky per la sessione)" --> EXEC
+    DEC -- "rifiuta / timeout 24h / auto-reject della CLI" --> REJ["non eseguita — isError 'Rejected by user'<br/>reimmesso al modello"]
+```
+
 **UI di anteprima / diff**: prima di attendere la decisione, `DispatchService.gateExecuteAndTrace()` (`server/domain/dispatch/dispatch.service.ts`) calcola un'anteprima tramite `PreviewService.previewToolCall()` (`server/domain/mcp/breakpoints/preview.service.ts`) — una tra `diff` (testo vecchio/nuovo + percorso), `gitDiff` (diff unificato + titolo), `commitList`, o `plain` (`PreviewResult` in `breakpoints.types.ts`) — e la emette sull'evento SSE `tool_call_request` così l'interfaccia può renderizzare il widget di approvazione giusto (es. una vista diff per una scrittura di file, una lista di commit per un'operazione git) prima che l'utente decida.
 
 **Comportamento della CLI**: il client CLI non ha un prompt di approvazione interattivo. Quando arriva una chiamata soggetta a gate, `rejectDecision()` (`cli/client.ts`) invia proattivamente una POST `{ callId, action: 'reject' }` a `/api/mcp/decision` (best-effort — una chiamata di rifiuto fallita non deve mai far crashare lo stream) invece di lasciare che la chiamata scada per il timeout di 24 ore. L'approvazione/rifiuto interattivo è disponibile solo nella web UI.
