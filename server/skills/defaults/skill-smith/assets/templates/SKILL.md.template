@@ -1,0 +1,49 @@
+---
+name: {{SLUG}}
+description: {{WHAT_IT_DOES}}. Use when {{SITUATION_1}}, {{SITUATION_2}}, or {{SITUATION_3}} — even if the user only says "{{LIKELY_USER_PHRASING}}".
+---
+
+# {{TITLE}}
+
+{{ONE_SENTENCE_ON_WHAT_THIS_PRODUCES}}
+
+## When this applies
+
+{{THE_SITUATION_THE_MODEL_IS_IN_WHEN_IT_READS_THIS}}. {{WHAT_GOES_WRONG_WITHOUT_IT}}.
+
+## Steps
+
+1. {{FIRST_DECISION_OR_ACTION}}
+2. {{SECOND}}
+3. {{THIRD}}
+
+## {{THE_THING_THAT_IS_EASY_TO_GET_WRONG}}
+
+{{THE_RULE}} — {{WHY_IT_EXISTS_SO_THE_MODEL_GENERALISES}}.
+
+## Output
+
+Use this exact shape:
+
+```
+{{LITERAL_TEMPLATE_OR_EXAMPLE_OUTPUT}}
+```
+
+<!--
+Delete every section you did not fill in. Keep the body under 500 lines.
+
+Optional frontmatter (spec): license, compatibility, metadata, allowed-tools.
+Add a field only when it carries real information.
+
+Routing table — add once there are two or more reference files:
+
+| The user wants   | Read                       |
+| ---------------- | -------------------------- |
+| {{BRANCH_A}}     | `references/{{a}}.md`       |
+| {{BRANCH_B}}     | `references/{{b}}.md`       |
+
+Script contract — add one block per bundled script:
+
+    node scripts/{{NAME}}.mjs <arg>
+    Prints {{WHAT}}. Exits non-zero when {{CONDITION}}.
+-->

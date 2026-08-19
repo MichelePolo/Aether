@@ -1,0 +1,28 @@
+{
+  "skill_name": "{{SLUG}}",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "{{WHAT_A_REAL_USER_WOULD_TYPE}}",
+      "expected_output": "{{WHAT_SUCCESS_LOOKS_LIKE_TO_A_HUMAN}}",
+      "files": [],
+      "expectations": [
+        "{{SOMETHING_ONLY_A_RUN_WITH_THIS_SKILL_WOULD_GET_RIGHT}}"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "{{A_VARIANT_THAT_EXERCISES_A_DIFFERENT_BRANCH}}",
+      "expected_output": "{{...}}",
+      "files": ["evals/files/{{FIXTURE}}"],
+      "expectations": []
+    },
+    {
+      "id": 3,
+      "prompt": "{{A_NEAR_MISS_THAT_SHOULD_NOT_TRIGGER_THIS_SKILL}}",
+      "expected_output": "The skill does not engage; the model answers normally.",
+      "files": [],
+      "expectations": []
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+# {{REFERENCE_TITLE}}
+
+Read this when {{THE_CONDITION_THAT_SENDS_THE_MODEL_HERE}}.
+
+<!-- Add this table of contents only if the file exceeds ~300 lines.
+## Contents
+- [{{SECTION}}](#{{anchor}})
+-->
+
+## {{SECTION}}
+
+{{CONTENT}}
+
+<!--
+One topic per file. Name the file for the situation, not the chapter number.
+Keep it one hop from SKILL.md: do not send the model on to a third file to
+find the actual answer. If this file drops under ~30 lines, fold it back into
+SKILL.md and delete it.
+-->
