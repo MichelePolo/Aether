@@ -1,5 +1,5 @@
 import { SubAgentsStore } from './subagents.store';
-import { seedSkillSmith, SKILL_SMITH_NAME } from './skill-smith';
+import { seedSkillSmith, skillSmithInstruction, SKILL_SMITH_NAME } from './skill-smith';
 import { makeTestDb } from '@/server/test/test-db';
 import type { DatabaseHandle } from '@/server/db/database';
 
@@ -41,5 +41,26 @@ describe('seedSkillSmith', () => {
     await seedSkillSmith(store);
     const rec = await store.read(meta.id);
     expect(rec?.systemInstruction).toBe('USER EDIT');
+  });
+});
+
+describe('skillSmithInstruction', () => {
+  it('is the portable agent body plus the Aether placement rules', () => {
+    const instruction = skillSmithInstruction();
+    // From bundle/sources/agent.md — the half the exported bundle also ships.
+    expect(instruction).toContain('The method is not in this prompt');
+    // Aether-only: the portable agent knows nothing about drafts or the panel.
+    expect(instruction).toContain('## In Aether');
+    expect(instruction).toMatch(/\.drafts/);
+    expect(instruction).toContain('Skills panel');
+  });
+
+  it('delegates the method to the skill-smith skill rather than restating it', () => {
+    expect(skillSmithInstruction()).toContain('`skill-smith` skill');
+  });
+
+  it('does not leak the agent file frontmatter into the system instruction', () => {
+    expect(skillSmithInstruction().startsWith('---')).toBe(false);
+    expect(skillSmithInstruction()).not.toContain('description:');
   });
 });

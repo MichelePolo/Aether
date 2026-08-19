@@ -1,7 +1,7 @@
 import { useSessionsStore } from '@/src/stores/sessions.store';
 import { useChatStore } from '@/src/stores/chat.store';
 import { useSkillsStore } from '@/src/stores/skills.store';
-import { SKILL_SMITH_NAME } from '@/server/domain/subagents/skill-smith';
+import { SKILL_SMITH_NAME } from '@/server/domain/subagents/skill-smith.name';
 
 export interface CreateSkillFlowInput {
   providerName: string;
@@ -25,7 +25,7 @@ export async function createSkillFlow({ providerName, idea }: CreateSkillFlowInp
   const prefill =
     `@${SKILL_SMITH_NAME} Help me create a new Aether skill. ` +
     `Write the generated skill into a new folder under \`${draftsDir}/<slug>/\`. ` +
-    `Read your brainstorming and skill-creator guide skills first.${ideaSentence}`;
+    `Read your brainstorming and skill-smith guide skills first.${ideaSentence}`;
 
   useChatStore.getState().setPendingComposerText(prefill);
 }

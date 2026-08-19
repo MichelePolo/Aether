@@ -52,6 +52,12 @@ async function run() {
   rmSync(p('dist/skills'), { recursive: true, force: true });
   mkdirSync(p('dist/skills'), { recursive: true });
   cpSync(p('server/skills/defaults'), p('dist/skills/defaults'), { recursive: true });
+
+  // The portable skill-smith agent is read at seed time (see
+  // server/domain/subagents/skill-smith.ts) and is also the source the exported
+  // bundle ships — one file, both consumers.
+  mkdirSync(p('dist/agents'), { recursive: true });
+  cpSync(p('bundle/sources/agent.md'), p('dist/agents/skill-smith.md'));
 }
 
 run().catch((err) => { console.error(err); process.exit(1); });

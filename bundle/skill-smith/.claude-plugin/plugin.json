@@ -1,0 +1,14 @@
+{
+  "name": "skill-smith",
+  "displayName": "Skill Smith",
+  "version": "1.0.0",
+  "description": "Author, audit and package Agent Skills that conform to the SKILL.md specification — frontmatter, progressive disclosure, bundled resources, evals and distribution. Ships the skill and the subagent that drives it.",
+  "author": {
+    "name": "Aether Core",
+    "url": "https://github.com/MichelePolo/Aether"
+  },
+  "homepage": "https://github.com/MichelePolo/Aether",
+  "repository": "https://github.com/MichelePolo/Aether",
+  "license": "MIT",
+  "keywords": ["skills", "skill-authoring", "agent-skills", "progressive-disclosure", "packaging"]
+}

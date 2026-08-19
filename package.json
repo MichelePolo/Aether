@@ -15,6 +15,8 @@
   "scripts": {
     "dev": "tsx server/index.ts",
     "build": "node scripts/build.mjs",
+    "bundle": "node scripts/build-bundle.mjs",
+    "bundle:check": "node scripts/build-bundle.mjs --check",
     "prepare": "npm run build",
     "start": "node dist/server.cjs",
     "smoke:prod": "node scripts/smoke-prod.mjs",
