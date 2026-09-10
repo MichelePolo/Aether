@@ -1,3 +1,4 @@
+import type { SseEvent } from '@/src/lib/sse-parser';
 import { useCallback } from 'react';
 import { useChatStore } from '@/src/stores/chat.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
@@ -6,9 +7,8 @@ import { useUiStore } from '@/src/stores/ui.store';
 import { createStreamingDispatch, createResumingDispatch } from '@/src/lib/api/dispatch.api';
 import { computeTitle } from '@/src/lib/title';
 import type { ReasoningStep } from '@/src/types/reasoning.types';
-import { emitToolCallRequest, type ToolCallRequestEvent } from './useToolCallDecisions';
-import { useMcpStore } from '@/src/stores/mcp.store';
-import type { McpConnectionState } from '@/src/types/mcp.types';
+import { createToolEventConsumer } from '@/src/lib/tool-events';
+import type { Message } from '@/src/types/message.types';
 import { useProviderAuthStore } from '@/src/stores/providerAuth.store';
 import type { ProviderTransport } from '@/src/types/provider-auth.types';
 
@@ -16,14 +16,6 @@ interface TextData { chunk: string }
 interface ThinkingData { chunk: string }
 interface DoneData { model?: string; interrupted?: boolean; reasoningSteps?: ReasoningStep[]; tokensIn?: number; tokensOut?: number }
 interface ErrorData { message: string; retryable: boolean }
-interface McpStateChangeData {
-  id: string;
-  state: McpConnectionState;
-  error?: string;
-  reconnectAttempt?: number;
-  reconnectMaxAttempts?: number;
-}
-
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : 'Unknown error';
 }
@@ -35,6 +27,62 @@ function maybeRefreshAuthStatus(providerName: string | undefined): void {
   const transport = providerName.split(':')[0];
   if ((PROBED_TRANSPORTS as readonly string[]).includes(transport)) {
     void useProviderAuthStore.getState().refresh(transport as ProviderTransport);
+  }
+}
+
+async function consumeChatStream(stream: AsyncIterable<SseEvent>, opts: { id: string; userId?: string; controller: AbortController; activeId: string; activeName?: string }): Promise<void> {
+  let { id } = opts;
+  const { userId, controller, activeId, activeName } = opts;
+  let firstThinkingSeen = false;
+  const toolEvents = createToolEventConsumer();
+  try {
+    for await (const ev of stream) {
+      if (ev.event === 'message_ids') {
+        const d = ev.data as { modelMessageId: string; userMessageId?: string; attachments?: Message['attachments'] };
+        if (userId && d.userMessageId) useChatStore.getState().reconcileMessage(userId, d.userMessageId, d.attachments);
+        useChatStore.getState().reconcileMessage(id, d.modelMessageId);
+        id = d.modelMessageId;
+      } else if (ev.event === 'text') {
+        useChatStore.getState().appendChunk(id, (ev.data as TextData).chunk);
+      } else if (ev.event === 'thinking') {
+        useChatStore.getState().appendThinkingChunk((ev.data as ThinkingData).chunk);
+        if (!firstThinkingSeen) {
+          firstThinkingSeen = true;
+          useUiStore.getState().openReasoningDrawer();
+        }
+      } else if (ev.event === 'reasoning_step') {
+        useChatStore.getState().appendReasoningStep(ev.data as ReasoningStep);
+      } else if (ev.event === 'done') {
+        const d = ev.data as DoneData;
+        useChatStore.getState().finishAssistant(id, {
+          model: d.model,
+          interrupted: !!d.interrupted,
+          reasoningSteps: d.reasoningSteps,
+          tokensIn: d.tokensIn,
+          tokensOut: d.tokensOut,
+        });
+        if (userId) useChatStore.getState().clearQueuedAttachments();
+        return;
+      } else if (ev.event === 'error') {
+        const d = ev.data as ErrorData;
+        maybeRefreshAuthStatus(activeName);
+        useChatStore.getState().failAssistant(id, d.message, !!d.retryable);
+        return;
+      } else {
+        toolEvents.consume(ev.event, ev.data);
+      }
+    }
+    // A closed stream without a terminal event is incomplete, including network EOF.
+    useChatStore.getState().finishAssistant(id, { interrupted: true });
+  } catch (e) {
+    if (controller.signal.aborted) useChatStore.getState().finishAssistant(id, { interrupted: true });
+    else {
+      maybeRefreshAuthStatus(activeName);
+      useChatStore.getState().failAssistant(id, errMsg(e), true);
+    }
+  } finally {
+    toolEvents.close();
+    useSessionsStore.getState().touchUpdatedAt(activeId, Date.now());
   }
 }
 
@@ -80,99 +128,16 @@ export function useStreamingDispatch() {
         }))
       : undefined;
 
-    chat.appendUser(trimmed);
+    const { id: userId } = chat.appendUser(trimmed);
     const { id } = chat.startAssistant();
     const controller = new AbortController();
     chat.setAbortController(controller);
 
-    let firstThinkingSeen = false;
-
-    try {
-      for await (const ev of createStreamingDispatch(
-        {
-          sessionId: activeId,
-          message: trimmed,
-          thinking,
-          aetherMode,
-          ...(activeName ? { providerName: activeName } : {}),
-          ...(attachments ? { attachments } : {}),
-        },
-        controller.signal,
-      )) {
-        if (ev.event === 'text') {
-          useChatStore.getState().appendChunk(id, (ev.data as TextData).chunk);
-        } else if (ev.event === 'thinking') {
-          useChatStore.getState().appendThinkingChunk((ev.data as ThinkingData).chunk);
-          if (!firstThinkingSeen) {
-            firstThinkingSeen = true;
-            useUiStore.getState().openReasoningDrawer();
-          }
-        } else if (ev.event === 'reasoning_step') {
-          useChatStore.getState().appendReasoningStep(ev.data as ReasoningStep);
-        } else if (ev.event === 'done') {
-          const d = ev.data as DoneData;
-          useChatStore.getState().finishAssistant(id, {
-            model: d.model,
-            interrupted: !!d.interrupted,
-            reasoningSteps: d.reasoningSteps,
-            tokensIn: d.tokensIn,
-            tokensOut: d.tokensOut,
-          });
-          useChatStore.getState().clearQueuedAttachments();
-          return;
-        } else if (ev.event === 'error') {
-          const d = ev.data as ErrorData;
-          maybeRefreshAuthStatus(activeName);
-          useChatStore.getState().failAssistant(id, d.message, !!d.retryable);
-          return;
-        } else if (ev.event === 'tool_call_request') {
-          // payload shape from backend: { id, qualifiedName, args, preview? }
-          // preview is pre-computed at the dispatch's effective root — use it directly to skip the HTTP fallback.
-          emitToolCallRequest(ev.data as ToolCallRequestEvent);
-        } else if (ev.event === 'tool_call_started') {
-          const p = ev.data as {
-            callId?: string;
-            id?: string;
-            qualifiedName: string;
-            args: Record<string, unknown>;
-          };
-          const callId = p.callId ?? p.id ?? '';
-          if (callId) {
-            useMcpStore.getState().registerInFlightCall({
-              callId,
-              qualifiedName: p.qualifiedName,
-              args: p.args,
-            });
-          }
-        } else if (ev.event === 'tool_call_progress') {
-          const p = ev.data as { id: string; note: string };
-          useMcpStore.getState().updateInFlightProgress(p.id, p.note);
-        } else if (ev.event === 'tool_call_result') {
-          const p = ev.data as { id?: string; callId?: string };
-          const callId = p.id ?? p.callId;
-          if (callId) useMcpStore.getState().clearInFlightCall(callId);
-        } else if (ev.event === 'mcp:state_change') {
-          const d = ev.data as McpStateChangeData;
-          useMcpStore.getState().applyServerStateEvent(
-            d.id,
-            d.state,
-            d.error,
-            d.reconnectAttempt,
-            d.reconnectMaxAttempts,
-          );
-        }
-      }
-      useChatStore.getState().finishAssistant(id, { interrupted: controller.signal.aborted });
-    } catch (e) {
-      if (controller.signal.aborted) {
-        useChatStore.getState().finishAssistant(id, { interrupted: true });
-      } else {
-        maybeRefreshAuthStatus(activeName);
-        useChatStore.getState().failAssistant(id, errMsg(e), true);
-      }
-    } finally {
-      useSessionsStore.getState().touchUpdatedAt(activeId, Date.now());
-    }
+    await consumeChatStream(createStreamingDispatch({
+      sessionId: activeId, message: trimmed, thinking, aetherMode,
+      ...(defaultProvider ? { defaultProviderName: defaultProvider } : {}),
+      ...(attachments ? { attachments } : {}),
+    }, controller.signal), { id, userId, controller, activeId, activeName });
   }, []);
 
   const resume = useCallback(async (messageId: string) => {
@@ -196,87 +161,9 @@ export function useStreamingDispatch() {
     const controller = new AbortController();
     chat.setAbortController(controller);
 
-    let firstThinkingSeen = false;
-
-    try {
-      const aetherMode = useUiStore.getState().aetherMode;
-      for await (const ev of createResumingDispatch(
-        { sessionId: activeId, messageId, aetherMode, ...(activeName ? { providerName: activeName } : {}) },
-        controller.signal,
-      )) {
-        if (ev.event === 'text') {
-          useChatStore.getState().appendChunk(id, (ev.data as TextData).chunk);
-        } else if (ev.event === 'thinking') {
-          useChatStore.getState().appendThinkingChunk((ev.data as ThinkingData).chunk);
-          if (!firstThinkingSeen) {
-            firstThinkingSeen = true;
-            useUiStore.getState().openReasoningDrawer();
-          }
-        } else if (ev.event === 'reasoning_step') {
-          useChatStore.getState().appendReasoningStep(ev.data as ReasoningStep);
-        } else if (ev.event === 'done') {
-          const d = ev.data as DoneData;
-          useChatStore.getState().finishAssistant(id, {
-            model: d.model,
-            interrupted: !!d.interrupted,
-            reasoningSteps: d.reasoningSteps,
-            tokensIn: d.tokensIn,
-            tokensOut: d.tokensOut,
-          });
-          return;
-        } else if (ev.event === 'error') {
-          const d = ev.data as ErrorData;
-          maybeRefreshAuthStatus(activeName);
-          useChatStore.getState().failAssistant(id, d.message, !!d.retryable);
-          return;
-        } else if (ev.event === 'tool_call_request') {
-          // payload shape from backend: { id, qualifiedName, args, preview? }
-          // preview is pre-computed at the dispatch's effective root — use it directly to skip the HTTP fallback.
-          emitToolCallRequest(ev.data as ToolCallRequestEvent);
-        } else if (ev.event === 'tool_call_started') {
-          const p = ev.data as {
-            callId?: string;
-            id?: string;
-            qualifiedName: string;
-            args: Record<string, unknown>;
-          };
-          const callId = p.callId ?? p.id ?? '';
-          if (callId) {
-            useMcpStore.getState().registerInFlightCall({
-              callId,
-              qualifiedName: p.qualifiedName,
-              args: p.args,
-            });
-          }
-        } else if (ev.event === 'tool_call_progress') {
-          const p = ev.data as { id: string; note: string };
-          useMcpStore.getState().updateInFlightProgress(p.id, p.note);
-        } else if (ev.event === 'tool_call_result') {
-          const p = ev.data as { id?: string; callId?: string };
-          const callId = p.id ?? p.callId;
-          if (callId) useMcpStore.getState().clearInFlightCall(callId);
-        } else if (ev.event === 'mcp:state_change') {
-          const d = ev.data as McpStateChangeData;
-          useMcpStore.getState().applyServerStateEvent(
-            d.id,
-            d.state,
-            d.error,
-            d.reconnectAttempt,
-            d.reconnectMaxAttempts,
-          );
-        }
-      }
-      useChatStore.getState().finishAssistant(id, { interrupted: controller.signal.aborted });
-    } catch (e) {
-      if (controller.signal.aborted) {
-        useChatStore.getState().finishAssistant(id, { interrupted: true });
-      } else {
-        maybeRefreshAuthStatus(activeName);
-        useChatStore.getState().failAssistant(id, errMsg(e), true);
-      }
-    } finally {
-      useSessionsStore.getState().touchUpdatedAt(activeId, Date.now());
-    }
+    const aetherMode = useUiStore.getState().aetherMode;
+    await consumeChatStream(createResumingDispatch({ sessionId: activeId, messageId, aetherMode }, controller.signal),
+      { id, controller, activeId, activeName });
   }, []);
 
   const abort = useCallback(() => {

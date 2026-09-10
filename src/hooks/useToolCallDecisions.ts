@@ -7,6 +7,8 @@ import type { PreviewResult } from '@/src/types/breakpoints.types';
 
 export interface ToolCallRequestEvent {
   callId: string;
+  mode?: 'auto' | 'gate';
+  signal?: AbortSignal;
   qualifiedName: string;
   args: Record<string, unknown>;
   /** SSE-embedded preview from the backend (computed at dispatch's effective root). */
@@ -23,6 +25,7 @@ export function emitToolCallRequest(ev: ToolCallRequestEvent): void {
 export function useToolCallDecisions(): void {
   useEffect(() => {
     const handler: Listener = (ev) => {
+      if (ev.mode === 'auto' || ev.signal?.aborted) return;
       const sticky = useChatStore.getState().stickyApprovals;
       if (sticky.has(ev.qualifiedName)) {
         void mcpApi.decide(ev.callId, 'approve').catch(() => {});
@@ -34,6 +37,7 @@ export function useToolCallDecisions(): void {
           : await breakpointsApi
               .preview({ qualifiedName: ev.qualifiedName, args: ev.args })
               .catch(() => ({ kind: 'plain' as const }));
+        if (ev.signal?.aborted) return;
         useUiStore.getState().openApprovalGate({ event: ev, preview });
       })();
     };

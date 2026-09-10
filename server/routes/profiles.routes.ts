@@ -1,4 +1,5 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { asyncHandler } from '@/server/lib/async-handler';
+import { Router } from 'express';
 import { z } from 'zod';
 import { ValidationError } from '@/server/lib/errors';
 import {
@@ -14,12 +15,6 @@ const CreateBody = ProfileRecordSchema.pick({
   context: true,
   thinkingEnabled: true,
 });
-
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
-  };
-}
 
 export function createProfilesRoutes(store: ProfilesStore): Router {
   const router = Router();

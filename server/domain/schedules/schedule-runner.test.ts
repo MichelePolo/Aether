@@ -28,7 +28,7 @@ describe('ScheduleRunner', () => {
 
   it('prompt run creates a session + a success run record', async () => {
     const { store, historyStore, sessions } = fakeDeps(db);
-    const dispatcher = { handle: vi.fn(async () => {}) };  // no-op dispatch (no error event)
+    const dispatcher = { handle: vi.fn(async (_body, sse) => { sse.event('done', { interrupted: false }); sse.end(); }) };
     const runner = new ScheduleRunner({
       store, historyStore: historyStore as never,
       buildDispatcher: () => dispatcher as never,           // injected for the test
@@ -94,5 +94,22 @@ describe('autonomy override primitives', () => {
     const safe = autoDecideApprovals(real as unknown as SwarmApprovalRegistry, 'reject');
     await expect(trusted.awaitDecision('id', 9_999_999)).resolves.toBe('approve');
     await expect(safe.awaitDecision('id', 9_999_999)).resolves.toBe('reject');
+  });
+});
+
+describe('scheduled completion regressions', () => {
+  it.each(['interrupted', 'missing'])('records %s completion as an error', async kind => {
+    const db = makeTestDb();
+    try {
+      const { store, historyStore } = fakeDeps(db);
+      const runner = new ScheduleRunner({ store, historyStore: historyStore as never,
+        buildDispatcher: () => ({ handle: async (_body, sse) => {
+          if (kind === 'interrupted') sse.event('done', { interrupted: true });
+          sse.end();
+        } }) });
+      const schedule = store.create({ name: 'a', cadence: { kind: 'interval', everyMs: 60_000 }, target: { kind: 'prompt', prompt: 'go' } });
+      await runner.run(schedule);
+      expect(store.listRuns(schedule.id, 1)[0].status).toBe('error');
+    } finally { db.close(); }
   });
 });

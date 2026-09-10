@@ -268,3 +268,18 @@ describe('runSwarm', () => {
     expect(seen).toEqual(['w-step', 'w-default']);
   });
 });
+
+it('isolates approval IDs for two simultaneous runs of the same swarm', async () => {
+  const d = makeDeps({ steps: [{ subAgentName: 'coder', promptTemplate: '{{input}}', pauseAfter: true }], subAgents: [{ name: 'coder' }], providers: { isAvailable: () => true, defaultName: () => null } });
+  const first = recordingSse(); const second = recordingSse();
+  const a = runSwarm(d, { swarmId: 'sw', input: 'a' }, first.sse, new AbortController().signal);
+  const b = runSwarm(d, { swarmId: 'sw', input: 'b' }, second.sse, new AbortController().signal);
+  await vi.waitFor(() => expect(second.events.some(e => e.name === 'swarm_approval_request')).toBe(true));
+  const idA = first.events.find(e => e.name === 'swarm_approval_request')!.data.approvalId;
+  const idB = second.events.find(e => e.name === 'swarm_approval_request')!.data.approvalId;
+  expect(idA).not.toBe(idB);
+  d.approvals.resolveDecision(idA, 'approve'); d.approvals.resolveDecision(idB, 'reject');
+  await Promise.all([a, b]);
+  expect(first.events.at(-1)?.data.status).toBe('done');
+  expect(second.events.at(-1)?.data.status).toBe('rejected');
+});

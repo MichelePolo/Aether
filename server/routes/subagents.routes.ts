@@ -1,16 +1,11 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { asyncHandler } from '@/server/lib/async-handler';
+import { Router } from 'express';
 import { ValidationError } from '@/server/lib/errors';
 import {
   SubAgentCreateInputSchema,
   SubAgentUpdateInputSchema,
 } from '@/server/domain/subagents/subagents.schema';
 import type { SubAgentsStore } from '@/server/domain/subagents/subagents.store';
-
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
-  };
-}
 
 export function createSubAgentsRoutes(store: SubAgentsStore): Router {
   const router = Router();

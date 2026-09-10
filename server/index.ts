@@ -122,7 +122,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
   mkdirSync(agentsDirFor(cfg.libraryDir), { recursive: true });
   seedDefaultSkills(options.defaultsDir ?? bundledDefaultsDir(), skillsDirFor(cfg.libraryDir));
 
-  const contextStore = new ContextStore(db);
+  const contextStore = new ContextStore(db, vaultKey);
   const historyStore = new HistoryStore(db);
   const profilesStore = new ProfilesStore(db);
   const subAgentsStore = new SubAgentsStore(db);
@@ -161,13 +161,6 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
 
   const keyVault = new KeyVaultService(db, vaultKey);
 
-  // Cold-start anthropic env priming: if vault has an anthropic key and env doesn't,
-  // set process.env.ANTHROPIC_API_KEY BEFORE detectAnthropicAuth() runs so the SDK sees it.
-  if (!process.env.ANTHROPIC_API_KEY) {
-    const stored = keyVault.getKey('anthropic');
-    if (stored) process.env.ANTHROPIC_API_KEY = stored;
-  }
-
   const resolver = new KeyResolver({
     vault: keyVault,
     env: {
@@ -195,7 +188,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
 
   const providers = new ProviderRegistry({
     resolveKey: (t) => resolver.get(t),
-    detectAnthropicAuth,
+    detectAnthropicAuth: async () => resolver.get('anthropic') ? 'apikey' : detectAnthropicAuth(),
     detectCodexAuth,
     codexModels: () => {
       const configDefault = readCodexDefaultModel();
@@ -265,7 +258,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
   }
 
   const authStatusService = new AuthStatusService({
-    detectAnthropicAuth,
+    detectAnthropicAuth: async () => resolver.get('anthropic') ? 'apikey' : detectAnthropicAuth(),
     detectCodexAuth,
     getAnthropicKey: () => resolver.get('anthropic'),
     getOpenAIKey: () => resolver.get('openai'),
@@ -282,12 +275,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
 
   const buildInfoRowsCtx = { anthropicCliPresent, ollamaHost };
 
-  const keyVaultHooks = {
-    setAnthropicEnv: (key: string | null) => {
-      if (key) process.env.ANTHROPIC_API_KEY = key;
-      else delete process.env.ANTHROPIC_API_KEY;
-    },
-  };
+  const keyVaultHooks = { setAnthropicEnv: (_key: string | null) => {} }; // Resolver reads vault dynamically; never overwrite external env.
 
   const skillStateStore = new SkillStateStore(db);
   const skillsService = new SkillsService(skillStateStore, cfg.libraryDir);
@@ -299,11 +287,12 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
     if (workspaceId) {
       const ws = workspacesStore.get(workspaceId);
       if (ws) return ws.rootPath;
+      throw new Error(`Workspace ${workspaceId} no longer exists; select a workspace before running`);
     }
     return builtinStore.read().find((r) => r.transport === 'filesystem')?.fsRoot ?? null;
   };
 
-  const dispatcher = new DispatchService({
+  const dispatchDeps = {
     providers,
     historyStore,
     contextStore,
@@ -315,7 +304,8 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
     maxToolCallsPerDispatch: cfg.maxToolCallsPerDispatch,
     projectRootFor,
     listWorkspaceRoots: () => workspacesStore.list().map((w) => w.rootPath),
-  });
+  };
+  const dispatcher = new DispatchService(dispatchDeps);
 
   const swarmStore = new SwarmStore(db);
   const swarmApprovals = new SwarmApprovalRegistry();
@@ -331,15 +321,34 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
     },
   };
 
+  const backgroundAbort = new AbortController();
+  const shellCommand = createRunCommand(executeCommand);
   const tddRunnerDeps = {
-    runCommand: createRunCommand(executeCommand),
+    resolveWorkspaceId: (cwd: string | undefined) => {
+      const workspace = workspacesStore.list().find(w => path.resolve(w.rootPath) === cwd);
+      if (!workspace) throw new Error('TDD workspace no longer exists');
+      return workspace.id;
+    },
+    resolveCwd: (cwd?: string) => {
+      const root = path.resolve(cwd ?? projectRootFor(undefined) ?? process.cwd());
+      if (!workspacesStore.list().some(w => path.resolve(w.rootPath) === root)) {
+        throw new Error('Register the test directory as a workspace before running TDD');
+      }
+      return root;
+    },
+    runCommand: (command: string, cwd?: string, signal?: AbortSignal) => shellCommand(command, cwd, AbortSignal.any([backgroundAbort.signal, ...(signal ? [signal] : [])])),
     subAgentsStore,
     dispatcher,
-    createSession: async () => (await historyStore.createEmpty()).id,
+    createSession: async (cwd?: string) => {
+      const workspace = workspacesStore.list().find(w => path.resolve(w.rootPath) === cwd);
+      if (!workspace) throw new Error('TDD workspace no longer exists');
+      return (await historyStore.createEmpty({ workspaceId: workspace.id })).id;
+    },
   };
 
   const scheduleStore = new ScheduleStore(db);
   const scheduleRunner = new ScheduleRunner({
+    dispatchDeps,
     store: scheduleStore,
     historyStore, contextStore, providers, subAgentsStore,
     mcpRegistry, breakpointService,
@@ -351,6 +360,10 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
   });
 
   const app = createApp({
+    security: {
+      allowedHosts: (process.env.AETHER_ALLOWED_HOSTS ?? '').split(',').map(s => s.trim()).filter(Boolean),
+      token: process.env.AETHER_API_TOKEN,
+    },
     contextStore,
     historyStore,
     dispatcher,
@@ -418,7 +431,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
   if (!loopback) {
     console.warn(
       `[aether] WARNING: API bound to ${host} — reachable on the network. ` +
-        `Anyone on your LAN can drive dispatch and tools. Unset AETHER_HOST for loopback-only.`,
+        `Remote API clients require AETHER_API_TOKEN and an allowed Host. Unset AETHER_HOST for loopback-only.`,
     );
   }
   if (isDaemon) {
@@ -432,6 +445,16 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
 
   if (process.env.AETHER_SCHEDULER !== '0') scheduler.start();
 
+  let cleanupPromise: Promise<void> | undefined;
+  const cleanup = () => cleanupPromise ??= (async () => {
+    scheduler.stop();
+    backgroundAbort.abort();
+    swarmApprovals.close();
+    await Promise.allSettled([dispatcher.close(), scheduleRunner.close()]);
+    await mcpRegistry.close();
+    db.close();
+  })();
+
   // Cleanly exit on Ctrl+C/SIGTERM in BOTH daemon and non-daemon mode — a
   // registered signal handler overrides Node's default terminate-on-signal
   // behavior, so without an explicit process.exit() the still-listening HTTP
@@ -439,6 +462,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
   if (!options.embedded) {
     installShutdown({
       isDaemon,
+      cleanup,
       server,
       scheduler,
       dataDir: cfg.dataDir,
@@ -453,11 +477,12 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
     baseUrl,
     host,
     port,
-    close: () => new Promise((resolve, reject) => {
-      scheduler.stop();
+    close: async () => {
+      const closed = new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve()));
+      await cleanup();
       if (isDaemon) clearDaemonFile(cfg.dataDir);
-      server.close((err) => err ? reject(err) : resolve());
-    }),
+      await closed;
+    },
   };
 }
 

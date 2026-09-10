@@ -10,7 +10,7 @@ import { AttachmentChips } from './AttachmentChips';
 import { t } from '@/src/i18n/t';
 
 export function ChatView() {
-  const { send, abort, isStreaming } = useStreamingDispatch();
+  const { send, resume, abort, isStreaming } = useStreamingDispatch();
   const activeSessionId = useSessionsStore((s) => s.activeSessionId);
 
   const handleRetry = useCallback(
@@ -20,10 +20,16 @@ export function ChatView() {
       if (idx < 1) return;
       const prev = state.messages[idx - 1];
       if (prev.role !== 'user') return;
-      useChatStore.getState().removeMessage(failedId);
-      await send(prev.text);
+      if (state.messages[idx].persisted !== false) {
+        await resume(failedId);
+      } else {
+        // A pre-dispatch network failure has no server message to resume.
+        useChatStore.getState().removeMessage(failedId);
+        if (prev.persisted === false) useChatStore.getState().removeMessage(prev.id);
+        await send(prev.text);
+      }
     },
-    [send],
+    [send, resume],
   );
 
   if (!activeSessionId) {

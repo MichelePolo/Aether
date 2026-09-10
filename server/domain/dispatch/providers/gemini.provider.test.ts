@@ -1,3 +1,4 @@
+import { toolWireName } from './tool-transcript';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ProviderChunk } from './provider.types';
 
@@ -262,7 +263,7 @@ describe('GeminiProvider function calling (slice 7)', () => {
     );
     const call = generateContentStream.mock.calls[0][0];
     expect(call.config.tools).toHaveLength(1);
-    expect(call.config.tools[0].functionDeclarations[0].name).toBe('mock__echo');
+    expect(call.config.tools[0].functionDeclarations[0].name).toBe(toolWireName('mock.echo'));
     expect(call.config.tools[0].functionDeclarations[0].description).toBe('Echoes a message');
   });
 
@@ -271,7 +272,7 @@ describe('GeminiProvider function calling (slice 7)', () => {
       yield {
         candidates: [{
           content: {
-            parts: [{ functionCall: { name: 'mock__echo', args: { message: 'hi' } } }],
+            parts: [{ functionCall: { name: toolWireName('mock.echo'), args: { message: 'hi' } } }],
           },
         }],
       };
@@ -281,7 +282,7 @@ describe('GeminiProvider function calling (slice 7)', () => {
     const p = new GeminiProvider({ apiKey: 'k', model: 'm' });
     const events = await collect(
       p.stream(
-        { systemInstruction: '', history: [], userMessage: 'call me' },
+        { systemInstruction: '', history: [], userMessage: 'call me', mcpTools: [{ qualifiedName: 'mock.echo', description: '', schema: {} }] },
         new AbortController().signal,
       ),
     );
@@ -321,9 +322,9 @@ describe('GeminiProvider function calling (slice 7)', () => {
         typeof p === 'object' &&
         p !== null &&
         'functionResponse' in p &&
-        (p as { functionResponse: { name: string } }).functionResponse.name === 'mock__echo',
+        (p as { functionResponse: { name: string } }).functionResponse.name === toolWireName('mock.echo'),
     );
     expect(frPart).toBeDefined();
-    expect((frPart as { functionResponse: { name: string; response: unknown } }).functionResponse.response).toEqual({ x: 1 });
+    expect((frPart as { functionResponse: { name: string; response: unknown } }).functionResponse.response).toEqual({ result: { x: 1 } });
   });
 });

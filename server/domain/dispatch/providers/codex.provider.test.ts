@@ -180,3 +180,10 @@ describe('CodexProvider.stream', () => {
     expect(chunks).toEqual([{ type: 'text', text: 'partial output' }]);
   }, 10_000);
 });
+
+it('passes the complete system instruction as a literal developer_instructions config value', async () => {
+  const { provider, captured } = makeProvider('emit', 'happy.jsonl');
+  const instruction = 'System "quoted"\nSkills and workspace context\nDo not discard this.';
+  await collect(provider, baseReq({ systemInstruction: instruction }));
+  expect(captured.args).toContain(`developer_instructions=${JSON.stringify(instruction)}`);
+});

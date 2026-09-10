@@ -115,8 +115,8 @@ describe('McpRegistry', () => {
     await expect(p).resolves.toBe('approve');
   });
 
-  it('awaitDecision rejects on timeout', async () => {
-    await expect(reg.awaitDecision('CALL2', 20)).rejects.toThrow(/timeout/i);
+  it('awaitDecision denies on timeout', async () => {
+    await expect(reg.awaitDecision('CALL2', 20)).resolves.toBe('reject');
   });
 
   it('setToolPolicy persists to context.mcpServers[].toolPolicies', async () => {

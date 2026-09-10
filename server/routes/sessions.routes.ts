@@ -1,15 +1,8 @@
-import express, { Router, type Request, type Response, type NextFunction } from 'express';
+import { asyncHandler } from '@/server/lib/async-handler';
+import express, { Router } from 'express';
 import type { HistoryStore } from '@/server/domain/history/history.store';
 import { exportEnvelopeSchema, slugifyFilename } from '@/server/domain/history/history.export';
 import { ValidationError } from '@/server/lib/errors';
-
-function asyncHandler(
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<void>,
-) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
-  };
-}
 
 export function createSessionsRoutes(store: HistoryStore): Router {
   const router = Router();
@@ -31,7 +24,7 @@ export function createSessionsRoutes(store: HistoryStore): Router {
 
   router.post(
     '/import',
-    express.json({ limit: '10mb' }),
+    express.json({ limit: '50mb' }),
     asyncHandler(async (req, res) => {
       const parsed = exportEnvelopeSchema.safeParse(req.body);
       if (!parsed.success) {

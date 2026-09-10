@@ -104,6 +104,7 @@ export class CodexProvider implements AIProvider {
       'exec', '--json', '--ephemeral', '--skip-git-repo-check',
       '-s', 'read-only', '--ignore-user-config', '--color', 'never',
       '-m', this.model,
+      '-c', `developer_instructions=${JSON.stringify(req.systemInstruction)}`,
     ];
 
     let token: string | null = null;
@@ -113,7 +114,7 @@ export class CodexProvider implements AIProvider {
     }
 
     let tmpDir: string | null = null;
-    const images = (req.attachments ?? []).filter((a) => a.mime.startsWith('image/'));
+    const images = ([...(req.history.flatMap(m => m.attachments ?? [])), ...(req.attachments ?? [])]).filter((a) => a.mime.startsWith('image/'));
     if (images.length > 0) {
       tmpDir = mkdtempSync(join(tmpdir(), 'aether-codex-'));
       images.forEach((a, i) => {

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { consumeRun } from '@/src/lib/run-sse';
 import { swarmsApi } from '@/src/lib/api/swarms.api';
 
@@ -57,6 +57,8 @@ export function useSwarmRun() {
   const [state, setState] = useState<SwarmRunState>(INITIAL);
   const abortRef = useRef<AbortController | null>(null);
 
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   const run = useCallback(async (swarmId: string, input: string) => {
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -70,7 +72,7 @@ export function useSwarmRun() {
         body: JSON.stringify({ input }),
         signal: controller.signal,
       });
-      await consumeRun(res, (name, data) => setState((s) => reduce(s, name, data as any)));
+      await consumeRun(res, (name, data) => { if (abortRef.current === controller) setState((s) => reduce(s, name, data as any)); });
     } catch (e) {
       if (e instanceof Error && e.name === 'AbortError') {
         // user cancelled — no error to surface
@@ -99,5 +101,6 @@ export function useSwarmRun() {
   const approve = useCallback((approvalId: string) => decide(approvalId, 'approve'), [decide]);
   const reject = useCallback((approvalId: string) => decide(approvalId, 'reject'), [decide]);
 
-  return { state, run, approve, reject };
+  const cancel = useCallback(() => abortRef.current?.abort(), []);
+  return { state, run, approve, reject, cancel };
 }

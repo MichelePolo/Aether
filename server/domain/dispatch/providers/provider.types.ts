@@ -12,6 +12,7 @@ export interface ProviderToolDecl {
 export interface ProviderToolResultMessage {
   callId: string;
   qualifiedName: string;
+  args?: Record<string, unknown>;
   ok: boolean;
   output?: unknown;
   error?: string;
@@ -27,7 +28,8 @@ export interface ProviderToolCallOutcome {
 
 export interface ProviderRequest {
   systemInstruction: string;
-  history: { role: 'user' | 'model'; text: string }[];
+  history: { role: 'user' | 'model'; text: string; attachments?: ProviderAttachment[] }[];
+  toolRounds?: ProviderToolRound[];
   userMessage: string;
   thinking?: boolean;
   mcpTools?: ProviderToolDecl[];
@@ -57,6 +59,7 @@ export interface ProviderUsage {
 }
 
 export interface ProviderFunctionCall {
+  metadata?: Record<string, unknown>;
   callId: string;
   qualifiedName: string;
   args: Record<string, unknown>;
@@ -84,4 +87,10 @@ export interface AIProvider {
   readonly model: string;
   readonly capabilities: ProviderCapabilities;
   stream(req: ProviderRequest, signal: AbortSignal): AsyncIterable<ProviderChunk>;
+}
+
+export interface ProviderToolRound {
+  text: string;
+  calls: ProviderFunctionCall[];
+  results: ProviderToolResultMessage[];
 }

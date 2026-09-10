@@ -12,6 +12,7 @@ export async function* parseSseStream(
       const { value, done } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
+      buffer = buffer.replace(/\r\n/g, '\n');
 
       let sepIdx: number;
       while ((sepIdx = buffer.indexOf('\n\n')) !== -1) {
@@ -22,6 +23,7 @@ export async function* parseSseStream(
       }
     }
   } finally {
+    await reader.cancel().catch(() => {});
     reader.releaseLock();
   }
 }

@@ -385,3 +385,9 @@ describe('AnthropicProvider', () => {
     expect(lastMsg.message.content[0].text).toContain('plain text');
   });
 });
+
+it.each(['error_during_execution', 'error_max_turns'])('surfaces SDK result subtype %s as an error', async subtype => {
+  querySpy.mockReturnValue(asyncIterableFrom([{ type: 'result', subtype, is_error: true, errors: ['SDK failure'] }]));
+  const provider = new AnthropicProvider({ model: 'test' });
+  await expect(collect(provider.stream(baseReq(), new AbortController().signal))).rejects.toThrow('SDK failure');
+});

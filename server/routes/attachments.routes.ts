@@ -1,11 +1,7 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { asyncHandler } from '@/server/lib/async-handler';
+import { IMAGE_MIMES } from '@/server/domain/dispatch/attachment.types';
+import { Router } from 'express';
 import type { HistoryStore } from '@/server/domain/history/history.store';
-
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
-  };
-}
 
 export function createAttachmentsRoutes(store: HistoryStore): Router {
   const router = Router();
@@ -17,8 +13,11 @@ export function createAttachmentsRoutes(store: HistoryStore): Router {
         res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Attachment not found' } });
         return;
       }
-      res.setHeader('Content-Type', row.mime);
-      res.setHeader('Content-Disposition', 'inline');
+      const inline = IMAGE_MIMES.has(row.mime);
+      res.setHeader('Content-Type', inline ? row.mime : 'application/octet-stream');
+      res.setHeader('Content-Disposition', inline ? 'inline' : 'attachment');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'");
       res.send(row.content);
     }),
   );

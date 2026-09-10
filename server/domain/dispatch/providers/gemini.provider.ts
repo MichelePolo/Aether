@@ -1,3 +1,4 @@
+import { toolWireName, qualifiedToolName, toolRounds } from './tool-transcript';
 import { randomUUID } from 'node:crypto';
 import { GoogleGenAI } from '@google/genai';
 import type { AIProvider, ProviderChunk, ProviderRequest, ProviderUsage } from './provider.types';
@@ -10,6 +11,7 @@ export interface GeminiProviderOptions {
 interface GeminiPart {
   text?: string;
   thought?: boolean;
+  thoughtSignature?: string;
   functionCall?: { name: string; args?: Record<string, unknown> };
 }
 
@@ -43,34 +45,25 @@ export class GeminiProvider implements AIProvider {
     req: ProviderRequest,
     signal: AbortSignal,
   ): AsyncGenerator<ProviderChunk> {
-    // Build functionResponse entries for any tool results from a previous turn.
-    const toolResultEntries = (req.toolResults ?? []).map((r) => ({
-      role: 'user' as const,
-      parts: [{
-        functionResponse: {
-          name: r.qualifiedName.replace('.', '__'),
-          response: (r.ok ? r.output : { error: r.error }) as Record<string, unknown>,
-        },
-      }],
-    }));
-
-    const contents = [
-      ...req.history.map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
-      ...toolResultEntries,
-      (() => {
-        const userParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [];
-        for (const a of req.attachments ?? []) {
-          userParts.push({ inlineData: { mimeType: a.mime, data: a.bytes.toString('base64') } });
-        }
-        userParts.push({ text: req.userMessage });
-        return { role: 'user' as const, parts: userParts };
-      })(),
+    const partsFor = (text: string, attachments?: ProviderRequest['attachments']) => [
+      ...(attachments ?? []).map(a => ({ inlineData: { mimeType: a.mime, data: a.bytes.toString('base64') } })),
+      ...(text ? [{ text }] : []),
     ];
+    const contents: Array<{ role: string; parts: Array<Record<string, unknown>> }> = req.history.map(m => ({ role: m.role, parts: partsFor(m.text, m.attachments) }));
+    if (req.userMessage || req.attachments?.length) contents.push({ role: 'user', parts: partsFor(req.userMessage, req.attachments) });
+    if (req.pendingAssistantText) contents.push({ role: 'model', parts: [{ text: req.pendingAssistantText }] });
+    for (const round of toolRounds(req)) {
+      contents.push({ role: 'model', parts: [
+        ...(round.text ? [{ text: round.text }] : []),
+        ...round.calls.map(c => ({ functionCall: { name: toolWireName(c.qualifiedName), args: c.args }, ...(c.metadata ?? {}) })),
+      ] });
+      contents.push({ role: 'user', parts: round.results.map(r => ({ functionResponse: { name: toolWireName(r.qualifiedName), response: r.ok ? { result: r.output ?? {} } : { error: r.error } } })) });
+    }
 
     const toolsConfig = (req.mcpTools && req.mcpTools.length > 0)
       ? [{
           functionDeclarations: req.mcpTools.map((t) => ({
-            name: t.qualifiedName.replace('.', '__'),
+            name: toolWireName(t.qualifiedName),
             description: t.description,
             parameters: t.schema,
           })),
@@ -119,8 +112,9 @@ export class GeminiProvider implements AIProvider {
               type: 'function_call' as const,
               call: {
                 callId: randomUUID(),
-                qualifiedName: String(part.functionCall.name).replace('__', '.'),
+                qualifiedName: qualifiedToolName(String(part.functionCall.name), req),
                 args: (part.functionCall.args ?? {}) as Record<string, unknown>,
+                ...(part.thoughtSignature ? { metadata: { thoughtSignature: part.thoughtSignature } } : {}),
               },
             };
             continue;

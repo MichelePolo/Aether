@@ -13,6 +13,7 @@
 
 export interface ShutdownDeps {
   isDaemon: boolean;
+  cleanup?: () => Promise<void>;
   server: { close(cb: () => void): void };
   scheduler: { stop(): void };
   dataDir: string;
@@ -28,10 +29,16 @@ export interface ShutdownDeps {
 export function installShutdown(deps: ShutdownDeps): () => void {
   const scheduleTimeout = deps.setTimeout ?? ((cb, ms) => setTimeout(cb, ms));
 
+  let stopping = false;
   const shutdown = () => {
+    if (stopping) return;
+    stopping = true;
     deps.scheduler.stop();
     if (deps.isDaemon) deps.clearDaemonFile(deps.dataDir);
-    deps.server.close(() => deps.exit(0));
+    if (deps.cleanup) {
+      const closed = new Promise<void>(resolve => deps.server.close(resolve));
+      void Promise.all([closed, deps.cleanup()]).then(() => deps.exit(0), () => deps.exit(1));
+    } else { deps.server.close(() => deps.exit(0)); }
     // Failsafe: exit even if a socket lingers (e.g. a keep-alive connection).
     scheduleTimeout(() => deps.exit(0), 2000).unref();
   };

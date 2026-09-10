@@ -120,7 +120,7 @@ export async function runGit(
       settled = true;
       const stdout = stdoutTruncated ? stdoutBuf + TRUNC_MARKER : stdoutBuf;
       const stderr = stderrTruncated ? stderrBuf + TRUNC_MARKER : stderrBuf;
-      resolve({ stdout, stderr, code: code ?? 0 });
+      resolve({ stdout, stderr, code: code ?? 1 });
     });
   });
 }

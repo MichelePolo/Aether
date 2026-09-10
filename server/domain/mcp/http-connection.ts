@@ -1,3 +1,4 @@
+import { normalizeToolResult } from './tool-result';
 import type { CallToolOpts, McpConnection } from './connection.types';
 import type { McpTool, McpToolResult } from './mcp.types';
 import { JsonRpcResponseSchema, ToolsListResultSchema } from './mcp.schema';
@@ -30,11 +31,19 @@ export class HttpMcpConnection implements McpConnection {
   private nextId = 1;
   private unexpectedCloseHandler: (() => void) | null = null;
   private closeRequested = false;
+  private sessionId?: string;
+  private protocolVersion = '2025-06-18';
 
   constructor(private readonly opts: HttpOpts) {}
 
   async initialize(): Promise<void> {
-    await this.postRpc('initialize', {}, INITIALIZE_TIMEOUT_MS);
+    const result = await this.postRpc('initialize', {
+      protocolVersion: this.protocolVersion,
+      capabilities: {},
+      clientInfo: { name: 'aether', version: '0.1' },
+    }, INITIALIZE_TIMEOUT_MS) as { protocolVersion?: string };
+    if (result?.protocolVersion) this.protocolVersion = result.protocolVersion;
+    await this.notify('notifications/initialized');
   }
 
   async listTools(): Promise<McpTool[]> {
@@ -59,7 +68,7 @@ export class HttpMcpConnection implements McpConnection {
         TOOLS_CALL_TIMEOUT_MS,
         opts,
       );
-      return { ok: true, output: out };
+      return normalizeToolResult(out);
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : 'tool call failed' };
     }
@@ -76,6 +85,31 @@ export class HttpMcpConnection implements McpConnection {
       const p = this.cleanupPending(id);
       if (p) p.reject(new Error('connection closed'));
     }
+    if (this.sessionId) {
+      await fetch(this.opts.url, { method: 'DELETE', headers: this.headers(), signal: AbortSignal.timeout(INITIALIZE_TIMEOUT_MS) })
+        .then(res => res.body?.cancel()).catch(() => {});
+      this.sessionId = undefined;
+    }
+  }
+
+  private headers(): Record<string, string> {
+    return {
+      ...(this.opts.headers ?? {}),
+      'content-type': 'application/json',
+      accept: 'application/json, text/event-stream',
+      'MCP-Protocol-Version': this.protocolVersion,
+      ...(this.sessionId ? { 'Mcp-Session-Id': this.sessionId } : {}),
+    };
+  }
+
+  private async notify(method: string, params?: unknown): Promise<void> {
+    const response = await fetch(this.opts.url, {
+      method: 'POST', headers: this.headers(),
+      body: JSON.stringify({ jsonrpc: '2.0', method, params }),
+      signal: AbortSignal.timeout(INITIALIZE_TIMEOUT_MS),
+    });
+    await response.body?.cancel();
+    if (!response.ok) throw new Error(`MCP notification HTTP ${response.status}`);
   }
 
   private async postRpc(
@@ -149,11 +183,7 @@ export class HttpMcpConnection implements McpConnection {
     try {
       res = await fetch(this.opts.url, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          accept: 'text/event-stream',
-          ...(this.opts.headers ?? {}),
-        },
+        headers: this.headers(),
         body,
         signal,
       });
@@ -183,6 +213,17 @@ export class HttpMcpConnection implements McpConnection {
       return;
     }
 
+    if (method === 'initialize') this.sessionId = res.headers.get('mcp-session-id') ?? undefined;
+    if (res.headers.get('content-type')?.includes('application/json')) {
+      try {
+        const payload: unknown = await res.json();
+        if (!this.handleFrame(payload, id)) throw new Error('Invalid MCP JSON response');
+      } catch (err) {
+        this.cleanupPending(id)?.reject(err instanceof Error ? err : new Error(String(err)));
+      }
+      return;
+    }
+
     const reader = res.body.getReader();
     // Make the reader reachable from cleanupPending (timeout / close / external
     // abort) so those paths can cancel it directly, in addition to aborting the
@@ -198,6 +239,7 @@ export class HttpMcpConnection implements McpConnection {
         const { value, done } = await reader.read();
         if (done) break;
         buf += decoder.decode(value, { stream: true });
+        buf = buf.replace(/\r\n/g, '\n');
         let sep;
         while ((sep = buf.indexOf('\n\n')) >= 0) {
           const frame = buf.slice(0, sep);
@@ -281,21 +323,6 @@ export class HttpMcpConnection implements McpConnection {
   }
 
   private async postCancelled(requestId: number): Promise<void> {
-    try {
-      await fetch(this.opts.url, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          ...(this.opts.headers ?? {}),
-        },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'notifications/cancelled',
-          params: { requestId, reason: 'Cancelled by user' },
-        }),
-      });
-    } catch {
-      // best-effort
-    }
+    await this.notify('notifications/cancelled', { requestId, reason: 'Cancelled by user' }).catch(() => {});
   }
 }

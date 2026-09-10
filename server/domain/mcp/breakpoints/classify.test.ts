@@ -34,7 +34,7 @@ describe('classifyTool', () => {
     expect(r.source).toBe('override');
   });
 
-  it('heuristic never assigns external; only override can', () => {
+  it('classifies network actions as external and preserves explicit overrides', () => {
     const r = classifyTool({
       qualifiedName: 'api.fetch_url',
       args: {},
@@ -44,7 +44,7 @@ describe('classifyTool', () => {
     expect(r.source).toBe('override');
 
     const r2 = classifyTool({ qualifiedName: 'api.fetch_url', args: {} });
-    expect(r2.category).toBe('safe');
+    expect(r2.category).toBe('external');
   });
 });
 
@@ -70,4 +70,10 @@ describe('classifyTool — git remote tools (slice 29)', () => {
   it('classifies Git.git_fetch as safe (read-only remote)', () => {
     expect(classifyTool({ qualifiedName: 'Git.git_fetch', args: {} }).category).toBe('safe');
   });
+});
+
+it('requires review for unknown tools and recognizes dangerous command arguments', () => {
+  expect(classifyTool({ qualifiedName: 'custom.mutate', args: {} }).category).toBe('dangerous');
+  expect(classifyTool({ qualifiedName: 'custom.run', args: { command: 'git reset --hard' } }).category).toBe('dangerous');
+  expect(classifyTool({ qualifiedName: 'mail.send_email', args: {} }).category).toBe('external');
 });

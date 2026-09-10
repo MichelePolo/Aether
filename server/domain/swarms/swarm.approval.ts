@@ -15,6 +15,7 @@ export class SwarmApprovalRegistry {
    * full timeout after the client disconnects.
    */
   awaitDecision(id: string, timeoutMs: number, signal?: AbortSignal): Promise<SwarmDecision> {
+    if (this.pending.has(id)) throw new Error('Duplicate approval ID');
     return new Promise<SwarmDecision>((resolve) => {
       const settle = (d: SwarmDecision) => {
         clearTimeout(timer);
@@ -32,6 +33,8 @@ export class SwarmApprovalRegistry {
       this.pending.set(id, { resolve: settle, timer });
     });
   }
+
+  close(): void { for (const entry of this.pending.values()) entry.resolve('reject'); }
 
   resolveDecision(id: string, action: SwarmDecision): void {
     const p = this.pending.get(id);

@@ -1,4 +1,5 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { asyncHandler } from '@/server/lib/async-handler';
+import { Router } from 'express';
 import { z } from 'zod';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -6,11 +7,6 @@ import { ValidationError } from '@/server/lib/errors';
 import type { WorkspacesStore } from '@/server/domain/workspaces/workspaces.store';
 import type { FilesystemBrowserService } from '@/server/domain/workspaces/filesystem-browser.service';
 
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
-  };
-}
 
 const CreateBody = z.object({ name: z.string().min(1), rootPath: z.string().min(1) });
 const RenameBody = z.object({ name: z.string().min(1) });

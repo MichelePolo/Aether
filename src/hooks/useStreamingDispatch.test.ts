@@ -225,3 +225,34 @@ describe('useStreamingDispatch', () => {
     expect(result.current.isStreaming).toBe(false);
   });
 });
+
+it('reconciles message IDs from dispatch before Branch or Resume can use them', async () => {
+  server.use(http.post('http://localhost/api/ai/dispatch', () => new HttpResponse(sseStream(
+    'event: message_ids\ndata: {"userMessageId":"stored-user","modelMessageId":"stored-model","attachments":[{"id":"a","name":"code.ts","mime":"text/plain","size":1}]}\n\n',
+    'event: text\ndata: {"chunk":"answer"}\n\n',
+    'event: done\ndata: {"interrupted":true}\n\n',
+  ), { headers: { 'Content-Type': 'text/event-stream' } })));
+  const { result } = renderHook(() => useStreamingDispatch());
+  await act(async () => { await result.current.send('go'); });
+  const state = useChatStore.getState();
+  expect(state.messages.map(m => m.id)).toEqual(['stored-user', 'stored-model']);
+  expect(state.messagesById['stored-model']).toMatchObject({ text: 'answer', interrupted: true });
+  expect(state.messagesById['stored-user'].attachments?.[0].id).toBe('a');
+  expect(Object.keys(state.messagesById)).toHaveLength(2);
+  expect(state.streamingId).toBeNull();
+});
+
+it('sends the UI provider as a fallback so a sub-agent model remains authoritative', async () => {
+  const { useProvidersStore } = await import('@/src/stores/providers.store');
+  useProvidersStore.setState({ defaultProvider: 'openai:default' });
+  let received: Record<string, unknown> = {};
+  server.use(http.post('http://localhost/api/ai/dispatch', async ({ request }) => {
+    received = await request.json() as Record<string, unknown>;
+    return new HttpResponse(sseStream('event: done\ndata: {}\n\n'), { headers: { 'Content-Type': 'text/event-stream' } });
+  }));
+  const { result } = renderHook(() => useStreamingDispatch());
+  await act(async () => { await result.current.send('@specialist go'); });
+  expect(received.defaultProviderName).toBe('openai:default');
+  expect(received).not.toHaveProperty('providerName');
+  useProvidersStore.getState()._reset();
+});

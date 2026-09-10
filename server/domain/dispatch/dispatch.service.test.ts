@@ -995,10 +995,8 @@ describe('runToolCall (agentic providers)', () => {
 
   it('does not execute a tool call once the signal is aborted right after the function_call chunk (manual loop)', async () => {
     const ctrl = new AbortController();
-    // Custom provider whose async iterator's return() fires when the dispatch
-    // loop breaks out early after receiving the function_call chunk — modeling
-    // a client disconnect landing in the gap between "chunk received" and
-    // "tool executed".
+    // Abort while draining the provider response, after receiving a tool call
+    // but before executing any of its calls.
     const provider: AIProvider = {
       model: 'abort-after-call-stub',
       capabilities: { thinking: false, toolCalling: true, vision: false },
@@ -1008,7 +1006,7 @@ describe('runToolCall (agentic providers)', () => {
           [Symbol.asyncIterator]() {
             return {
               async next(): Promise<IteratorResult<ProviderChunk>> {
-                if (delivered) return { value: undefined, done: true };
+                if (delivered) { ctrl.abort(); return { value: undefined, done: true }; }
                 delivered = true;
                 return {
                   value: {

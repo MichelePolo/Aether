@@ -112,19 +112,22 @@ export class GitService {
   async stage(workspaceId: string, req: { paths: unknown }): Promise<void> {
     const cwd = this.resolveCwd(workspaceId);
     this.assertPaths(req.paths);
-    await runGit(['add', '--', ...req.paths], cwd);
+    const result = await runGit(['add', '--', ...req.paths], cwd);
+    if (result.code !== 0) throw new ValidationError(result.stderr.trim() || 'git operation failed');
   }
 
   async unstage(workspaceId: string, req: { paths: unknown }): Promise<void> {
     const cwd = this.resolveCwd(workspaceId);
     this.assertPaths(req.paths);
-    await runGit(['restore', '--staged', '--', ...req.paths], cwd);
+    const result = await runGit(['restore', '--staged', '--', ...req.paths], cwd);
+    if (result.code !== 0) throw new ValidationError(result.stderr.trim() || 'git operation failed');
   }
 
   async discard(workspaceId: string, req: { paths: unknown }): Promise<void> {
     const cwd = this.resolveCwd(workspaceId);
     this.assertPaths(req.paths);
-    await runGit(['restore', '--', ...req.paths], cwd);
+    const result = await runGit(['restore', '--', ...req.paths], cwd);
+    if (result.code !== 0) throw new ValidationError(result.stderr.trim() || 'git operation failed');
   }
 
   async commit(workspaceId: string, req: { message: unknown }): Promise<{ head: string }> {

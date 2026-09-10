@@ -247,13 +247,14 @@ describe('dispatch with MCP tool call (slice 7)', () => {
     expect(toolCallRequestEvent).toBeDefined();
     expect((toolCallRequestEvent!.data as { qualifiedName: string }).qualifiedName).toBe('mock.echo');
     const callId = (toolCallRequestEvent!.data as { callId: string }).callId;
-    expect(callId).toBe('call-1');
+    expect(callId).toEqual(expect.any(String));
+    expect(callId).not.toBe('call-1');
 
     // Check for tool_call_result event
     const toolCallResultEvent = events.find((e) => e.event === 'tool_call_result');
     expect(toolCallResultEvent).toBeDefined();
     expect((toolCallResultEvent!.data as { ok: boolean }).ok).toBe(true);
-    expect((toolCallResultEvent!.data as { id: string }).id).toBe('call-1');
+    expect((toolCallResultEvent!.data as { id: string }).id).toBe(callId);
 
     // Check for reasoning_step of type 'tool_call'
     const reasoningSteps = events
@@ -325,7 +326,7 @@ describe('dispatch with MCP tool call (slice 7)', () => {
     expect(idxResult).toBeGreaterThan(idxStarted);
 
     const startedEvent = events[idxStarted];
-    expect((startedEvent.data as { callId: string }).callId).toBe('call-started-1');
+    expect((startedEvent.data as { callId: string }).callId).toBe((events[idxRequest].data as { callId: string }).callId);
     expect((startedEvent.data as { qualifiedName: string }).qualifiedName).toBe('mock.echo');
   });
 });

@@ -1,3 +1,4 @@
+import { toolWireName } from './tool-transcript';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { OpenAIProvider } from './openai.provider';
 import type { ProviderChunk, ProviderRequest } from './provider.types';
@@ -162,6 +163,7 @@ describe('OpenAIProvider', () => {
     const chunks = await collect(p.stream(baseReq(), new AbortController().signal));
     expect(chunks).toEqual([
       { type: 'function_call', call: { callId: 'TC1', qualifiedName: 'mock.echo', args: { message: 'hi' } } },
+      { type: 'done', usage: undefined },
     ]);
   });
 
@@ -205,7 +207,7 @@ describe('OpenAIProvider', () => {
     expect(body.messages[1]).toEqual({ role: 'user', content: 'q1' });
     expect(body.messages[2]).toEqual({ role: 'assistant', content: 'a1' });
     expect(body.messages[body.messages.length - 1]).toEqual({ role: 'user', content: 'q2' });
-    expect(body.tools[0].function.name).toBe('mock.echo');
+    expect(body.tools[0].function.name).toBe(toolWireName('mock.echo'));
   });
 
   it('threads toolResults back as the assistant tool_calls + tool result pair', async () => {
@@ -232,7 +234,7 @@ describe('OpenAIProvider', () => {
     expect(idxAssistant).toBeGreaterThanOrEqual(0);
     const tcMsg = body.messages[idxAssistant] as { tool_calls: Array<{ id: string; function: { name: string } }> };
     expect(tcMsg.tool_calls[0].id).toBe('TC1');
-    expect(tcMsg.tool_calls[0].function.name).toBe('mock.echo');
+    expect(tcMsg.tool_calls[0].function.name).toBe(toolWireName('mock.echo'));
 
     const idxToolResult = body.messages.findIndex((m) => m.role === 'tool');
     expect(idxToolResult).toBeGreaterThan(idxAssistant);
@@ -243,7 +245,7 @@ describe('OpenAIProvider', () => {
     });
   });
 
-  it('splices pendingAssistantText as an assistant turn before the new userMessage', async () => {
+  it('places pendingAssistantText after the user turn being resumed', async () => {
     let captured: { init?: RequestInit } = {};
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (_url: string, init?: RequestInit) => {
       captured = { init };
@@ -261,7 +263,7 @@ describe('OpenAIProvider', () => {
     };
     const idx = body.messages.findIndex((m) => m.role === 'assistant' && m.content === 'partial answer');
     expect(idx).toBeGreaterThanOrEqual(0);
-    expect(body.messages[idx + 1]).toEqual({ role: 'user', content: 'hi' });
+    expect(body.messages[idx - 1]).toEqual({ role: 'user', content: 'hi' });
   });
 
   it('throws OpenAI auth failed message on HTTP 401', async () => {

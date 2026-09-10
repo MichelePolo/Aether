@@ -1,4 +1,5 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { asyncHandler } from '@/server/lib/async-handler';
+import { Router, type Request, type Response, } from 'express';
 import { createSseEmitter } from '@/server/lib/sse';
 import { ValidationError } from '@/server/lib/errors';
 import {
@@ -12,11 +13,6 @@ import type { SwarmApprovalRegistry } from '@/server/domain/swarms/swarm.approva
 import { runSwarm, type SwarmOrchestratorDeps } from '@/server/domain/swarms/swarm.orchestrator';
 import type { WorkspacesStore } from '@/server/domain/workspaces/workspaces.store';
 
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
-  };
-}
 
 function validateWorkspaceIds(
   workspacesStore: WorkspacesStore | undefined,

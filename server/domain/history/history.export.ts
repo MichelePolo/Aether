@@ -43,6 +43,8 @@ const messageSchema = z.object({
   text: z.string(),
   timestamp: z.number(),
   model: z.string().optional(),
+  tokensIn: z.number().nonnegative().optional(),
+  tokensOut: z.number().nonnegative().optional(),
   interrupted: z.boolean().optional(),
   error: z.string().optional(),
   retryable: z.boolean().optional(),

@@ -1,10 +1,10 @@
+import { toolWireName, qualifiedToolName, toolRounds } from './tool-transcript';
 import type {
   AIProvider,
   ProviderCapabilities,
   ProviderChunk,
   ProviderRequest,
   ProviderToolDecl,
-  ProviderToolResultMessage,
 } from './provider.types';
 
 export type OpenAIModel = 'gpt-5' | 'gpt-5-mini' | 'gpt-4.1' | 'o3';
@@ -109,6 +109,7 @@ export class OpenAIProvider implements AIProvider {
         const { done, value } = await reader.read();
         if (done) break;
         buf += decoder.decode(value, { stream: true });
+        buf = buf.replace(/\r\n/g, '\n');
 
         let sep;
         while ((sep = buf.indexOf('\n\n')) >= 0) {
@@ -189,12 +190,13 @@ export class OpenAIProvider implements AIProvider {
                   type: 'function_call',
                   call: {
                     callId: entry.id,
-                    qualifiedName: entry.name,
+                    qualifiedName: qualifiedToolName(entry.name, req),
                     args: parsedArgs,
                   },
                 };
               }
-              return;
+              toolBuffers.clear();
+              sawStop = true;
             }
             if (choice.finish_reason === 'stop') {
               sawStop = true;
@@ -211,7 +213,7 @@ export class OpenAIProvider implements AIProvider {
         }
       }
     } finally {
-      try { reader.releaseLock(); } catch { /* ignore */ }
+      try { await reader.cancel(); reader.releaseLock(); } catch { /* ignore */ }
     }
 
     // Stream ended naturally without an explicit terminator: emit a defensive done.
@@ -222,72 +224,32 @@ export class OpenAIProvider implements AIProvider {
   }
 }
 
+function userContent(text: string, attachments?: ProviderRequest['attachments']): unknown {
+  if (!attachments?.length) return text;
+  return [{ type: 'text', text }, ...attachments.map(a => ({ type: 'image_url', image_url: { url: `data:${a.mime};base64,${a.bytes.toString('base64')}` } }))];
+}
+
 function buildBody(model: string, req: ProviderRequest): unknown {
   const messages: Array<Record<string, unknown>> = [];
-  if (req.systemInstruction.trim().length > 0) {
-    messages.push({ role: 'system', content: req.systemInstruction });
+  if (req.systemInstruction.trim()) messages.push({ role: 'system', content: req.systemInstruction });
+  for (const m of req.history) messages.push({ role: m.role === 'model' ? 'assistant' : 'user', content: userContent(m.text, m.attachments) });
+  if (req.userMessage || req.attachments?.length) messages.push({ role: 'user', content: userContent(req.userMessage, req.attachments) });
+  if (req.pendingAssistantText) messages.push({ role: 'assistant', content: req.pendingAssistantText });
+  for (const round of toolRounds(req)) {
+    messages.push({ role: 'assistant', content: round.text || null, tool_calls: round.calls.map(c => ({ id: c.callId, type: 'function', function: { name: toolWireName(c.qualifiedName), arguments: JSON.stringify(c.args) } })) });
+    for (const r of round.results) messages.push({ role: 'tool', tool_call_id: r.callId, content: JSON.stringify(r.ok ? r.output ?? {} : { error: r.error }) });
   }
-  for (const m of req.history) {
-    messages.push({
-      role: m.role === 'model' ? 'assistant' : 'user',
-      content: m.text,
-    });
-  }
-  if (req.pendingAssistantText && req.pendingAssistantText.length > 0) {
-    messages.push({ role: 'assistant', content: req.pendingAssistantText });
-  }
-  for (const r of req.toolResults ?? []) {
-    messages.push(...buildToolResultMessages(r));
-  }
-  if (req.attachments && req.attachments.length > 0) {
-    const content: Array<Record<string, unknown>> = [];
-    content.push({ type: 'text', text: req.userMessage });
-    for (const a of req.attachments) {
-      content.push({
-        type: 'image_url',
-        image_url: { url: `data:${a.mime};base64,${a.bytes.toString('base64')}` },
-      });
-    }
-    messages.push({ role: 'user', content });
-  } else {
-    messages.push({ role: 'user', content: req.userMessage });
-  }
-
-  return {
-    model,
-    stream: true,
-    stream_options: { include_usage: true },
-    messages,
-    tools: req.mcpTools && req.mcpTools.length > 0 ? req.mcpTools.map(toOpenAITool) : undefined,
-  };
+  return { model, stream: true, stream_options: { include_usage: true }, messages,
+    tools: req.mcpTools?.length ? req.mcpTools.map(toOpenAITool) : undefined };
 }
 
 function toOpenAITool(t: ProviderToolDecl) {
   return {
     type: 'function' as const,
     function: {
-      name: t.qualifiedName,
+      name: toolWireName(t.qualifiedName),
       description: t.description ?? '',
       parameters: t.schema,
     },
   };
-}
-
-function buildToolResultMessages(r: ProviderToolResultMessage): Array<Record<string, unknown>> {
-  return [
-    {
-      role: 'assistant',
-      content: null,
-      tool_calls: [{
-        id: r.callId,
-        type: 'function',
-        function: { name: r.qualifiedName, arguments: '{}' },
-      }],
-    },
-    {
-      role: 'tool',
-      tool_call_id: r.callId,
-      content: r.ok ? JSON.stringify(r.output ?? {}) : JSON.stringify({ error: r.error }),
-    },
-  ];
 }

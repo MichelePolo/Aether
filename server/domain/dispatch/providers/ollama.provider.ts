@@ -1,10 +1,10 @@
+import { toolRounds } from './tool-transcript';
 import { randomUUID } from 'node:crypto';
 import type {
   AIProvider,
   ProviderRequest,
   ProviderChunk,
   ProviderToolDecl,
-  ProviderToolResultMessage,
   ProviderCapabilities,
 } from './provider.types';
 
@@ -70,6 +70,7 @@ export class OllamaProvider implements AIProvider {
     const decoder = new TextDecoder();
     let buf = '';
 
+    try {
     while (true) {
       if (signal.aborted) {
         try { await reader.cancel(); } catch { /* ignore */ }
@@ -117,6 +118,7 @@ export class OllamaProvider implements AIProvider {
         }
       }
     }
+    } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
   }
 }
 
@@ -131,37 +133,15 @@ function toOllamaTool(t: ProviderToolDecl) {
   };
 }
 
-function buildToolMessages(r: ProviderToolResultMessage): Array<{
-  role: 'tool';
-  content: string;
-}> {
-  const content = r.ok ? JSON.stringify(r.output ?? {}) : JSON.stringify({ error: r.error });
-  return [{ role: 'tool', content }];
-}
-
 function buildBody(model: string, req: ProviderRequest): unknown {
-  const messages: Array<{ role: string; content: string }> = [];
-  if (req.systemInstruction.trim().length > 0) {
-    messages.push({ role: 'system', content: req.systemInstruction });
+  const messages: Array<Record<string, unknown>> = [];
+  if (req.systemInstruction.trim()) messages.push({ role: 'system', content: req.systemInstruction });
+  for (const m of req.history) messages.push({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text });
+  if (req.userMessage) messages.push({ role: 'user', content: req.userMessage });
+  if (req.pendingAssistantText) messages.push({ role: 'assistant', content: req.pendingAssistantText });
+  for (const round of toolRounds(req)) {
+    messages.push({ role: 'assistant', content: round.text, tool_calls: round.calls.map(c => ({ function: { name: c.qualifiedName, arguments: c.args } })) });
+    for (const r of round.results) messages.push({ role: 'tool', tool_name: r.qualifiedName, content: JSON.stringify(r.ok ? r.output ?? {} : { error: r.error }) });
   }
-  for (const m of req.history) {
-    messages.push({
-      role: m.role === 'model' ? 'assistant' : 'user',
-      content: m.text,
-    });
-  }
-  if (req.pendingAssistantText && req.pendingAssistantText.length > 0) {
-    messages.push({ role: 'assistant', content: req.pendingAssistantText });
-  }
-  for (const r of req.toolResults ?? []) {
-    for (const tm of buildToolMessages(r)) messages.push(tm);
-  }
-  messages.push({ role: 'user', content: req.userMessage });
-
-  return {
-    model,
-    messages,
-    tools: req.mcpTools && req.mcpTools.length > 0 ? req.mcpTools.map(toOllamaTool) : undefined,
-    stream: true,
-  };
+  return { model, messages, tools: req.mcpTools?.length ? req.mcpTools.map(toOllamaTool) : undefined, stream: true };
 }

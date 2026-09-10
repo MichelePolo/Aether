@@ -1,12 +1,8 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { asyncHandler } from '@/server/lib/async-handler';
+import { Router } from 'express';
 import { z } from 'zod';
 import type { McpBridgeService } from '@/server/domain/mcp/bridge/bridge.service';
 
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
-  };
-}
 
 const RpcRequest = z.object({
   jsonrpc: z.literal('2.0').optional(),

@@ -21,15 +21,17 @@ export interface TddRunOpts {
 
 export interface TddDispatcher {
   handle(
-    body: { sessionId: string; message: string },
+    body: { sessionId: string; message: string; workspaceId?: string },
     sse: SseEmitter,
     signal: AbortSignal,
   ): Promise<void>;
 }
 
 export interface TddRunnerDeps {
-  runCommand: (command: string, cwd?: string) => Promise<CommandResult>;
+  runCommand: (command: string, cwd?: string, signal?: AbortSignal) => Promise<CommandResult>;
   subAgentsStore: { list(): Promise<{ name: string }[]> };
   dispatcher: TddDispatcher;
-  createSession: () => Promise<string>;
+  resolveWorkspaceId?: (cwd: string | undefined) => string;
+  resolveCwd?: (cwd?: string) => string;
+  createSession: (cwd?: string) => Promise<string>;
 }

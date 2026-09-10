@@ -1,13 +1,9 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { asyncHandler } from '@/server/lib/async-handler';
+import { Router } from 'express';
 import { z } from 'zod';
 import { ValidationError } from '@/server/lib/errors';
 import type { SkillsService } from '@/server/domain/skills/skills.service';
 
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
-  };
-}
 
 const EnabledBody = z.object({ enabled: z.boolean() });
 const PinnedBody = z.object({ pinned: z.boolean() });

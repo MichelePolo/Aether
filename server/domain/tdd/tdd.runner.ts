@@ -45,7 +45,10 @@ export async function runTddLoop(
     sse.end();
     return;
   }
-  let res = await deps.runCommand(opts.command, opts.cwd);
+  const cwd = deps.resolveCwd?.(opts.cwd) ?? opts.cwd;
+  const workspaceId = deps.resolveWorkspaceId?.(cwd);
+  let res = await deps.runCommand(opts.command, cwd, signal);
+  if (signal.aborted) { sse.event('tdd_done', { status: 'interrupted' }); sse.end(); return; }
   sse.event('tdd_test_result', {
     iteration: 0,
     exitCode: res.exitCode,
@@ -58,7 +61,7 @@ export async function runTddLoop(
     return;
   }
 
-  const sessionId = await deps.createSession();
+  const sessionId = await deps.createSession(cwd);
 
   for (let iteration = 1; iteration <= maxRetries; iteration++) {
     if (signal.aborted) {
@@ -70,7 +73,7 @@ export async function runTddLoop(
 
     const collector = createCollectingSse(sse);
     await deps.dispatcher.handle(
-      { sessionId, message: `@${opts.subAgentName} ${framing(opts.command, res.output)}` },
+      { sessionId, message: `@${opts.subAgentName} ${framing(opts.command, res.output)}`, ...(workspaceId ? { workspaceId } : {}) },
       collector,
       signal,
     );
@@ -82,7 +85,9 @@ export async function runTddLoop(
       return;
     }
 
-    res = await deps.runCommand(opts.command, opts.cwd);
+    if (signal.aborted) { sse.event('tdd_done', { status: 'interrupted' }); sse.end(); return; }
+    res = await deps.runCommand(opts.command, cwd, signal);
+    if (signal.aborted) { sse.event('tdd_done', { status: 'interrupted' }); sse.end(); return; }
     sse.event('tdd_test_result', {
       iteration,
       exitCode: res.exitCode,
