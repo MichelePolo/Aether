@@ -1,3 +1,4 @@
+import { normalizeToolResult } from './tool-result';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { CallToolOpts, McpConnection } from './connection.types';
@@ -108,7 +109,7 @@ export class StdioMcpConnection implements McpConnection {
         TOOLS_CALL_TIMEOUT_MS,
         opts,
       );
-      return { ok: true, output: out };
+      return normalizeToolResult(out);
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : 'tool call failed' };
     }

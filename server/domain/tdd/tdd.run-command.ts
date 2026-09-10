@@ -2,26 +2,24 @@ import type { CommandResult } from './tdd.types';
 
 interface ShellResult {
   isError: boolean;
+  exitCode?: number;
   content: Array<{ type: 'text'; text: string }>;
 }
-type ShellExec = (input: { cmd: string; cwd?: string; timeout?: number }) => Promise<ShellResult>;
+type ShellExec = (input: { cmd: string; cwd?: string; timeout?: number; signal?: AbortSignal }) => Promise<ShellResult>;
 
 const MAX_TIMEOUT_MS = 120_000;
 
 export function parseExitCode(text: string, isError: boolean): number {
-  // The shell handler always appends the real exit code as the LAST occurrence;
-  // take the last match so a runner echoing "exit code: N" in its own output
-  // can't be mistaken for the process result.
-  const matches = [...text.matchAll(/exit code:\s*(\d+)/g)];
-  if (matches.length > 0) return parseInt(matches[matches.length - 1][1], 10);
-  return isError ? 1 : 0;
+  const match = /exit code:\s*(\d+)\s*$/.exec(text);
+  const code = match ? Number(match[1]) : isError ? 1 : 0;
+  return isError && code === 0 ? 1 : code;
 }
 
 /** Build a runCommand that executes via the shell handler and returns {exitCode, output}. */
 export function createRunCommand(exec: ShellExec) {
-  return async (command: string, cwd?: string): Promise<CommandResult> => {
-    const result = await exec({ cmd: command, cwd, timeout: MAX_TIMEOUT_MS });
+  return async (command: string, cwd?: string, signal?: AbortSignal): Promise<CommandResult> => {
+    const result = await exec({ cmd: command, cwd, timeout: MAX_TIMEOUT_MS, ...(signal ? { signal } : {}) });
     const output = result.content.map((c) => c.text).join('\n');
-    return { exitCode: parseExitCode(output, result.isError), output };
+    return { exitCode: result.exitCode ?? parseExitCode(output, result.isError), output };
   };
 }

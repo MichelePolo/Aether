@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
 import type { DatabaseHandle } from '@/server/db/database';
-import type { McpServerConfig } from '@/server/domain/context/context.types';
+import type { McpServerConfig, McpToolPolicy } from '@/server/domain/context/context.types';
 import type { BuiltinMcpState, BuiltinTransport } from './builtin.types';
 
 const require = createRequire(import.meta.url);
@@ -70,6 +70,16 @@ export class BuiltinMcpStore {
     private readonly db: DatabaseHandle,
     private readonly libraryDir?: string,
   ) {}
+
+  readToolPolicy(serverId: string, toolName: string): McpToolPolicy | undefined {
+    const row = this.db.prepare('SELECT policy_json FROM builtin_tool_policies WHERE server_id = ? AND tool_name = ?').get(serverId, toolName) as { policy_json: string } | undefined;
+    return row ? JSON.parse(row.policy_json) : undefined;
+  }
+
+  setToolPolicy(serverId: string, toolName: string, policy: McpToolPolicy): void {
+    const next = { ...this.readToolPolicy(serverId, toolName), ...policy };
+    this.db.prepare('INSERT INTO builtin_tool_policies VALUES (?, ?, ?) ON CONFLICT(server_id, tool_name) DO UPDATE SET policy_json = excluded.policy_json').run(serverId, toolName, JSON.stringify(next));
+  }
 
   read(): BuiltinMcpState[] {
     const rows = this.db

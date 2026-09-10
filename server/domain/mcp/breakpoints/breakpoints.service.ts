@@ -15,8 +15,9 @@ export class BreakpointService {
   async resolveDecision(input: {
     qualifiedName: string;
     args: Record<string, unknown>;
+    root?: string;
   }): Promise<CategoryMode> {
-    const policy: McpToolPolicy = this.deps.mcpRegistry.policy(input.qualifiedName) ?? {};
+    const policy: McpToolPolicy = this.deps.mcpRegistry.policy(input.qualifiedName, input.root) ?? {};
 
     if (policy.autoApprove === true) return 'auto';
     if (policy.autoApprove === false) return 'gate';

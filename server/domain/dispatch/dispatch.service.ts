@@ -3,6 +3,7 @@ import { performance } from 'node:perf_hooks';
 import { z } from 'zod';
 import type { SseEmitter } from '@/server/lib/sse';
 import type { ContextStore } from '@/server/domain/context/context.store';
+import type { Message, DispatchContext } from '@/server/domain/history/history.types';
 import type { HistoryStore } from '@/server/domain/history/history.store';
 import type {
   AIProvider,
@@ -10,12 +11,14 @@ import type {
   ProviderToolDecl,
   ProviderToolResultMessage,
   ProviderUsage,
+  ProviderRequest,
+  ProviderToolRound,
 } from './providers/provider.types';
 import { ReasoningTracer } from '@/server/domain/reasoning/reasoning.tracer';
 import type { SubAgentsStore } from '@/server/domain/subagents/subagents.store';
 import type { SubAgentRecord } from '@/server/domain/subagents/subagents.types';
 import { parseLeadingMention } from './subagent-parser';
-import { assemble, withRuntimeContext, formatAvailableWorkspaces } from './prompt-assembler';
+import { assemble, formatAvailableWorkspaces } from './prompt-assembler';
 import type { RuntimeContext } from './prompt-assembler';
 import { readProjectMemory } from './project-memory';
 import { formatAssembledPromptContent } from './assembled-prompt-step';
@@ -24,13 +27,13 @@ import type { McpToolResult } from '@/server/domain/mcp/mcp.types';
 import type { BreakpointService } from '@/server/domain/mcp/breakpoints/breakpoints.service';
 import type { PreviewService } from '@/server/domain/mcp/breakpoints/preview.service';
 import type { ProviderRegistry } from '@/server/domain/providers/registry';
-import { classifyAttachment, MAX_ATTACHMENTS, MAX_TOTAL_BYTES } from './attachment.types';
+import { classifyAttachment, normalizeAttachmentMime, MAX_ATTACHMENTS, MAX_TOTAL_BYTES } from './attachment.types';
 import { AppError, ValidationError } from '@/server/lib/errors';
 import { normalizeRoot } from '@/server/lib/normalize-root';
 
 const DispatchAttachmentSchema = z.object({
   name: z.string().min(1).max(255),
-  mime: z.string().min(1).max(127),
+  mime: z.string().max(127),
   size: z.number().int().nonnegative(),
   contentBase64: z.string(),
 });
@@ -41,6 +44,7 @@ export const DispatchRequestSchema = z.object({
   thinking: z.boolean().optional(),
   aetherMode: z.boolean().optional(),
   providerName: z.string().optional(),
+  defaultProviderName: z.string().optional(),
   workspaceId: z.string().optional(),
   attachments: z.array(DispatchAttachmentSchema).max(MAX_ATTACHMENTS).optional(),
 });
@@ -64,6 +68,7 @@ function preprocessAttachments(
   const text: Array<{ name: string; mime: string; bytes: Buffer }> = [];
   const image: Array<{ name: string; mime: string; bytes: Buffer }> = [];
   for (const a of raw) {
+    a.mime = normalizeAttachmentMime(a.name, a.mime);
     const kind = classifyAttachment(a.name, a.mime);
     if (kind === null) throw new ValidationError(`Unsupported MIME: ${a.mime} for ${a.name}`);
     let bytes: Buffer;
@@ -118,7 +123,7 @@ export const DEFAULT_MAX_TOOL_CALLS_PER_DISPATCH = 25;
 interface RunDispatchLoopOpts {
   provider: AIProvider;
   systemInstruction: string;
-  history: Array<{ role: 'user' | 'model'; text: string }>;
+  history: ProviderRequest['history'];
   userMessage: string;
   pendingAssistantText?: string;
   thinking: boolean | undefined;
@@ -144,9 +149,52 @@ interface RunDispatchLoopResult {
 }
 
 export class DispatchService {
+  private running = new Set<Promise<void>>();
+  private closing = false;
+  private activeSessions = new Map<string, AbortController>();
   private inFlightControllers = new Map<string, AbortController>();
 
   constructor(private readonly deps: DispatchServiceDeps) {}
+
+  async close(): Promise<void> {
+    this.closing = true;
+    for (const ctrl of this.activeSessions.values()) ctrl.abort();
+    for (const ctrl of this.inFlightControllers.values()) ctrl.abort();
+    await Promise.allSettled([...this.running]);
+  }
+
+  private async withSession(sessionId: string, sse: SseEmitter, signal: AbortSignal, run: (signal: AbortSignal) => Promise<void>): Promise<void> {
+    if (this.closing) { sse.error('Server shutting down', true); return; }
+    if (this.activeSessions.has(sessionId)) { sse.error('A dispatch is already running in this session', false); return; }
+    const ctrl = new AbortController();
+    const abort = () => ctrl.abort();
+    if (signal.aborted) ctrl.abort();
+    else signal.addEventListener('abort', abort, { once: true });
+    this.activeSessions.set(sessionId, ctrl);
+    const pending = run(ctrl.signal);
+    this.running.add(pending);
+    try { await pending; }
+    catch (e) {
+      if (isAbort(e, ctrl.signal)) { sse.event('done', { interrupted: true }); sse.end(); }
+      else { const error = classifyError(e); sse.error(error.message, error.retryable); }
+    }
+    finally { this.running.delete(pending); signal.removeEventListener('abort', abort); this.activeSessions.delete(sessionId); }
+  }
+
+  private async providerHistory(messages: Message[], provider: AIProvider): Promise<ProviderRequest['history']> {
+    return Promise.all(messages.map(async m => {
+      const texts: Array<{ name: string; bytes: Buffer }> = [];
+      const images: NonNullable<ProviderRequest['attachments']> = [];
+      for (const a of m.attachments ?? []) {
+        const stored = await this.deps.historyStore.getAttachmentBytes(a.id);
+        if (!stored) continue;
+        const kind = classifyAttachment(a.name, a.mime);
+        if (kind === 'text') texts.push({ name: a.name, bytes: stored.content });
+        else if (kind === 'image' && provider.capabilities.vision) images.push({ name: a.name, mime: a.mime, bytes: stored.content });
+      }
+      return { role: m.role, text: inlineTextAttachments(m.text, texts), ...(images.length ? { attachments: images } : {}) };
+    }));
+  }
 
   getInFlightController(callId: string): AbortController | undefined {
     return this.inFlightControllers.get(callId);
@@ -176,8 +224,12 @@ export class DispatchService {
     pendingCall: ProviderFunctionCall,
     sse: SseEmitter,
     currentRoot: string,
+    signal: AbortSignal,
   ): Promise<{ result: McpToolResult; progressNote: string }> {
+    signal.throwIfAborted();
     const ctrl = new AbortController();
+    const abort = () => ctrl.abort();
+    signal.addEventListener('abort', abort, { once: true });
     this.inFlightControllers.set(pendingCall.callId, ctrl);
     sse.event('tool_call_started', pendingCall);
     let latestProgress = '';
@@ -186,6 +238,7 @@ export class DispatchService {
       // LRU-evicted from the pool between the top-of-dispatch ensure and this tool call
       // (especially during long gate-wait pauses). This is idempotent for a live root.
       await this.deps.mcpRegistry?.ensureRootedBuiltins?.(currentRoot);
+      signal.throwIfAborted();
       const result = await this.deps.mcpRegistry!.callTool(
         pendingCall.qualifiedName,
         pendingCall.args,
@@ -200,6 +253,7 @@ export class DispatchService {
       );
       return { result, progressNote: latestProgress };
     } finally {
+      signal.removeEventListener('abort', abort);
       this.inFlightControllers.delete(pendingCall.callId);
     }
   }
@@ -212,6 +266,7 @@ export class DispatchService {
     sse: SseEmitter,
     tracer: ReasoningTracer,
     currentRoot: string,
+    signal: AbortSignal,
   ): Promise<McpToolResult> {
     // Compute the preview using the dispatch's effective root so workspace-rooted
     // contexts resolve git diffs against the correct repo, not the global gitRoot().
@@ -220,23 +275,26 @@ export class DispatchService {
           .previewToolCall({ qualifiedName: fnCall.qualifiedName, args: fnCall.args, root: currentRoot })
           .catch(() => ({ kind: 'plain' as const }))
       : { kind: 'plain' as const };
-    sse.event('tool_call_request', { ...fnCall, preview });
+    signal.throwIfAborted();
 
     let mode: 'auto' | 'gate';
     if (this.deps.breakpointService) {
       mode = await this.deps.breakpointService.resolveDecision({
         qualifiedName: fnCall.qualifiedName,
         args: fnCall.args,
+        root: currentRoot,
       });
     } else {
-      const policy = this.deps.mcpRegistry?.policy(fnCall.qualifiedName) ?? {};
+      const policy = this.deps.mcpRegistry?.policy(fnCall.qualifiedName, currentRoot) ?? {};
       mode = policy.autoApprove ? 'auto' : 'gate';
     }
+    sse.event('tool_call_request', { ...fnCall, preview, mode });
     const decision: 'approve' | 'reject' = mode === 'auto'
       ? 'approve'
-      : await (this.deps.mcpRegistry?.awaitDecision(fnCall.callId) ?? Promise.resolve('reject' as const))
+      : await (this.deps.mcpRegistry?.awaitDecision(fnCall.callId, undefined, signal) ?? Promise.resolve('reject' as const))
           .catch(() => 'reject' as const);
 
+    signal.throwIfAborted();
     const t0 = performance.now();
     let toolResult: McpToolResult;
     let progressNote = '';
@@ -245,7 +303,7 @@ export class DispatchService {
     } else if (!this.deps.mcpRegistry) {
       toolResult = { ok: false, error: 'No MCP registry configured' };
     } else {
-      const executed = await this.executeToolCall(fnCall, sse, currentRoot);
+      const executed = await this.executeToolCall(fnCall, sse, currentRoot, signal);
       toolResult = executed.result;
       progressNote = executed.progressNote;
     }
@@ -285,12 +343,14 @@ export class DispatchService {
 
     const MAX_TOOL_CALLS_PER_DISPATCH =
       this.deps.maxToolCallsPerDispatch ?? DEFAULT_MAX_TOOL_CALLS_PER_DISPATCH;
-    let pendingToolResults: ProviderToolResultMessage[] = [];
+    const pendingToolResults: ProviderToolResultMessage[] = [];
     let toolCallsCount = 0;
-    let firstIter = true;
 
     let capturedError: { message: string; retryable: boolean } | undefined;
     let capturedAbort = false;
+    let budgetExceeded = false;
+    const providerController = new AbortController();
+    const providerSignal = AbortSignal.any([signal, providerController.signal]);
 
     try {
       await tracer.step({
@@ -309,6 +369,8 @@ export class DispatchService {
               return { ok: false, error: 'Aborted' };
             }
             if (toolCallsCount >= MAX_TOOL_CALLS_PER_DISPATCH) {
+              budgetExceeded = true;
+              providerController.abort();
               return { ok: false, error: 'Max tool calls per dispatch exceeded' };
             }
             toolCallsCount += 1;
@@ -317,78 +379,60 @@ export class DispatchService {
               qualifiedName: call.qualifiedName,
               args: call.args,
             };
-            const r = await this.gateExecuteAndTrace(fnCall, sse, tracer, opts.currentRoot);
+            const r = await this.gateExecuteAndTrace(fnCall, sse, tracer, opts.currentRoot, signal);
             return r.ok ? { ok: true, output: r.output } : { ok: false, error: r.error };
           };
 
-          while (true) {
-            const providerPendingText = firstIter
-              ? opts.pendingAssistantText
-              : (accumText || undefined);
-            firstIter = false;
-
-            const it = opts.provider.stream(
-              {
-                systemInstruction: opts.systemInstruction,
-                history: opts.history,
-                userMessage: opts.userMessage,
-                thinking: opts.thinking,
-                mcpTools: opts.mcpTools,
-                toolResults: pendingToolResults.length > 0 ? pendingToolResults : undefined,
-                pendingAssistantText: providerPendingText,
-                attachments: opts.attachments,
-                runToolCall,
-              },
-              signal,
-            );
-            pendingToolResults = [];
-
-            let pendingCall: ProviderFunctionCall | null = null;
-
+          const rounds: ProviderToolRound[] = [];
+          while (!signal.aborted) {
+            const calls: ProviderFunctionCall[] = [];
+            let roundText = '';
+            const it = opts.provider.stream({
+              systemInstruction: opts.systemInstruction,
+              history: opts.history,
+              userMessage: opts.userMessage,
+              thinking: opts.thinking,
+              mcpTools: toolCallsCount < MAX_TOOL_CALLS_PER_DISPATCH ? opts.mcpTools : [],
+              toolRounds: rounds.length ? rounds : undefined,
+              toolResults: pendingToolResults.length ? [...pendingToolResults] : undefined,
+              pendingAssistantText: opts.pendingAssistantText,
+              attachments: opts.attachments,
+              runToolCall,
+            }, providerSignal);
             for await (const chunk of it) {
               if (signal.aborted) break;
               if (chunk.type === 'text') {
                 accumText += chunk.text;
+                roundText += chunk.text;
                 sse.event('text', { chunk: chunk.text });
               } else if (chunk.type === 'thinking') {
                 if (thinkingStart === undefined) thinkingStart = performance.now();
                 accumThought += chunk.text;
                 sse.event('thinking', { chunk: chunk.text });
               } else if (chunk.type === 'function_call') {
-                pendingCall = chunk.call;
-                break;
+                calls.push(chunk.call);
               } else if (chunk.type === 'done') {
-                dispatchUsage = chunk.usage;
+                if (chunk.usage) {
+                  dispatchUsage ??= {};
+                  for (const key of ['inputTokens', 'outputTokens', 'totalTokens'] as const) {
+                    if (chunk.usage[key] !== undefined) dispatchUsage[key] = (dispatchUsage[key] ?? 0) + chunk.usage[key]!;
+                  }
+                }
                 break;
               }
             }
-
-            if (!pendingCall) break;
-
-            if (signal.aborted) break; // client left after the function_call chunk; do not run the tool
-
-            if (toolCallsCount >= MAX_TOOL_CALLS_PER_DISPATCH) {
-              pendingToolResults = [{
-                callId: pendingCall.callId,
-                qualifiedName: pendingCall.qualifiedName,
-                ok: false,
-                error: 'Max tool calls per dispatch exceeded',
-              }];
-              pendingCall = null;
-              continue;
+            if (!calls.length || signal.aborted) break;
+            const results: ProviderToolResultMessage[] = [];
+            for (const call of calls) {
+              signal.throwIfAborted();
+              if (toolCallsCount >= MAX_TOOL_CALLS_PER_DISPATCH) throw new Error('Max tool calls per dispatch exceeded');
+              toolCallsCount++;
+              // Provider IDs belong to the transcript; approvals get globally unique IDs.
+              const result = await this.gateExecuteAndTrace({ ...call, callId: randomUUID() }, sse, tracer, opts.currentRoot, signal);
+              results.push({ callId: call.callId, qualifiedName: call.qualifiedName, args: call.args, ...result });
             }
-            toolCallsCount += 1;
-
-            const toolResult = await this.gateExecuteAndTrace(pendingCall, sse, tracer, opts.currentRoot);
-
-            pendingToolResults = [{
-              callId: pendingCall.callId,
-              qualifiedName: pendingCall.qualifiedName,
-              ok: toolResult.ok,
-              output: toolResult.ok ? toolResult.output : undefined,
-              error: toolResult.ok ? undefined : toolResult.error,
-            }];
-            pendingCall = null;
+            rounds.push({ text: roundText, calls, results });
+            pendingToolResults.push(...results);
           }
 
           return {
@@ -414,6 +458,7 @@ export class DispatchService {
       }
     }
 
+    if (budgetExceeded) capturedError = { message: 'Max tool calls per dispatch exceeded', retryable: false };
     return {
       accumText,
       accumThought,
@@ -425,7 +470,13 @@ export class DispatchService {
     };
   }
 
-  async handle(
+  async handle(rawBody: unknown, sse: SseEmitter, signal: AbortSignal): Promise<void> {
+    const parsed = DispatchRequestSchema.safeParse(rawBody);
+    if (!parsed.success) { sse.error('Invalid request body', false); return; }
+    return this.withSession(parsed.data.sessionId, sse, signal, current => this.handleTurn(parsed.data, sse, current));
+  }
+
+  private async handleTurn(
     rawBody: unknown,
     sse: SseEmitter,
     signal: AbortSignal,
@@ -526,7 +577,7 @@ export class DispatchService {
       });
     }
 
-    const providerName = requestedName ?? matchedSubAgent?.model ?? sessionName ?? fallbackName;
+    const providerName = requestedName ?? matchedSubAgent?.model ?? sessionName ?? parsed.data.defaultProviderName ?? fallbackName;
     if (!providerName) {
       sse.event('error', { message: 'No provider available', retryable: false });
       sse.end();
@@ -587,19 +638,24 @@ export class DispatchService {
         }))
       : undefined;
 
+    const userMessageId = randomUUID();
+    const modelMessageId = randomUUID();
+    const dispatchContext: DispatchContext = { providerName, systemInstruction: assembled.systemInstruction, workspaceId: effectiveWorkspaceId, currentRoot, subAgent: assembled.subAgent ?? undefined, thinking };
     await historyStore.append(sessionId, {
-      id: randomUUID(),
+      id: userMessageId,
       role: 'user',
       text: message,
       timestamp: Date.now(),
       attachments: attachmentsToStore,
     });
 
+    sse.event('message_ids', { userMessageId, modelMessageId, attachments: attachmentsToStore?.map(({ contentBase64: _bytes, ...a }) => a) });
+
     const loopResult = await this.runDispatchLoop(
       {
         provider,
         systemInstruction: assembled.systemInstruction,
-        history: prior.map((m) => ({ role: m.role, text: m.text })),
+        history: await this.providerHistory(prior, provider),
         userMessage: assembled.message,
         pendingAssistantText: undefined,
         thinking,
@@ -619,7 +675,8 @@ export class DispatchService {
       const { message: msg, retryable } = loopResult.error;
       sse.event('error', { message: msg, retryable });
       await historyStore.append(sessionId, {
-        id: randomUUID(),
+        id: modelMessageId,
+        dispatchContext,
         role: 'model',
         text: accumText,
         timestamp: Date.now(),
@@ -661,7 +718,8 @@ export class DispatchService {
     const reasoningSteps = tracer.finalSteps();
 
     await historyStore.append(sessionId, {
-      id: randomUUID(),
+      id: modelMessageId,
+      dispatchContext,
       role: 'model',
       text: accumText,
       timestamp: Date.now(),
@@ -682,7 +740,11 @@ export class DispatchService {
     sse.end();
   }
 
-  async resume(
+  async resume(opts: ResumeRequest, sse: SseEmitter, signal: AbortSignal): Promise<void> {
+    return this.withSession(opts.sessionId, sse, signal, current => this.resumeTurn(opts, sse, current));
+  }
+
+  private async resumeTurn(
     opts: { sessionId: string; messageId: string; providerName?: string; aetherMode?: boolean },
     sse: SseEmitter,
     signal: AbortSignal,
@@ -710,21 +772,24 @@ export class DispatchService {
       sse.end();
       return;
     }
-    if (!target.interrupted) {
+    const retryFailed = !!target.error && !!target.retryable;
+    if (!target.interrupted && !retryFailed) {
       sse.event('error', { message: 'Message is not interrupted', retryable: false });
       sse.end();
       return;
     }
-    if (target.text.length === 0) {
+    if (target.text.length === 0 && !retryFailed) {
       sse.event('error', { message: 'Cannot resume an empty interrupted message', retryable: false });
       sse.end();
       return;
     }
 
+    if (idx !== sessionRecord.messages.length - 1) { sse.error('Only the latest message can be resumed; fork older turns first', false); return; }
+
     const requestedName = opts.providerName;
     const sessionName = sessionRecord.providerName;
     const fallbackName = this.deps.providers.defaultName();
-    const providerName = requestedName ?? sessionName ?? fallbackName;
+    const providerName = requestedName ?? target.dispatchContext?.providerName ?? sessionName ?? fallbackName;
     if (!providerName) {
       sse.event('error', { message: 'No provider available', retryable: false });
       sse.end();
@@ -761,10 +826,10 @@ export class DispatchService {
       return;
     }
 
-    const effectiveWorkspaceId = sessionRecord.workspaceId;
-    const currentRoot = normalizeRoot(
-      this.deps.projectRootFor?.(effectiveWorkspaceId) ?? process.cwd(),
-    );
+    const effectiveWorkspaceId = target.dispatchContext ? target.dispatchContext.workspaceId : sessionRecord.workspaceId;
+    // Validate deleted workspace IDs even when a root snapshot exists.
+    const resolvedRoot = this.deps.projectRootFor?.(effectiveWorkspaceId);
+    const currentRoot = normalizeRoot(target.dispatchContext?.currentRoot ?? resolvedRoot ?? process.cwd());
     await this.deps.mcpRegistry?.ensureRootedBuiltins?.(currentRoot);
     const liveTools = this.deps.mcpRegistry?.listLiveTools(currentRoot) ?? [];
     const mcpToolDecls = liveTools.map((t) => ({
@@ -773,10 +838,18 @@ export class DispatchService {
       schema: t.tool.inputSchema,
     }));
 
-    const resumeSystemInstruction = withRuntimeContext(
-      context.systemInstruction,
-      this.resolveRuntimeContext(effectiveWorkspaceId, providerName),
-    );
+    const lastUser = [...priorMessages].reverse().find(m => m.role === 'user');
+    const agents = this.deps.subAgentsStore ? await this.deps.subAgentsStore.list() : [];
+    const mention = parseLeadingMention(lastUser?.text ?? '', new Set(agents.map(a => a.name)));
+    const meta = agents.find(a => a.name === mention.name);
+    const subAgent = meta ? await this.deps.subAgentsStore!.read(meta.id) : null;
+    const resumeSystemInstruction = target.dispatchContext?.systemInstruction ?? assemble(
+      context, subAgent, '', mention.name, mcpToolDecls,
+      this.deps.skillsService?.getActiveForPrompt() ?? [], this.resolveRuntimeContext(effectiveWorkspaceId, providerName),
+    ).systemInstruction;
+    const modelMessageId = randomUUID();
+    const dispatchContext: DispatchContext = { providerName, systemInstruction: resumeSystemInstruction, workspaceId: effectiveWorkspaceId, currentRoot, thinking: target.dispatchContext?.thinking, subAgent: target.dispatchContext?.subAgent ?? mention.name ?? undefined };
+    sse.event('message_ids', { modelMessageId });
 
     if (opts.aetherMode) {
       tracer.pushExternal({
@@ -790,10 +863,10 @@ export class DispatchService {
       {
         provider,
         systemInstruction: resumeSystemInstruction,
-        history: priorMessages.map((m) => ({ role: m.role, text: m.text })),
+        history: await this.providerHistory(priorMessages, provider),
         userMessage: '',
-        pendingAssistantText: target.text,
-        thinking: false,
+        pendingAssistantText: retryFailed ? undefined : target.text,
+        thinking: dispatchContext.thinking,
         mcpTools: mcpToolDecls,
         currentRoot,
       },
@@ -808,7 +881,8 @@ export class DispatchService {
       const { message: msg, retryable } = loopResult.error;
       sse.event('error', { message: msg, retryable });
       await historyStore.append(sessionId, {
-        id: randomUUID(),
+        id: modelMessageId,
+        dispatchContext,
         role: 'model',
         text: accumText,
         timestamp: Date.now(),
@@ -850,7 +924,8 @@ export class DispatchService {
     const reasoningSteps = tracer.finalSteps();
 
     await historyStore.append(sessionId, {
-      id: randomUUID(),
+      id: modelMessageId,
+      dispatchContext,
       role: 'model',
       text: accumText,
       timestamp: Date.now(),

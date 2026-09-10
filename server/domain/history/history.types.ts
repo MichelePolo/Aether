@@ -8,7 +8,17 @@ export interface MessageAttachment {
   contentBase64?: string;   // present on write/import paths; absent on read
 }
 
+export interface DispatchContext {
+  providerName: string;
+  systemInstruction: string;
+  workspaceId?: string;
+  currentRoot: string;
+  subAgent?: string;
+  thinking?: boolean;
+}
+
 export interface Message {
+  dispatchContext?: DispatchContext;
   id: string;
   role: 'user' | 'model';
   text: string;

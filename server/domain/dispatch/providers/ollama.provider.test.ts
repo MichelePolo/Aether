@@ -157,7 +157,7 @@ describe('OllamaProvider', () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>;
     fetchMock.mockResolvedValue({
       ok: true,
-      body: { getReader: () => ({ read: async () => ({ done: true, value: undefined }) }) },
+      body: { getReader: () => ({ read: async () => ({ done: true, value: undefined }), cancel: async () => {}, releaseLock: () => {} }) },
     } as unknown as Response);
 
     const p = new OllamaProvider({ host: 'http://gpu.lan:11434', model: 'llama3', token: 'tok-123' });

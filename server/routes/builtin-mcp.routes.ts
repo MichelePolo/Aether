@@ -1,15 +1,11 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { asyncHandler } from '@/server/lib/async-handler';
+import { Router } from 'express';
 import fs from 'node:fs';
 import type { BuiltinMcpStore } from '@/server/domain/mcp/builtin/builtin.store';
 import type { McpRegistry } from '@/server/domain/mcp/registry';
 import type { BuiltinTransport } from '@/server/domain/mcp/builtin/builtin.types';
 import { ValidationError } from '@/server/lib/errors';
 
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
-  };
-}
 
 const VALID_TRANSPORTS: readonly BuiltinTransport[] = ['filesystem', 'terminal', 'git'];
 

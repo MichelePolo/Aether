@@ -1,4 +1,5 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { asyncHandler } from '@/server/lib/async-handler';
+import { Router } from 'express';
 import { z } from 'zod';
 import type { HistoryStore } from '@/server/domain/history/history.store';
 import type { WorkspacesStore } from '@/server/domain/workspaces/workspaces.store';
@@ -14,12 +15,6 @@ const PatchBody = z
     (b) => b.title !== undefined || b.providerName !== undefined || b.workspaceId !== undefined,
     { message: 'At least one field is required' },
   );
-
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
-  };
-}
 
 export function createHistoryRoutes(store: HistoryStore, workspaces?: WorkspacesStore): Router {
   const router = Router();

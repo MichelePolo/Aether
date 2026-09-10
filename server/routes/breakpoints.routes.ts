@@ -1,15 +1,11 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { asyncHandler } from '@/server/lib/async-handler';
+import { Router } from 'express';
 import { z } from 'zod';
 import { ValidationError } from '@/server/lib/errors';
 import type { BreakpointPolicyStore } from '@/server/domain/mcp/breakpoints/policy.store';
 import type { PreviewService } from '@/server/domain/mcp/breakpoints/preview.service';
 import { classifyTool } from '@/server/domain/mcp/breakpoints/classify';
 
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
-  };
-}
 
 const CategoryParam = z.enum(['safe', 'dangerous', 'external']);
 const ModeBody = z.object({ mode: z.enum(['auto', 'gate']) });

@@ -261,12 +261,13 @@ export class McpRegistry {
     /* no-op: actual cancellation lives in dispatch.service */
   }
 
-  policy(qualifiedName: string): McpToolPolicy {
+  policy(qualifiedName: string, root?: string): McpToolPolicy {
     const sep = qualifiedName.indexOf('.');
     if (sep < 0) return { autoApprove: false };
     const serverName = qualifiedName.slice(0, sep);
     const toolName = qualifiedName.slice(sep + 1);
-    const entry = [...this.live.values()].find((e) => e.serverName === serverName);
+    const id = root && (serverName === 'Filesystem' || serverName === 'Git') ? `builtin:${serverName === 'Filesystem' ? 'filesystem' : 'git'}@${root}` : undefined;
+    const entry = id ? this.live.get(id) : [...this.live.values()].find((e) => e.serverName === serverName);
     if (!entry) return { autoApprove: false };
     return this.resolvePolicy(entry, toolName);
   }
@@ -276,29 +277,48 @@ export class McpRegistry {
   }
 
   async setToolPolicy(serverId: string, toolName: string, policy: McpToolPolicy): Promise<void> {
+    if (serverId.startsWith('builtin:')) {
+      if (!this.builtinStore) throw new Error('Builtin policy storage unavailable');
+      this.builtinStore.setToolPolicy(serverId, toolName, policy);
+      return;
+    }
     const cur = await this.contextStore.read();
+    if (!cur.mcpServers.some(s => s.id === serverId)) throw new Error('Unknown MCP server');
     await this.contextStore.patch({
       mcpServers: cur.mcpServers.map((s) =>
         s.id === serverId
-          ? { ...s, toolPolicies: { ...(s.toolPolicies ?? {}), [toolName]: policy } }
+          ? { ...s, toolPolicies: { ...(s.toolPolicies ?? {}), [toolName]: { ...s.toolPolicies?.[toolName], ...policy } } }
           : s,
       ),
     });
     const entry = this.live.get(serverId);
     if (entry) {
-      entry.policies = { ...entry.policies, [toolName]: policy };
+      entry.policies = { ...entry.policies, [toolName]: { ...entry.policies[toolName], ...policy } };
     }
   }
 
   // 24h — give the user effectively unlimited time to approve/reject a gated tool call.
-  awaitDecision(callId: string, timeoutMs = 24 * 60 * 60 * 1000): Promise<'approve' | 'reject'> {
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
+  awaitDecision(callId: string, timeoutMs = 24 * 60 * 60 * 1000, signal?: AbortSignal): Promise<'approve' | 'reject'> {
+    if (signal?.aborted) return Promise.resolve('reject');
+    if (this.decisions.has(callId)) throw new Error('Duplicate tool call ID');
+    return new Promise((resolve) => {
+      const settle = (decision: 'approve' | 'reject') => {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', abort);
         this.decisions.delete(callId);
-        reject(new Error('decision timeout'));
-      }, timeoutMs);
-      this.decisions.set(callId, { resolve, timer });
+        resolve(decision);
+      };
+      const abort = () => settle('reject');
+      const timer = setTimeout(() => settle('reject'), timeoutMs);
+      this.decisions.set(callId, { resolve: settle, timer });
+      signal?.addEventListener('abort', abort, { once: true });
     });
+  }
+
+  async close(): Promise<void> {
+    for (const pending of this.decisions.values()) pending.resolve('reject');
+    for (const controller of this.reconnectAborters.values()) controller.abort();
+    await Promise.all([...this.live.keys()].map(id => this.disconnect(id)));
   }
 
   resolveDecision(callId: string, decision: 'approve' | 'reject'): void {
@@ -323,9 +343,11 @@ export class McpRegistry {
   }
 
   private resolvePolicy(entry: LiveEntry, toolName: string): McpToolPolicy {
-    const persisted = entry.policies[toolName];
+    const persisted = entry.serverId.startsWith('builtin:')
+      ? this.builtinStore?.readToolPolicy(entry.serverId, toolName)
+      : entry.policies[toolName];
     if (persisted) return persisted;
-    return { autoApprove: entry.connection.defaultAutoApprove };
+    return entry.connection.defaultAutoApprove ? { autoApprove: true } : {};
   }
 
   private async triggerReconnect(id: string, cfg: McpServerConfig): Promise<void> {

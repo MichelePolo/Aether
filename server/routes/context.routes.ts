@@ -1,4 +1,5 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { asyncHandler } from '@/server/lib/async-handler';
+import { Router } from 'express';
 import { z } from 'zod';
 import type { ContextStore } from '@/server/domain/context/context.store';
 import {
@@ -12,12 +13,6 @@ import { ValidationError } from '@/server/lib/errors';
 const SkillBody = z.object({ name: z.string().min(1) });
 const SkillUpdateBody = z.object({ value: z.string().min(1) });
 const SkillEnabledBody = z.object({ enabled: z.boolean() });
-
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
-  };
-}
 
 export function createContextRoutes(store: ContextStore): Router {
   const router = Router();

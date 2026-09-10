@@ -1,3 +1,4 @@
+import { createToolEventConsumer } from './tool-events';
 import { parseSseStream } from '@/src/lib/sse-parser';
 
 export class HttpError extends Error {
@@ -31,7 +32,11 @@ export async function consumeRun(
     throw new HttpError(res.status, message);
   }
   if (!res.body) throw new Error('no stream');
-  for await (const ev of parseSseStream(res.body)) {
-    onEvent(ev.event, ev.data);
-  }
+  const tools = createToolEventConsumer();
+  try {
+    for await (const ev of parseSseStream(res.body)) {
+      tools.consume(ev.event, ev.data);
+      onEvent(ev.event, ev.data);
+    }
+  } finally { tools.close(); }
 }

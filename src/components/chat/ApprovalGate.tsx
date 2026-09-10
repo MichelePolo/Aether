@@ -24,12 +24,15 @@ export function ApprovalGate() {
   const closeApprovalGate = useUiStore((s) => s.closeApprovalGate);
   const addSticky = useChatStore((s) => s.addStickyApproval);
   const [category, setCategory] = useState<ToolCategory | null>(null);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [deciding, setDeciding] = useState(false);
   const [sticky, setSticky] = useState(false);
   const [seconds, setSeconds] = useState(COUNTDOWN_SECONDS);
   const rejectRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!state) { setCategory(null); setSticky(false); setSeconds(COUNTDOWN_SECONDS); return; }
+    setSticky(false); setDecisionError(null); setDeciding(false);
     let cancelled = false;
     breakpointsApi
       .classify({ qualifiedName: state.event.qualifiedName, args: state.event.args })
@@ -57,9 +60,14 @@ export function ApprovalGate() {
   const { event, preview } = state;
 
   const decide = async (action: 'approve' | 'reject') => {
-    if (action === 'approve' && sticky) addSticky(event.qualifiedName);
-    await mcpApi.decide(event.callId, action).catch(() => {});
-    closeApprovalGate();
+    if (deciding) return;
+    setDeciding(true);
+    try {
+      await mcpApi.decide(event.callId, action);
+      if (action === 'approve' && sticky) addSticky(event.qualifiedName);
+      closeApprovalGate(event.callId);
+    } catch (error) { setDecisionError(error instanceof Error ? error.message : 'Decision failed'); }
+    finally { setDeciding(false); }
   };
 
   return (
@@ -81,6 +89,7 @@ export function ApprovalGate() {
         )}
       </div>
 
+      {decisionError && <p role="alert">{decisionError}</p>}
       <pre tabIndex={0} className="text-[11px] font-mono bg-zinc-950 border border-border-subtle rounded p-2 overflow-x-auto mb-3 max-h-40">
         {JSON.stringify(event.args, null, 2)}
       </pre>

@@ -1,4 +1,4 @@
-import { DispatchService } from '@/server/domain/dispatch/dispatch.service';
+import { DispatchService, type DispatchServiceDeps } from '@/server/domain/dispatch/dispatch.service';
 import { runSwarm as realRunSwarm } from '@/server/domain/swarms/swarm.orchestrator';
 import type { SseEmitter } from '@/server/lib/sse';
 import type { ProviderRegistry } from '@/server/domain/providers/registry';
@@ -47,7 +47,7 @@ function recordingSse(): RecordedSse {
   return {
     events,
     sse: {
-      event: (name, data) => { events.push({ name, data }); },
+      event: (name, data) => { if (['error', 'done', 'swarm_done', 'swarm_error'].includes(name)) events.push({ name, data }); },
       error: (message) => { events.push({ name: 'error', data: { message } }); },
       end: () => {},
       markClosed: () => {},
@@ -56,15 +56,20 @@ function recordingSse(): RecordedSse {
 }
 
 function outcome(events: Array<{ name: string; data: unknown }>): { status: RunStatus; error?: string } {
-  const err = events.find((e) => e.name === 'error');
+  const err = events.find((e) => e.name === 'error' || e.name === 'swarm_error');
   if (err) return { status: 'error', error: String((err.data as { message?: unknown })?.message ?? 'error') };
   const sd = events.find((e) => e.name === 'swarm_done') as { data?: { status?: string } } | undefined;
   if (sd?.data?.status === 'error') return { status: 'error' };
   if (sd?.data?.status === 'rejected') return { status: 'rejected' };
-  return { status: 'success' };
+  if (sd?.data?.status === 'interrupted') return { status: 'error', error: 'Run interrupted' };
+  const done = events.find(e => e.name === 'done') as { data?: { interrupted?: boolean } } | undefined;
+  if (done?.data?.interrupted) return { status: 'error', error: 'Run interrupted' };
+  if (sd?.data?.status === 'done' || (done && !sd)) return { status: 'success' };
+  return { status: 'error', error: 'Run ended without successful completion' };
 }
 
 export interface ScheduleRunnerDeps {
+  dispatchDeps?: DispatchServiceDeps;
   store: { createRun(id: string): string; setRunSession(runId: string, s: string): void; finishRun(runId: string, st: RunStatus, e?: string): void };
   historyStore: HistoryStore;
   contextStore?: ContextStore;
@@ -86,6 +91,13 @@ export interface ScheduleRunnerDeps {
 }
 
 export class ScheduleRunner {
+  private active = new Map<AbortController, Promise<void>>();
+  private closing = false;
+  async close(): Promise<void> {
+    this.closing = true;
+    for (const controller of this.active.keys()) controller.abort();
+    await Promise.allSettled(this.active.values());
+  }
   constructor(private readonly deps: ScheduleRunnerDeps) {}
 
   private buildDispatcher(autonomy: Autonomy): { handle: DispatchService['handle'] } {
@@ -95,6 +107,7 @@ export class ScheduleRunner {
       : this.deps.mcpRegistry ? autoRejectGatedRegistry(this.deps.mcpRegistry) : undefined;
     const breakpointService = autonomy === 'trusted' ? AUTO_GATE : this.deps.breakpointService;
     return new DispatchService({
+      ...this.deps.dispatchDeps,
       providers: this.deps.providers!,
       historyStore: this.deps.historyStore,
       contextStore: this.deps.contextStore!,
@@ -106,8 +119,15 @@ export class ScheduleRunner {
   }
 
   async run(schedule: Schedule): Promise<void> {
-    const runId = this.deps.store.createRun(schedule.id);
+    if (this.closing) return;
     const ctrl = new AbortController();
+    const pending = this.runTurn(schedule, ctrl);
+    this.active.set(ctrl, pending);
+    try { await pending; } finally { this.active.delete(ctrl); }
+  }
+
+  private async runTurn(schedule: Schedule, ctrl: AbortController): Promise<void> {
+    const runId = this.deps.store.createRun(schedule.id);
     const timer = setTimeout(() => ctrl.abort(), MAX_RUN_MS);
     const rec = recordingSse();
     try {
@@ -155,7 +175,7 @@ export class ScheduleRunner {
         );
       }
 
-      const { status, error } = outcome(rec.events);
+      const { status, error } = ctrl.signal.aborted ? { status: 'error' as const, error: 'Run interrupted' } : outcome(rec.events);
       this.deps.store.finishRun(runId, status, error);
     } catch (e) {
       this.deps.store.finishRun(runId, 'error', e instanceof Error ? e.message : 'run failed');

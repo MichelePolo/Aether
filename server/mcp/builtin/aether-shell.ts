@@ -19,6 +19,8 @@ function send(res: JsonRpcResponse): void {
   process.stdout.write(JSON.stringify(res) + '\n');
 }
 
+const activeCommands = new Map<string | number, AbortController>();
+
 async function handle(req: JsonRpcRequest): Promise<JsonRpcResponse> {
   const base = { jsonrpc: '2.0' as const, id: req.id };
 
@@ -69,8 +71,12 @@ async function handle(req: JsonRpcRequest): Promise<JsonRpcResponse> {
     if (typeof args.cmd !== 'string') {
       return { ...base, error: { code: -32602, message: 'cmd (string) required' } };
     }
-    const result = await executeCommand({ cmd: args.cmd, cwd: args.cwd, timeout: args.timeout });
-    return { ...base, result };
+    const controller = new AbortController();
+    activeCommands.set(req.id, controller);
+    try {
+      const result = await executeCommand({ cmd: args.cmd, cwd: args.cwd, timeout: args.timeout, signal: controller.signal });
+      return { ...base, result };
+    } finally { activeCommands.delete(req.id); }
   }
 
   return { ...base, error: { code: -32601, message: `Unknown method: ${req.method}` } };
@@ -92,9 +98,15 @@ process.stdin.on('data', (chunk: string) => {
       send({ jsonrpc: '2.0', id: 0, error: { code: -32700, message: 'Parse error' } });
       continue;
     }
-    void handle(req).then(send);
+    if (req.method === 'notifications/cancelled') {
+      activeCommands.get(req.params?.requestId as string | number)?.abort();
+      continue;
+    }
+    if (req.id === undefined) continue;
+    void handle(req).then(send).catch(err => send({ jsonrpc: '2.0', id: req.id, error: { code: -32603, message: String(err) } }));
   }
 });
 
-process.stdin.on('end', () => process.exit(0));
-process.on('SIGTERM', () => process.exit(0));
+const shutdown = () => { for (const controller of activeCommands.values()) controller.abort(); };
+process.stdin.on('end', shutdown);
+process.on('SIGTERM', shutdown);

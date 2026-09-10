@@ -26,7 +26,7 @@ describe('executeCommand spawn options', () => {
     const child = fakeChild();
     spawnMock.mockReturnValue(child as unknown as ReturnType<typeof spawn>);
     const p = executeCommand({ cmd: 'echo hi' });
-    child.emit('exit', 0);
+    child.emit('close', 0, null);
     await p;
     expect(spawnMock).toHaveBeenCalledWith(
       'echo hi',

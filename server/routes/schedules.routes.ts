@@ -1,13 +1,11 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { asyncHandler } from '@/server/lib/async-handler';
+import { Router } from 'express';
 import { ValidationError, NotFoundError } from '@/server/lib/errors';
 import { ScheduleCreateSchema, ScheduleUpdateSchema } from '@/server/domain/schedules/schedules.schema';
 import { computeNextRunAt } from '@/server/domain/schedules/next-run';
 import type { ScheduleStore } from '@/server/domain/schedules/schedules.store';
 import type { Schedule } from '@/server/domain/schedules/schedules.types';
 
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
-  return (req: Request, res: Response, next: NextFunction) => { fn(req, res, next).catch(next); };
-}
 
 /** Recompute next_run_at when a schedule is enabled (else null). */
 function reschedule(store: ScheduleStore, s: Schedule): void {

@@ -70,9 +70,9 @@ describe('WorkspacesStore', () => {
     expect(row.workspace_id).toBeNull();
   });
 
-  it('delete() SET NULLs workspace_id on dependent schedules and swarms', () => {
+  it('delete() disables schedules and preserves stale workspace IDs to prevent root fallback', () => {
     db.exec(`
-      CREATE TABLE schedules (id TEXT PRIMARY KEY, workspace_id TEXT);
+      CREATE TABLE schedules (id TEXT PRIMARY KEY, workspace_id TEXT, enabled INTEGER DEFAULT 1, next_run_at INTEGER);
       CREATE TABLE swarms (id TEXT PRIMARY KEY, workspace_id TEXT);
       CREATE TABLE swarm_steps (id TEXT PRIMARY KEY, workspace_id TEXT);
     `);
@@ -88,9 +88,10 @@ describe('WorkspacesStore', () => {
     const schedule = db.prepare('SELECT workspace_id FROM schedules WHERE id = ?').get('sch1') as { workspace_id: string | null };
     const swarm = db.prepare('SELECT workspace_id FROM swarms WHERE id = ?').get('sw1') as { workspace_id: string | null };
     const step = db.prepare('SELECT workspace_id FROM swarm_steps WHERE id = ?').get('step1') as { workspace_id: string | null };
-    expect(schedule.workspace_id).toBeNull();
-    expect(swarm.workspace_id).toBeNull();
-    expect(step.workspace_id).toBeNull();
+    expect(schedule.workspace_id).toBe(w.id);
+    expect(db.prepare('SELECT enabled FROM schedules').get()).toEqual({ enabled: 0 });
+    expect(swarm.workspace_id).toBe(w.id);
+    expect(step.workspace_id).toBe(w.id);
   });
 
   it('delete() works fine when schedules/swarms tables do not exist (minimal test DB)', () => {

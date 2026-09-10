@@ -1,4 +1,5 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { asyncHandler } from '@/server/lib/async-handler';
+import { Router } from 'express';
 import type { ProviderRegistry } from '@/server/domain/providers/registry';
 import type { AuthStatusService } from '@/server/domain/providers/auth-status';
 import type {
@@ -14,11 +15,6 @@ import type { OllamaEndpointStore } from '@/server/domain/providers/ollama-endpo
 import type { OllamaEndpointRecord } from '@/server/domain/providers/ollama-endpoints.types';
 import type { OpenAICompatEndpointStore } from '@/server/domain/providers/openai-endpoints.store';
 
-function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res, next).catch(next);
-  };
-}
 
 const VALID_TRANSPORTS: readonly ProviderTransport[] = ['anthropic', 'openai', 'gemini', 'ollama'];
 

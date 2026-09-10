@@ -6,33 +6,7 @@ import type { QueuedAttachment } from '@/src/types/attachment.types';
 
 // ── Attachment helpers ────────────────────────────────────────────────────────
 
-const MAX_ATTACHMENTS = 5;
-const MAX_TOTAL_BYTES = 10 * 1024 * 1024;
-
-const IMAGE_MIMES = new Set<string>([
-  'image/png',
-  'image/jpeg',
-  'image/jpg',
-  'image/webp',
-  'image/gif',
-]);
-
-const TEXT_EXTENSIONS = new Set<string>([
-  'md', 'json', 'ts', 'tsx', 'js', 'jsx', 'py', 'yaml', 'yml',
-  'toml', 'sh', 'sql', 'rb', 'go', 'rs', 'java', 'c', 'cpp', 'h',
-  'html', 'css', 'csv', 'env', 'gitignore', 'txt',
-]);
-
-function classifyFile(name: string, mime: string): 'image' | 'text' | null {
-  if (IMAGE_MIMES.has(mime)) return 'image';
-  if (mime.startsWith('text/')) return 'text';
-  const dot = name.lastIndexOf('.');
-  if (dot === -1) return null;
-  const ext = name.slice(dot + 1).toLowerCase();
-  if (!ext) return null;
-  if (TEXT_EXTENSIONS.has(ext)) return 'text';
-  return null;
-}
+import { MAX_ATTACHMENTS, MAX_TOTAL_BYTES, classifyAttachment as classifyFile, normalizeAttachmentMime } from '@/src/lib/attachments';
 
 async function readFileBase64(file: File): Promise<string> {
   const buf = await file.arrayBuffer();
@@ -64,6 +38,7 @@ interface ChatState {
   pendingComposerText: string | null;
 
   hydrate: (messages: Message[]) => void;
+  reconcileMessage: (localId: string, serverId: string, attachments?: Message["attachments"]) => void;
   appendUser: (text: string) => { id: string };
   startAssistant: () => { id: string };
   appendChunk: (id: string, text: string) => void;
@@ -130,14 +105,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   hydrate: (messages) => set({ ...withMessages(messages), hydrated: true }),
 
+  reconcileMessage: (localId, serverId, attachments) => set((s) => ({
+    ...withMessages(s.messages.map(m => m.id === localId ? { ...m, id: serverId, persisted: true, ...(attachments ? { attachments } : {}) } : m)),
+    streamingId: s.streamingId === localId ? serverId : s.streamingId,
+  })),
+
   appendUser: (text) => {
-    const msg: Message = { id: newId(), role: 'user', text, timestamp: Date.now() };
+    const msg: Message = { id: newId(), role: 'user', persisted: false, text, timestamp: Date.now() };
     set((s) => withMessages([...s.messages, msg]));
     return { id: msg.id };
   },
 
   startAssistant: () => {
-    const msg: Message = { id: newId(), role: 'model', text: '', timestamp: Date.now() };
+    const msg: Message = { id: newId(), role: 'model', persisted: false, text: '', timestamp: Date.now() };
     set((s) => ({
       ...withMessages([...s.messages, msg]),
       streamingId: msg.id,
@@ -244,21 +224,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
       runningSize += file.size;
 
       const base64 = await readFileBase64(file);
-      const dataUri = `data:${file.type};base64,${base64}`;
+      const dataUri = `data:${normalizeAttachmentMime(file.name, file.type)};base64,${base64}`;
       accepted.push({
         id: newId(),
         name: file.name,
-        mime: file.type,
+        mime: normalizeAttachmentMime(file.name, file.type),
         size: file.size,
         base64,
         dataUri,
       });
     }
 
-    set((s) => ({
-      queuedAttachments: [...s.queuedAttachments, ...accepted],
-      error: null,
-    }));
+    set((s) => {
+      const combined = [...s.queuedAttachments, ...accepted];
+      if (combined.length > MAX_ATTACHMENTS || combined.reduce((n, a) => n + a.size, 0) > MAX_TOTAL_BYTES) {
+        return { error: 'Attachment limits exceeded.' };
+      }
+      return { queuedAttachments: combined, error: null };
+    });
   },
 
   removeQueuedAttachment: (id: string) =>

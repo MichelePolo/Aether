@@ -67,6 +67,7 @@ function hydrateChatForSession(id: string): void {
   const controller = new AbortController();
   hydrationAbort = controller;
   const token = ++hydrationToken;
+  const initialMessages = useChatStore.getState().messages;
 
   historyApi
     .fetchById(id, controller.signal)
@@ -78,7 +79,10 @@ function hydrateChatForSession(id: string): void {
       ) return;
       const chat = useChatStore.getState();
       // Don't clobber: user may have typed during the hydrate window.
-      if (chat.messages.length > 0 && msgs.length === 0) return;
+      if (chat.messages !== initialMessages || chat.streamingId) {
+        useChatStore.setState({ hydrated: true });
+        return;
+      }
       chat.hydrate(msgs);
     })
     .catch(() => {

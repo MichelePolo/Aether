@@ -84,7 +84,8 @@ interface UiState {
 
   approvalGateState: { event: ToolCallRequestEvent; preview: PreviewResult } | null;
   openApprovalGate(payload: { event: ToolCallRequestEvent; preview: PreviewResult }): void;
-  closeApprovalGate(): void;
+  approvalGateQueue: Array<{ event: ToolCallRequestEvent; preview: PreviewResult }>;
+  closeApprovalGate(callId?: string): void;
 
   toggleReasoningDrawer: () => void;
   openReasoningDrawer: () => void;
@@ -136,6 +137,7 @@ const initial = {
   lightboxAttachmentId: null as string | null,
   creatingSkill: false,
   approvalGateState: null as { event: ToolCallRequestEvent; preview: PreviewResult } | null,
+  approvalGateQueue: [] as Array<{ event: ToolCallRequestEvent; preview: PreviewResult }>,
   workspaceBrowserOpen: false,
 };
 
@@ -217,8 +219,14 @@ export const useUiStore = create<UiState>((set, get) => ({
   openLightbox: (id) => set({ lightboxAttachmentId: id }),
   closeLightbox: () => set({ lightboxAttachmentId: null }),
 
-  openApprovalGate: (payload) => set({ approvalGateState: payload }),
-  closeApprovalGate: () => set({ approvalGateState: null }),
+  openApprovalGate: (payload) => set(s => {
+    if (s.approvalGateState?.event.callId === payload.event.callId || s.approvalGateQueue.some(p => p.event.callId === payload.event.callId)) return s;
+    return s.approvalGateState ? { approvalGateQueue: [...s.approvalGateQueue, payload] } : { approvalGateState: payload };
+  }),
+  closeApprovalGate: (callId) => set(s => {
+    if (callId && s.approvalGateState?.event.callId !== callId) return { approvalGateQueue: s.approvalGateQueue.filter(p => p.event.callId !== callId) };
+    return { approvalGateState: s.approvalGateQueue[0] ?? null, approvalGateQueue: s.approvalGateQueue.slice(1) };
+  }),
 
   openPalette: () =>
     set({ paletteOpen: true, paletteMode: 'commands', searchQuery: '', searchResults: [] }),

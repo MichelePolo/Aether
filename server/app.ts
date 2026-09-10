@@ -1,3 +1,4 @@
+import { apiSecurity } from './lib/api-security';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import { isAppError } from './lib/errors';
 import type { ContextStore } from './domain/context/context.store';
@@ -41,6 +42,7 @@ import { createTddRoutes } from './routes/tdd.routes';
 import { createScheduleRoutes } from './routes/schedules.routes';
 
 export interface AppDeps {
+  security?: { allowedHosts?: string[]; token?: string };
   contextStore?: ContextStore;
   historyStore?: HistoryStore;
   workspacesStore?: WorkspacesStore;
@@ -80,6 +82,7 @@ export function createApp(
   extraRoutes?: (app: Express) => void,
 ): Express {
   const app = express();
+  app.use('/api', apiSecurity(deps.security));
 
   // Routes that need their own body parser (slice 16 import, slice 20 dispatch)
   // mount BEFORE the global 1 MB parser.

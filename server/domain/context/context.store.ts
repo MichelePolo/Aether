@@ -1,3 +1,4 @@
+import { encrypt, decrypt } from '@/server/lib/key-crypto';
 import { randomUUID } from 'node:crypto';
 import { ValidationError, NotFoundError } from '@/server/lib/errors';
 import {
@@ -82,6 +83,9 @@ type ServerRow = {
   env: string | null;
   url: string | null;
   status: string;
+  headers_ciphertext: Buffer | null;
+  headers_iv: Buffer | null;
+  headers_auth_tag: Buffer | null;
 };
 
 type PolicyRow = {
@@ -92,7 +96,7 @@ type PolicyRow = {
 };
 
 export class ContextStore {
-  constructor(private readonly db: DatabaseHandle) {
+  constructor(private readonly db: DatabaseHandle, private readonly vaultKey?: Buffer) {
     this.db
       .prepare('INSERT OR IGNORE INTO context (id, system_instruction) VALUES (1, ?)')
       .run(defaultContext.systemInstruction);
@@ -215,7 +219,7 @@ export class ContextStore {
 
     const serverRows = this.db
       .prepare(
-        'SELECT id, name, transport, command, args, env, url, status FROM context_mcp_servers ORDER BY rowid',
+        'SELECT id, name, transport, command, args, env, url, status, headers_ciphertext, headers_iv, headers_auth_tag FROM context_mcp_servers ORDER BY rowid',
       )
       .all() as ServerRow[];
 
@@ -245,6 +249,10 @@ export class ContextStore {
       if (r.args !== null) base.args = JSON.parse(r.args) as string[];
       if (r.env !== null) base.env = JSON.parse(r.env) as Record<string, string>;
       if (r.url !== null) base.url = r.url;
+      if (r.headers_ciphertext && r.headers_iv && r.headers_auth_tag) {
+        if (!this.vaultKey) throw new Error('Vault key required to read MCP headers');
+        base.headers = JSON.parse(decrypt({ ciphertext: r.headers_ciphertext, iv: r.headers_iv, authTag: r.headers_auth_tag }, this.vaultKey));
+      }
       if (policies) base.toolPolicies = policies;
       return base;
     });
@@ -272,12 +280,14 @@ export class ContextStore {
 
       this.db.prepare('DELETE FROM context_mcp_servers').run();
       const insertServer = this.db.prepare(
-        'INSERT INTO context_mcp_servers (id, name, transport, command, args, env, url, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO context_mcp_servers (id, name, transport, command, args, env, url, status, headers_ciphertext, headers_iv, headers_auth_tag) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       );
       const insertPolicy = this.db.prepare(
         'INSERT INTO context_mcp_tool_policies (server_id, tool_name, auto_approve, category) VALUES (?, ?, ?, ?)',
       );
       for (const s of next.mcpServers) {
+        if (s.headers && !this.vaultKey) throw new ValidationError('Vault key required to store MCP headers');
+        const headers = s.headers ? encrypt(JSON.stringify(s.headers), this.vaultKey!) : null;
         insertServer.run(
           s.id,
           s.name,
@@ -287,6 +297,7 @@ export class ContextStore {
           s.env ? JSON.stringify(s.env) : null,
           s.url ?? null,
           s.status,
+          headers?.ciphertext ?? null, headers?.iv ?? null, headers?.authTag ?? null,
         );
         if (s.toolPolicies) {
           for (const [toolName, policy] of Object.entries(s.toolPolicies)) {

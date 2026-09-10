@@ -5,10 +5,14 @@ export interface ExecuteCommandInput {
   cmd: string;
   cwd?: string;
   timeout?: number;
+  signal?: AbortSignal;
 }
 
 export interface ExecuteCommandResult {
   isError: boolean;
+  exitCode?: number;
+  signal?: string | null;
+  timedOut?: boolean;
   content: Array<{ type: 'text'; text: string }>;
 }
 
@@ -26,6 +30,7 @@ function findBlockedPattern(cmd: string): RegExp | null {
 }
 
 export async function executeCommand(input: ExecuteCommandInput): Promise<ExecuteCommandResult> {
+  if (input.signal?.aborted) return { isError: true, exitCode: 130, content: [{ type: 'text', text: 'Command cancelled' }] };
   const blocked = findBlockedPattern(input.cmd);
   if (blocked) {
     return {
@@ -40,11 +45,12 @@ export async function executeCommand(input: ExecuteCommandInput): Promise<Execut
   }
 
   const requestedTimeout = input.timeout ?? SHELL_DEFAULTS.timeoutMs;
-  const effectiveTimeout = Math.min(requestedTimeout, SHELL_DEFAULTS.maxTimeoutMs);
+  const effectiveTimeout = Number.isFinite(requestedTimeout) && requestedTimeout > 0
+    ? Math.min(requestedTimeout, SHELL_DEFAULTS.maxTimeoutMs) : SHELL_DEFAULTS.timeoutMs;
   const cwd = input.cwd ?? process.cwd();
 
   return new Promise<ExecuteCommandResult>((resolve) => {
-    const child = spawn(input.cmd, [], { shell: true, cwd, windowsHide: true });
+    const child = spawn(input.cmd, [], { shell: true, cwd, windowsHide: true, detached: process.platform !== 'win32' });
     let stdoutBuf = '';
     let stderrBuf = '';
     let stdoutTruncated = false;
@@ -68,43 +74,42 @@ export async function executeCommand(input: ExecuteCommandInput): Promise<Execut
       }
     });
 
-    const timer = setTimeout(() => {
-      child.kill('SIGTERM');
-      setTimeout(() => child.kill('SIGKILL'), 500);
+    let timedOut = false;
+    let cancelled = false;
+    let settled = false;
+    const killTree = () => {
+      if (process.platform !== 'win32' && child.pid) {
+        try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); }
+      } else if (child.pid) {
+        const killer = spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true });
+        killer.on('error', () => child.kill('SIGKILL'));
+      } else { child.kill('SIGKILL'); }
+    };
+    const abort = () => { cancelled = true; killTree(); };
+    const timer = setTimeout(() => { timedOut = true; killTree(); }, effectiveTimeout);
+    const finish = (result: ExecuteCommandResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      input.signal?.removeEventListener('abort', abort);
+      resolve(result);
+    };
+    input.signal?.addEventListener('abort', abort, { once: true });
+    if (input.signal?.aborted) abort();
+
+    child.on('error', (err) => finish({
+      isError: true, exitCode: 1,
+      content: [{ type: 'text', text: `spawn error: ${err.message}` }],
+    }));
+    // close follows stdio drainage; exit may fire before the last output chunk.
+    child.on('close', (code, signal: string | null) => {
+      const exitCode = timedOut ? 124 : cancelled ? 130 : (code ?? 1);
       const stdoutOut = stdoutTruncated ? stdoutBuf + TRUNC_MARKER : stdoutBuf;
       const stderrOut = stderrTruncated ? stderrBuf + TRUNC_MARKER : stderrBuf;
-      resolve({
-        isError: true,
-        content: [
-          {
-            type: 'text',
-            text: formatOutput(stdoutOut, stderrOut, `timeout after ${effectiveTimeout}ms`),
-          },
-        ],
-      });
-    }, effectiveTimeout);
-
-    child.on('error', (err) => {
-      clearTimeout(timer);
-      resolve({
-        isError: true,
-        content: [{ type: 'text', text: `spawn error: ${err.message}` }],
-      });
-    });
-
-    child.on('exit', (code) => {
-      clearTimeout(timer);
-      const stdoutOut = stdoutTruncated ? stdoutBuf + TRUNC_MARKER : stdoutBuf;
-      const stderrOut = stderrTruncated ? stderrBuf + TRUNC_MARKER : stderrBuf;
-      const exitCode = code ?? 0;
-      resolve({
-        isError: exitCode !== 0,
-        content: [
-          {
-            type: 'text',
-            text: formatOutput(stdoutOut, stderrOut, `exit code: ${exitCode}`),
-          },
-        ],
+      const reason = timedOut ? `timeout after ${effectiveTimeout}ms` : cancelled ? 'cancelled' : signal ? `signal: ${signal}` : '';
+      finish({
+        isError: exitCode !== 0, exitCode, signal, timedOut,
+        content: [{ type: 'text', text: formatOutput(stdoutOut, stderrOut, `${reason ? reason + '\n' : ''}exit code: ${exitCode}`) }],
       });
     });
   });

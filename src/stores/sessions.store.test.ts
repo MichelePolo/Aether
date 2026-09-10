@@ -592,3 +592,21 @@ describe('useSessionsStore — workspaces (slice 23)', () => {
     expect(useSessionsStore.getState().activeSessionId).toBe('s2');
   });
 });
+
+it('does not overwrite a new streaming turn with an older nonempty history response', async () => {
+  useSessionsStore.setState({ sessions: [m('A'), m('B')], activeSessionId: 'A', hydrated: true });
+  let release!: () => void;
+  const ready = new Promise<void>(resolve => { release = resolve; });
+  server.use(http.get('http://localhost/api/sessions/B', async () => {
+    await ready;
+    return HttpResponse.json({ messages: [{ id: 'old', role: 'user', text: 'old server snapshot', timestamp: 1 }] });
+  }));
+  useSessionsStore.getState().setActive('B');
+  useChatStore.getState().appendUser('new turn');
+  const { id } = useChatStore.getState().startAssistant();
+  useChatStore.getState().appendChunk(id, 'streamed');
+  release();
+  await new Promise(resolve => setTimeout(resolve, 30));
+  expect(useChatStore.getState().messages.map(m => m.text)).toEqual(['new turn', 'streamed']);
+  expect(useChatStore.getState().streamingId).toBe(id);
+});

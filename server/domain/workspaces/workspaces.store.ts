@@ -54,11 +54,10 @@ export class WorkspacesStore {
 
   delete(id: string): void {
     const tx = this.db.transaction((wid: string) => {
-      for (const t of ['schedules', 'swarms', 'swarm_steps'] as const) {
-        const exists = this.db
-          .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
-          .get(t);
-        if (exists) this.db.prepare(`UPDATE ${t} SET workspace_id = NULL WHERE workspace_id = ?`).run(wid);
+      // Preserve stale IDs on jobs/swarms so manual and automatic runs fail
+      // closed until explicitly reassigned. Sessions retain their FK behavior.
+      if (this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schedules'").get()) {
+        this.db.prepare('UPDATE schedules SET enabled = 0, next_run_at = NULL WHERE workspace_id = ?').run(wid);
       }
       this.db.prepare('DELETE FROM workspaces WHERE id = ?').run(wid);
     });

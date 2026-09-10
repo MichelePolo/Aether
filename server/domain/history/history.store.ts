@@ -31,6 +31,7 @@ type MessageRow = {
   position: number;
   tokens_in: number | null;
   tokens_out: number | null;
+  dispatch_context_json: string | null;
 };
 
 type ReasoningRow = {
@@ -106,7 +107,7 @@ export class HistoryStore {
   constructor(db: DatabaseHandle) {
     this.db = db;
     this.selectMessagesStmt = db.prepare(
-      'SELECT id, session_id, role, content, model, interrupted, error, retryable, created_at, position, tokens_in, tokens_out FROM messages WHERE session_id = ? ORDER BY position',
+      'SELECT id, session_id, role, content, model, interrupted, error, retryable, created_at, position, tokens_in, tokens_out, dispatch_context_json FROM messages WHERE session_id = ? ORDER BY position',
     );
     this.selectAttachmentsForSessionStmt = db.prepare(
       'SELECT id, message_id, position, mime, name, size FROM messages_attachments WHERE message_id IN (SELECT id FROM messages WHERE session_id = ?) ORDER BY message_id, position',
@@ -181,6 +182,13 @@ export class HistoryStore {
   async exportSession(id: string): Promise<ExportEnvelope | null> {
     const record = await this.readRecord(id);
     if (!record) return null;
+    for (const message of record.messages) {
+      for (const attachment of message.attachments ?? []) {
+        const stored = await this.getAttachmentBytes(attachment.id);
+        if (!stored) throw new Error('Attachment content missing');
+        attachment.contentBase64 = stored.content.toString('base64');
+      }
+    }
     return wrap(record, Date.now());
   }
 
@@ -229,7 +237,7 @@ export class HistoryStore {
 
       this.db
         .prepare(
-          'INSERT INTO messages (id, session_id, role, content, model, interrupted, error, retryable, created_at, position, tokens_in, tokens_out) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          'INSERT INTO messages (id, session_id, role, content, model, interrupted, error, retryable, created_at, position, tokens_in, tokens_out, dispatch_context_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         )
         .run(
           message.id,
@@ -244,6 +252,7 @@ export class HistoryStore {
           position,
           message.tokensIn ?? null,
           message.tokensOut ?? null,
+          message.dispatchContext ? JSON.stringify(message.dispatchContext) : null,
         );
 
       this.db
@@ -304,7 +313,7 @@ export class HistoryStore {
     const now = Date.now();
 
     const insertMessage = this.db.prepare(
-      'INSERT INTO messages (id, session_id, role, content, model, interrupted, error, retryable, created_at, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO messages (id, session_id, role, content, model, interrupted, error, retryable, created_at, position, tokens_in, tokens_out) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     );
     const insertFts = this.db.prepare(
       'INSERT INTO messages_fts (message_id, session_id, role, content) VALUES (?, ?, ?, ?)',
@@ -323,7 +332,7 @@ export class HistoryStore {
           msg.interrupted ? 1 : 0,
           msg.error ?? null,
           msg.retryable === undefined ? null : msg.retryable ? 1 : 0,
-          now, i,
+          now, i, msg.tokensIn ?? null, msg.tokensOut ?? null,
         );
         insertFts.run(newMsgId, newSessionId, msg.role, msg.text);
 
@@ -391,7 +400,7 @@ export class HistoryStore {
     const now = Date.now();
 
     const insertMessage = this.db.prepare(
-      'INSERT INTO messages (id, session_id, role, content, model, interrupted, error, retryable, created_at, position, tokens_in, tokens_out) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO messages (id, session_id, role, content, model, interrupted, error, retryable, created_at, position, tokens_in, tokens_out, dispatch_context_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     );
     const insertFts = this.db.prepare(
       'INSERT INTO messages_fts (message_id, session_id, role, content) VALUES (?, ?, ?, ?)',
@@ -415,6 +424,7 @@ export class HistoryStore {
           now, i,
           msg.tokensIn ?? null,
           msg.tokensOut ?? null,
+          msg.dispatchContext ? JSON.stringify(msg.dispatchContext) : null,
         );
         insertFts.run(newMsgId, newSessionId, msg.role, msg.text);
 
@@ -456,6 +466,7 @@ export class HistoryStore {
       createdAt: now,
       updatedAt: now,
       providerName: src.provider_name ?? undefined,
+      workspaceId: src.workspace_id ?? undefined,
     };
   }
 
@@ -495,6 +506,7 @@ export class HistoryStore {
         text: m.content,
         timestamp: m.created_at,
       };
+      if (m.dispatch_context_json) msg.dispatchContext = JSON.parse(m.dispatch_context_json);
       if (m.model !== null) msg.model = m.model;
       if (m.interrupted === 1) msg.interrupted = true;
       if (m.error !== null) msg.error = m.error;
@@ -522,9 +534,9 @@ export class HistoryStore {
       'INSERT INTO messages_attachments (id, message_id, position, mime, name, size, content) VALUES (?, ?, ?, ?, ?, ?, ?)',
     );
     attachments.forEach((a, i) => {
-      if (!a.contentBase64) throw new ValidationError(`Attachment ${a.id} missing contentBase64`);
+      if (a.contentBase64 === undefined) throw new ValidationError(`Attachment ${a.id} missing contentBase64`);
       const bytes = Buffer.from(a.contentBase64, 'base64');
-      stmt.run(a.id, messageId, i, a.mime, a.name, a.size, bytes);
+      stmt.run(a.id, messageId, i, a.mime, a.name, bytes.length, bytes);
     });
   }
 

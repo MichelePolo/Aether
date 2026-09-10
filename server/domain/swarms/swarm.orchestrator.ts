@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { SseEmitter } from '@/server/lib/sse';
 import { createCollectingSse } from '@/server/lib/collecting-sse';
 import type { SwarmApprovalRegistry } from './swarm.approval';
@@ -91,6 +92,11 @@ export async function runSwarm(
       signal,
     );
 
+    if (signal.aborted) {
+      sse.event('swarm_done', { status: 'interrupted' });
+      sse.end();
+      return;
+    }
     const stepError = collector.capturedError();
     if (stepError) {
       sse.event('swarm_error', { position: i, message: stepError.message });
@@ -103,7 +109,7 @@ export async function runSwarm(
     sse.event('swarm_step_completed', { position: i, output: incoming });
 
     if (step.pauseAfter) {
-      const approvalId = `${opts.swarmId}:${i}`;
+      const approvalId = randomUUID();
       sse.event('swarm_approval_request', { approvalId, position: i, output: incoming });
       const action = await deps.approvals.awaitDecision(approvalId, timeout, signal);
       if (signal.aborted) {

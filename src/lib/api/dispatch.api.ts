@@ -6,6 +6,7 @@ export interface DispatchRequestBody {
   thinking?: boolean;
   aetherMode?: boolean;
   providerName?: string;
+  defaultProviderName?: string;
   attachments?: Array<{
     name: string;
     mime: string;

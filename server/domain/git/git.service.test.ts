@@ -204,3 +204,7 @@ describe('GitService — working tree (changes pane)', () => {
     await expect(service.stage('ws1', { paths: ['-rf'] })).rejects.toThrow();
   });
 });
+
+it.each(['stage', 'unstage', 'discard'] as const)('propagates a failed git %s operation', async method => {
+  await expect(service[method]('ws1', { paths: ['file-that-does-not-exist.txt'] })).rejects.toThrow();
+});

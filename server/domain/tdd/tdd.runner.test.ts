@@ -101,3 +101,23 @@ describe('runTddLoop', () => {
     expect(d.runCommand).not.toHaveBeenCalled();
   });
 });
+
+it('pins test commands and fixer dispatches to the same resolved workspace and forwards cancellation', async () => {
+  const results = [{ exitCode: 1, output: 'red' }, { exitCode: 0, output: 'green' }];
+  const d = deps({ resolveCwd: () => '/workspace/a', resolveWorkspaceId: () => 'workspace-a', runCommand: vi.fn(async () => results.shift()!) });
+  const ctrl = new AbortController();
+  await runTddLoop(d, { command: 'test', subAgentName: 'coder' }, recordingSse().sse, ctrl.signal);
+  expect(d.createSession).toHaveBeenCalledWith('/workspace/a');
+  expect(d.dispatcher.handle).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: 'workspace-a' }), expect.anything(), ctrl.signal);
+  expect(d.runCommand).toHaveBeenNthCalledWith(1, 'test', '/workspace/a', ctrl.signal);
+  expect(d.runCommand).toHaveBeenNthCalledWith(2, 'test', '/workspace/a', ctrl.signal);
+});
+
+it('does not rerun tests after a fixer is interrupted', async () => {
+  const ctrl = new AbortController();
+  const d = deps({ dispatcher: { handle: async (_body, sse) => { ctrl.abort(); sse.event('done', { interrupted: true }); } } });
+  const rec = recordingSse();
+  await runTddLoop(d, { command: 'test', subAgentName: 'coder' }, rec.sse, ctrl.signal);
+  expect(d.runCommand).toHaveBeenCalledTimes(1);
+  expect(rec.events.at(-1)?.data.status).toBe('interrupted');
+});

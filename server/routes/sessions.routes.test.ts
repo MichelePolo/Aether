@@ -94,7 +94,7 @@ describe('POST /api/sessions/import', () => {
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
-  it('returns 413 when the payload exceeds 10 MB', async () => {
+  it('returns 413 when the payload exceeds 50 MB', async () => {
     const huge = {
       ...valid,
       session: {
@@ -103,7 +103,7 @@ describe('POST /api/sessions/import', () => {
           {
             id: 'big',
             role: 'user',
-            text: 'A'.repeat(11 * 1024 * 1024),
+            text: 'A'.repeat(51 * 1024 * 1024),
             timestamp: 0,
           },
         ],

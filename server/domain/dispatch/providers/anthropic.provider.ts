@@ -44,6 +44,9 @@ interface SdkContentBlock {
 interface SdkEvent {
   type: 'assistant' | 'result' | string;
   error?: string;
+  is_error?: boolean;
+  subtype?: string;
+  errors?: string[];
   message?: { content?: SdkContentBlock[] };
   usage?: { input_tokens?: number; output_tokens?: number };
 }
@@ -150,6 +153,9 @@ export class AnthropicProvider implements AIProvider {
             // handler (-> req.runToolCall). We do NOT surface function_call.
           }
         } else if (e.type === 'result') {
+          if (e.is_error || e.subtype?.startsWith('error_')) {
+            throw new Error(`Anthropic: ${e.errors?.join('; ') || e.subtype || 'execution failed'}`);
+          }
           const input = typeof e.usage?.input_tokens === 'number' ? e.usage.input_tokens : undefined;
           const output = typeof e.usage?.output_tokens === 'number' ? e.usage.output_tokens : undefined;
           const total = (input ?? 0) + (output ?? 0);
@@ -220,7 +226,7 @@ function toolDefFor(decl: ProviderToolDecl, req: ProviderRequest): {
 
 async function* buildPromptStream(req: ProviderRequest): AsyncGenerator<SdkUserMessageEnvelope> {
   const content: SdkUserMessageEnvelope['message']['content'] = [];
-  for (const a of req.attachments ?? []) {
+  for (const a of [...req.history.flatMap(m => m.attachments ?? []), ...(req.attachments ?? [])]) {
     content.push({
       type: 'image',
       source: { type: 'base64', media_type: a.mime, data: a.bytes.toString('base64') },

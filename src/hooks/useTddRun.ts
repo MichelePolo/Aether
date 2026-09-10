@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { consumeRun } from '@/src/lib/run-sse';
 import { tddApi, type TddRunRequest } from '@/src/lib/api/tdd.api';
 
@@ -49,6 +49,8 @@ export function useTddRun() {
   const [state, setState] = useState<TddViewState>(INITIAL_TDD);
   const abortRef = useRef<AbortController | null>(null);
 
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   const run = useCallback(async (req: TddRunRequest) => {
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -57,7 +59,7 @@ export function useTddRun() {
 
     try {
       const res = await tddApi.run(req, controller.signal);
-      await consumeRun(res, (name, data) => setState((s) => reduceTdd(s, name, data as any)));
+      await consumeRun(res, (name, data) => { if (abortRef.current === controller) setState((s) => reduceTdd(s, name, data as any)); });
     } catch (e) {
       if (!(e instanceof Error && e.name === 'AbortError') && abortRef.current === controller) {
         // only surface the error if this run is still the active one — a
