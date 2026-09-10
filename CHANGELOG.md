@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.30](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.29...aether-core-v0.1.30) (2026-09-10)
+
+
+### Bug Fixes
+
+* address comprehensive code review findings ([#138](https://github.com/MichelePolo/Aether/issues/138)) ([1e7e24c](https://github.com/MichelePolo/Aether/commit/1e7e24c119e7e06e1826e3ff7bca00e3eda46136))
+
 ## [0.1.29](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.28...aether-core-v0.1.29) (2026-08-04)
 
 
