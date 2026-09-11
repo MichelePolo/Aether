@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.31](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.30...aether-core-v0.1.31) (2026-09-11)
+
+
+### Bug Fixes
+
+* **providers:** refresh Anthropic OAuth model catalog ([#140](https://github.com/MichelePolo/Aether/issues/140)) ([e03fd27](https://github.com/MichelePolo/Aether/commit/e03fd27e9c45d86a273de0345b9babbaa106d3e9))
+
 ## [0.1.30](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.29...aether-core-v0.1.30) (2026-09-10)
 
 
