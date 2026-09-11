@@ -6,6 +6,8 @@ Cosa copre: come Aether scopre, blocca in base alle credenziali e nomina i backe
 
 ## Come funziona
 
+**Catalogo Anthropic OAuth (11 settembre 2026):** Opus 5, Sonnet 5, Haiku 4.5 e Fable 5.1, allineati al [catalogo ufficiale](https://platform.claude.com/docs/en/models/overview). Opus 4.8, Opus 4.7 e Sonnet 4.6 restano selezionabili per sessioni e sub-agent già configurati. Opus 5 è il fallback per nuove selezioni Anthropic; le scelte salvate hanno precedenza. OAuth usa questa lista inclusa nell'app, mentre con API key vengono scoperti i modelli disponibili per l'account. Dopo aver aggiornato e riavviato Aether, usa **Refresh models** nel selettore per ricaricare il catalogo.
+
 Ogni backend implementa la piccola interfaccia `AIProvider` (`server/domain/dispatch/providers/provider.types.ts`): una stringa `model`, un oggetto `capabilities` (`thinking`, `toolCalling`, `vision`) e un metodo `stream()` che produce chunk `text` / `thinking` / `function_call` / `done`. Ci sono sette transport: `fake`, `gemini`, `ollama`, `anthropic`, `openai`, `openai-compat` e `codex` (`ProviderTransport` in `server/domain/providers/registry.ts`).
 
 `ProviderRegistry.refresh()` (`server/domain/providers/registry.ts`) ricostruisce da zero l'intera mappa dei provider ad ogni chiamata:

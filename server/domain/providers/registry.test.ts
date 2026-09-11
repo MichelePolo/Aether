@@ -84,12 +84,17 @@ describe('ProviderRegistry', () => {
     expect(reg.defaultName()).toBe('fake:default');
   });
 
-  it("registers all three anthropic entries when probe returns 'oauth'", async () => {
+  it("registers current Anthropic models and retains pinned legacy IDs when probe returns 'oauth'", async () => {
     const reg = new ProviderRegistry(baseDeps({ detectAnthropicAuth: async () => 'oauth' }));
     await reg.refresh();
+    expect(reg.get('anthropic:claude-opus-5')?.model).toBe('claude-opus-5');
+    expect(reg.get('anthropic:claude-sonnet-5')?.model).toBe('claude-sonnet-5');
+    expect(reg.get('anthropic:claude-fable-5-1')?.model).toBe('claude-fable-5-1');
+    expect(reg.get('anthropic:claude-opus-4-8')).not.toBeNull();
     expect(reg.get('anthropic:claude-opus-4-7')).not.toBeNull();
     expect(reg.get('anthropic:claude-sonnet-4-6')).not.toBeNull();
     expect(reg.get('anthropic:claude-haiku-4-5')).not.toBeNull();
+    expect(reg.defaultName()).toBe('anthropic:claude-opus-5');
   });
 
   it('registers anthropic entries from dynamic discovery when apikey', async () => {
@@ -142,9 +147,9 @@ describe('ProviderRegistry', () => {
   it('displayName for anthropic includes Anthropic and the model id', async () => {
     const reg = new ProviderRegistry(baseDeps({ detectAnthropicAuth: async () => 'oauth' }));
     await reg.refresh();
-    const d = reg.describe('anthropic:claude-opus-4-7');
+    const d = reg.describe('anthropic:claude-opus-5');
     expect(d?.displayName).toMatch(/anthropic/i);
-    expect(d?.displayName).toContain('claude-opus-4-7');
+    expect(d?.displayName).toContain('claude-opus-5');
   });
 
   it("registers all four openai entries when API key is set", async () => {

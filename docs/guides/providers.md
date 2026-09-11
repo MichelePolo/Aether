@@ -4,6 +4,8 @@ What this covers: how Aether discovers, credentials-gates, and names the model b
 
 ## How it works
 
+**Anthropic OAuth catalog (2026-09-11):** Opus 5, Sonnet 5, Haiku 4.5 and Fable 5.1, matching the [official model catalog](https://platform.claude.com/docs/en/models/overview). Opus 4.8, Opus 4.7 and Sonnet 4.6 remain selectable for existing pinned sessions and sub-agents. Opus 5 is the fallback for new Anthropic selections; saved choices take precedence. OAuth uses this bundled list, while API-key access discovers the models available to the account. After updating and restarting Aether, use **Refresh models** in the model selector to reload the catalog.
+
 Every backend implements the small `AIProvider` interface (`server/domain/dispatch/providers/provider.types.ts`): a `model` string, a `capabilities` object (`thinking`, `toolCalling`, `vision`), and a `stream()` method that yields `text` / `thinking` / `function_call` / `done` chunks. There are seven transports: `fake`, `gemini`, `ollama`, `anthropic`, `openai`, `openai-compat`, and `codex` (`ProviderTransport` in `server/domain/providers/registry.ts`).
 
 `ProviderRegistry.refresh()` (`server/domain/providers/registry.ts`) rebuilds the whole provider map from scratch on every call:
