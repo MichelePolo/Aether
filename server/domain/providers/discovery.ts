@@ -89,7 +89,19 @@ export function geminiHardcodedModels(): string[] {
 }
 
 export function anthropicHardcodedModels(): string[] {
-  return ['claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5'];
+  // OAuth catalog, checked 2026-09-11 against:
+  // https://platform.claude.com/docs/en/models/overview
+  // Opus stays first because the registry uses it as the Anthropic default.
+  // Keep prior IDs selectable for sessions and sub-agents pinned to them.
+  return [
+    'claude-opus-5',
+    'claude-sonnet-5',
+    'claude-haiku-4-5',
+    'claude-fable-5-1',
+    'claude-opus-4-8',
+    'claude-opus-4-7',
+    'claude-sonnet-4-6',
+  ];
 }
 
 export function openAIHardcodedModels(): string[] {
