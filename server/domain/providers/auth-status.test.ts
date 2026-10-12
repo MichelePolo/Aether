@@ -431,3 +431,25 @@ describe('AuthStatusService — openai-compat without a /models catalog', () => 
     expect(report.openaiCompat[0].state).toBe('error');
   });
 });
+
+describe('AuthStatusService.probe — ollama model count', () => {
+  it('counts only chat-capable models, matching the provider selector', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/api/tags')) {
+        return new Response(
+          JSON.stringify({
+            models: [
+              { name: 'qwen3-coder:30b', capabilities: ['completion', 'tools'] },
+              { name: 'nomic-embed-text:latest', capabilities: ['embedding'] },
+              { name: 'nimble:latest', capabilities: ['decision'] },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response(null, { status: 599 });
+    });
+    const report = await makeService({ fetch: fetchMock as typeof fetch }).probe();
+    expect(report.ollama[0]).toMatchObject({ state: 'ok', reason: '1 model' });
+  });
+});

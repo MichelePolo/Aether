@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { discoverOllama, geminiHardcodedModels, discoverAnthropic, ANTHROPIC_MODELS_URL, discoverOpenAICompat } from './discovery';
+import { discoverOllama, isOllamaChatModel, geminiHardcodedModels, discoverAnthropic, ANTHROPIC_MODELS_URL, discoverOpenAICompat } from './discovery';
 
 describe('discoverOllama', () => {
   beforeEach(() => {
@@ -65,6 +65,36 @@ describe('discoverOllama', () => {
     } as Response);
     await discoverOllama('http://localhost:11434');
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:11434/api/tags', expect.objectContaining({ headers: {} }));
+  });
+
+  it('drops embedding and decision models when capabilities are reported', async () => {
+    (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        models: [
+          { name: 'qwen3-coder:30b', capabilities: ['completion', 'tools'] },
+          { name: 'nomic-embed-text:latest', capabilities: ['embedding'] },
+          { name: 'nimble:latest', capabilities: ['decision'] },
+          { name: 'legacy:7b' },
+        ],
+      }),
+    } as Response);
+    expect(await discoverOllama('http://localhost:11434')).toEqual(['qwen3-coder:30b', 'legacy:7b']);
+  });
+});
+
+describe('isOllamaChatModel', () => {
+  it.each([
+    [undefined, true],
+    [['completion'], true],
+    [['vision', 'completion', 'tools', 'thinking'], true],
+    [['embedding'], false],
+    [['decision'], false],
+    [['completion', 'decision'], false],
+    [['vision'], false],
+    [[], true],
+  ])('%j → %s', (capabilities, expected) => {
+    expect(isOllamaChatModel(capabilities)).toBe(expected);
   });
 });
 

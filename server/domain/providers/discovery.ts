@@ -4,8 +4,19 @@ import { z } from 'zod';
 import { codexHome } from '@/server/lib/codex-auth';
 
 const TagsResponse = z.object({
-  models: z.array(z.object({ name: z.string() })),
+  models: z.array(z.object({ name: z.string(), capabilities: z.array(z.string()).optional() })),
 });
+
+/**
+ * Only chat-capable models can back a provider. Ollama also lists embedding and
+ * decision (`/v1/systemone`) models, which fail on `/api/chat`. Servers that don't
+ * report capabilities (Ollama before they were added to /api/tags, compatible
+ * gateways) keep every model, as before.
+ */
+export function isOllamaChatModel(capabilities: string[] | undefined): boolean {
+  if (!capabilities?.length) return true;
+  return capabilities.includes('completion') && !capabilities.includes('decision');
+}
 
 export const ANTHROPIC_MODELS_URL = 'https://api.anthropic.com/v1/models';
 export const ANTHROPIC_VERSION = '2023-06-01';
@@ -33,7 +44,7 @@ export async function discoverOllama(host: string, token?: string, headers?: Rec
     const body = await res.json();
     const parsed = TagsResponse.safeParse(body);
     if (!parsed.success) return [];
-    return parsed.data.models.map((m) => m.name);
+    return parsed.data.models.filter((m) => isOllamaChatModel(m.capabilities)).map((m) => m.name);
   } catch {
     return [];
   }
