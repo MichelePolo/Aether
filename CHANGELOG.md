@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.32](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.31...aether-core-v0.1.32) (2026-10-13)
+
+
+### Bug Fixes
+
+* **providers:** only list chat-capable Ollama models ([#142](https://github.com/MichelePolo/Aether/issues/142)) ([937f618](https://github.com/MichelePolo/Aether/commit/937f618df7ff14b20e8fa41c510064ae76e508a7))
+
 ## [0.1.31](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.30...aether-core-v0.1.31) (2026-09-11)
 
 
