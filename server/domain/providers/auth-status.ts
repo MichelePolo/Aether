@@ -7,7 +7,7 @@ import type {
 } from './auth-status.types';
 import type { ResolvedOpenAICompatEndpoint } from './openai-endpoints.types';
 import { TRANSPORT_ORDER } from './auth-status.types';
-import { ANTHROPIC_MODELS_URL, ANTHROPIC_VERSION } from './discovery';
+import { ANTHROPIC_MODELS_URL, ANTHROPIC_VERSION, isOllamaChatModel } from './discovery';
 
 type AnthropicAuth = 'oauth' | 'apikey' | 'none';
 
@@ -145,8 +145,10 @@ export class AuthStatusService {
       if (!res.ok) {
         return { ...base, state: 'error', reason: String(res.status), detail: res.statusText || `HTTP ${res.status}` };
       }
-      const body = (await res.json().catch(() => ({ models: [] }))) as { models?: Array<{ name: string }> };
-      const count = body.models?.length ?? 0;
+      const body = (await res.json().catch(() => ({ models: [] }))) as {
+        models?: Array<{ name: string; capabilities?: string[] }>;
+      };
+      const count = (body.models ?? []).filter((m) => isOllamaChatModel(m.capabilities)).length;
       return { ...base, state: 'ok', reason: `${count} model${count === 1 ? '' : 's'}` };
     } catch (err) {
       return { ...base, state: 'error', reason: shortReason(err), detail: longDetail(err) };
