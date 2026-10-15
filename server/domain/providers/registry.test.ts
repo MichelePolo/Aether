@@ -87,14 +87,37 @@ describe('ProviderRegistry', () => {
   it("registers current Anthropic models and retains pinned legacy IDs when probe returns 'oauth'", async () => {
     const reg = new ProviderRegistry(baseDeps({ detectAnthropicAuth: async () => 'oauth' }));
     await reg.refresh();
-    expect(reg.get('anthropic:claude-opus-5')?.model).toBe('claude-opus-5');
-    expect(reg.get('anthropic:claude-sonnet-5')?.model).toBe('claude-sonnet-5');
+    expect(reg.get('anthropic:claude-opus-5-5')?.model).toBe('claude-opus-5-5');
+    expect(reg.get('anthropic:claude-sonnet-5-5')?.model).toBe('claude-sonnet-5-5');
     expect(reg.get('anthropic:claude-fable-5-1')?.model).toBe('claude-fable-5-1');
+    expect(reg.get('anthropic:claude-opus-5')).not.toBeNull();
     expect(reg.get('anthropic:claude-opus-4-8')).not.toBeNull();
     expect(reg.get('anthropic:claude-opus-4-7')).not.toBeNull();
     expect(reg.get('anthropic:claude-sonnet-4-6')).not.toBeNull();
     expect(reg.get('anthropic:claude-haiku-4-5')).not.toBeNull();
-    expect(reg.defaultName()).toBe('anthropic:claude-opus-5');
+    expect(reg.defaultName()).toBe('anthropic:claude-opus-5-5');
+  });
+
+  it('puts live OAuth models first and keeps the catalog for pinned IDs', async () => {
+    const reg = new ProviderRegistry(baseDeps({
+      detectAnthropicAuth: async () => 'oauth',
+      anthropicOAuthModels: async () => ['claude-opus-6', 'claude-sonnet-5-5'],
+    }));
+    await reg.refresh();
+    const names = reg.list().filter((d) => d.transport === 'anthropic').map((d) => d.model);
+    expect(names.slice(0, 2)).toEqual(['claude-opus-6', 'claude-sonnet-5-5']);
+    expect(names.filter((m) => m === 'claude-sonnet-5-5')).toHaveLength(1);
+    expect(names).toContain('claude-opus-4-7');
+    expect(reg.defaultName()).toBe('anthropic:claude-opus-6');
+  });
+
+  it('falls back to the catalog when live OAuth discovery returns nothing', async () => {
+    const reg = new ProviderRegistry(baseDeps({
+      detectAnthropicAuth: async () => 'oauth',
+      anthropicOAuthModels: async () => [],
+    }));
+    await reg.refresh();
+    expect(reg.defaultName()).toBe('anthropic:claude-opus-5-5');
   });
 
   it('registers anthropic entries from dynamic discovery when apikey', async () => {
