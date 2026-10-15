@@ -208,6 +208,45 @@ describe('codex model sources', () => {
     }
   });
 
+  it('readCodexCachedModels returns visible models from models_cache.json in priority order', async () => {
+    const { readCodexCachedModels } = await import('./discovery');
+    const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const home = mkdtempSync(join(tmpdir(), 'codex-home-'));
+    try {
+      writeFileSync(join(home, 'models_cache.json'), JSON.stringify({
+        fetched_at: '2026-10-14T22:59:10Z',
+        models: [
+          { slug: 'gpt-6-astra', visibility: 'list', priority: 2 },
+          { slug: 'codex-auto-review', visibility: 'hide', priority: 43 },
+          { slug: 'gpt-6.1-sol', visibility: 'list', priority: 1, description: 'extra fields are ignored' },
+          { slug: 'gpt-legacy' },
+        ],
+      }));
+      expect(readCodexCachedModels({ CODEX_HOME: home })).toEqual(['gpt-6.1-sol', 'gpt-6-astra', 'gpt-legacy']);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it('readCodexCachedModels returns [] on a missing or malformed cache', async () => {
+    const { readCodexCachedModels } = await import('./discovery');
+    const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    expect(readCodexCachedModels({ CODEX_HOME: '/nonexistent-codex-home' })).toEqual([]);
+    const home = mkdtempSync(join(tmpdir(), 'codex-home-'));
+    try {
+      writeFileSync(join(home, 'models_cache.json'), '{"models": "nope"}');
+      expect(readCodexCachedModels({ CODEX_HOME: home })).toEqual([]);
+      writeFileSync(join(home, 'models_cache.json'), 'not json');
+      expect(readCodexCachedModels({ CODEX_HOME: home })).toEqual([]);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   it('readCodexDefaultModel returns null on missing file or missing key', async () => {
     const { readCodexDefaultModel } = await import('./discovery');
     const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');

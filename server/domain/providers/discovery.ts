@@ -100,15 +100,21 @@ export function geminiHardcodedModels(): string[] {
 }
 
 export function anthropicHardcodedModels(): string[] {
-  // OAuth catalog, checked 2026-09-11 against:
+  // OAuth fallback catalog, used when live discovery (Agent SDK
+  // supportedModels, see anthropic-oauth-models.ts) fails, and appended after
+  // the live list so sessions and sub-agents pinned to older IDs keep working.
+  // Checked 2026-10-15 against the Agent SDK 0.3.300 model list and
   // https://platform.claude.com/docs/en/models/overview
-  // Opus stays first because the registry uses it as the Anthropic default.
-  // Keep prior IDs selectable for sessions and sub-agents pinned to them.
+  // The first entry is the boot default provider (server/index.ts defaultOverride).
   return [
+    'claude-opus-5-5',
+    'claude-sonnet-5-5',
+    'claude-haiku-5-5',
+    'claude-fable-5-1',
     'claude-opus-5',
     'claude-sonnet-5',
+    'claude-fable-5',
     'claude-haiku-4-5',
-    'claude-fable-5-1',
     'claude-opus-4-8',
     'claude-opus-4-7',
     'claude-sonnet-4-6',
@@ -119,8 +125,34 @@ export function openAIHardcodedModels(): string[] {
   return ['gpt-5', 'gpt-5-mini', 'gpt-4.1', 'o3'];
 }
 
+/** Fallback when the Codex CLI hasn't written its models cache yet. */
 export function codexHardcodedModels(): string[] {
-  return ['gpt-5.6-sol'];
+  return ['gpt-6.1-sol'];
+}
+
+const CodexModelsCache = z.object({
+  models: z.array(z.object({
+    slug: z.string(),
+    visibility: z.string().optional(),
+    priority: z.number().optional(),
+  })),
+});
+
+/** Models the Codex CLI offers this account, from the catalog it fetches and
+ *  caches in `$CODEX_HOME/models_cache.json`: visible ones only, in the CLI's
+ *  priority order. [] when the file is missing or unreadable. */
+export function readCodexCachedModels(env: NodeJS.ProcessEnv = process.env): string[] {
+  try {
+    const raw = JSON.parse(readFileSync(join(codexHome(env), 'models_cache.json'), 'utf8'));
+    const parsed = CodexModelsCache.safeParse(raw);
+    if (!parsed.success) return [];
+    return parsed.data.models
+      .filter((m) => m.visibility !== 'hide')
+      .sort((a, b) => (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER))
+      .map((m) => m.slug);
+  } catch {
+    return [];
+  }
 }
 
 /** Default model the user picked in Codex (`model = "…"` in
