@@ -1,4 +1,6 @@
 @import "tailwindcss";
-@plugin "@tailwindcss/typography";
+/* mdlib-pure: Markdown theme in the components layer (utilities win) + editor styles. */
+@import "mdlib-pure/tailwind.css";
+@import "mdlib-pure/editor.css" layer(components);
 @import "./theme.css";
 @import "./components.css";

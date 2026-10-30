@@ -91,3 +91,51 @@ dialog:not([open]) { display: none !important; }
   }
   .chat-scroll::-webkit-scrollbar-thumb:hover { background: var(--color-disclosure); }
 }
+
+/* mdlib-pure (chat replies, Markdown editors): map its semantic tokens to Aether's palette. */
+.md,
+mdlib-editor {
+  color-scheme: dark; /* the theme's light-dark() hues follow it */
+  --md-color-link: var(--color-accent);
+  --md-color-link-hover: color-mix(in oklab, var(--color-accent), white 25%);
+  --md-color-border: var(--color-border-subtle);
+  --md-color-surface: var(--color-surface-0);
+  --md-color-code-bg: var(--color-surface-3);
+  --md-font-mono: var(--font-mono);
+}
+
+/* Tailwind's preflight sets list-style: none and mdlib-pure 0.1.0 only restores
+   the indent: put the markers back (task-list items still hide theirs). */
+.md ul {
+  list-style: disc;
+}
+.md ul ul {
+  list-style: circle;
+}
+.md ol {
+  list-style: decimal;
+}
+
+/* Chat replies: code in the CLI green and wrapped rather than scrolled in the narrow bubble. */
+.aether-chat-md code {
+  color: var(--color-cli);
+  overflow-wrap: anywhere;
+}
+.aether-chat-md pre {
+  border: 1px solid var(--color-border-subtle);
+  white-space: pre-wrap;
+}
+.aether-chat-md table {
+  display: block;
+  overflow-x: auto;
+  width: fit-content;
+  max-width: 100%;
+}
+
+/* Sidebar editor (System Protocol): denser text, same muted tone as the old textarea. */
+.aether-md-editor {
+  --md-size-code: 1em;
+  background: color-mix(in oklab, var(--color-zinc-900), transparent 50%);
+  color: var(--color-zinc-400);
+}
+

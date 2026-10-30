@@ -126,6 +126,23 @@ describe('MessageBubble', () => {
     expect(screen.getByLabelText('streaming')).toBeInTheDocument();
   });
 
+  it('renders markdown while the message is still streaming', () => {
+    seed({ id: 's1', role: 'model', text: '## Plan\n\n- **first** step\n- sec' });
+    useChatStore.setState({ streamingId: 's1' });
+    render(<MessageBubble id="s1" />);
+    expect(screen.getByRole('heading', { level: 2, name: 'Plan' })).toBeInTheDocument();
+    expect(screen.getByText('first').tagName).toBe('STRONG');
+    expect(screen.getByLabelText('streaming')).toBeInTheDocument();
+  });
+
+  it('opens links from model output in a new tab', () => {
+    seed({ id: 'lnk', role: 'model', text: 'See [the docs](https://example.com).' });
+    render(<MessageBubble id="lnk" />);
+    const link = screen.getByRole('link', { name: 'the docs' });
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
   it('renders empty model bubble with placeholder text', () => {
     seed({ id: 'z', role: 'model', text: '' });
     render(<MessageBubble id="z" />);

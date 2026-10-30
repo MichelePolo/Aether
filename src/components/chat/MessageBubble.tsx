@@ -1,12 +1,11 @@
 import { memo, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { File as FileIcon, Brain, Copy, Check, Download } from 'lucide-react';
 import { useChatStore } from '@/src/stores/chat.store';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useStreamingDispatch } from '@/src/hooks/useStreamingDispatch';
 import { StreamingIndicator } from './StreamingIndicator';
 import { ToolOutputBlock } from './ToolOutputBlock';
+import { MarkdownView } from '@/src/components/markdown/MarkdownView';
 import { isImageMime } from '@/src/types/attachment.types';
 import { cn } from '@/src/lib/cn';
 import { t } from '@/src/i18n/t';
@@ -143,16 +142,13 @@ export const MessageBubble = memo(function MessageBubble({ id, onRetry }: Messag
           <span className="whitespace-pre-wrap break-words">{message.text}</span>
         ) : message.text.length === 0 && !isStreaming ? (
           <span className="italic text-zinc-500">{t('messageBubble.emptyResponse')}</span>
-        ) : isStreaming ? (
-          // Streaming-perf path: render plain text instead of re-parsing markdown per chunk.
-          <>
-            <span className="whitespace-pre-wrap break-words">{message.text}</span>
-            <StreamingIndicator />
-          </>
         ) : (
-          <div className="prose prose-invert prose-sm max-w-none break-words prose-code:text-cli prose-code:font-mono prose-code:[overflow-wrap:anywhere] prose-code:before:content-none prose-code:after:content-none prose-pre:bg-surface-0 prose-pre:border prose-pre:border-border-subtle prose-pre:text-cli prose-pre:whitespace-pre-wrap prose-pre:break-words prose-table:block prose-table:overflow-x-auto prose-table:w-fit prose-table:max-w-full prose-th:border prose-th:border-border-subtle prose-th:px-2 prose-th:py-1 prose-td:border prose-td:border-border-subtle prose-td:px-2 prose-td:py-1">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.text}</ReactMarkdown>
-          </div>
+          // Markdown also while streaming: parsing is linear and cheap, and
+          // MarkdownView defers chunks React can't keep up with.
+          <>
+            <MarkdownView source={message.text} className="aether-chat-md break-words" />
+            {isStreaming && <StreamingIndicator />}
+          </>
         )}
 
         {!isUser &&
