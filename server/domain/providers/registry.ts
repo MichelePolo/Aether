@@ -32,6 +32,9 @@ export interface ProviderRegistryDeps {
    *  optional so minimal test registries need no codex wiring. */
   detectCodexAuth?: () => Promise<'oauth' | 'none'>;
   codexModels?: () => string[];
+  /** Live model list for Claude subscription (OAuth) users; the hardcoded
+   *  catalog is appended after it and used alone when it returns []. */
+  anthropicOAuthModels?: () => Promise<string[]>;
   codexBuilder?: (model: string) => AIProvider;
   defaultOverride?: string;
 }
@@ -118,7 +121,8 @@ export class ProviderRegistry {
         nextIssues.push({ transport: 'anthropic', reason: error ?? 'no models' });
       }
     } else if (auth === 'oauth') {
-      for (const model of anthropicHardcodedModels()) {
+      const live = (await this.deps.anthropicOAuthModels?.()) ?? [];
+      for (const model of new Set([...live, ...anthropicHardcodedModels()])) {
         const provider = this.deps.anthropicBuilder(model);
         next.set(`anthropic:${model}`, {
           provider,

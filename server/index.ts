@@ -35,7 +35,8 @@ import { detectAnthropicAuth } from './lib/anthropic-auth';
 import { detectCodexAuth, resolveCodexBinary } from './lib/codex-auth';
 import { CodexProvider } from './domain/dispatch/providers/codex.provider';
 import { McpBridgeService } from './domain/mcp/bridge/bridge.service';
-import { codexHardcodedModels, readCodexDefaultModel } from './domain/providers/discovery';
+import { anthropicHardcodedModels, codexHardcodedModels, readCodexCachedModels, readCodexDefaultModel } from './domain/providers/discovery';
+import { discoverAnthropicOAuthModels } from './domain/providers/anthropic-oauth-models';
 import { SearchService } from './domain/search/search.service';
 import { GitService } from './domain/git/git.service';
 import { AuthStatusService } from './domain/providers/auth-status';
@@ -186,13 +187,27 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
   const mcpBridgeService = new McpBridgeService();
   let bridgePort = cfg.port;
 
+  // Hand auth to the isolated `claude` explicitly (settingSources:[] stops it
+  // from reusing the interactive login). Env-first, then KeyVault — the same
+  // precedence as KeyResolver. OAuth/Teams users provide a token via
+  // `claude setup-token` → CLAUDE_CODE_OAUTH_TOKEN.
+  const anthropicAuthEnv = (): Record<string, string> => {
+    const env: Record<string, string> = {};
+    const oauth = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    if (oauth) env.CLAUDE_CODE_OAUTH_TOKEN = oauth;
+    const apiKey = resolver.get('anthropic');
+    if (apiKey) env.ANTHROPIC_API_KEY = apiKey;
+    return env;
+  };
+
   const providers = new ProviderRegistry({
     resolveKey: (t) => resolver.get(t),
     detectAnthropicAuth: async () => resolver.get('anthropic') ? 'apikey' : detectAnthropicAuth(),
     detectCodexAuth,
     codexModels: () => {
       const configDefault = readCodexDefaultModel();
-      return [...new Set([...(configDefault ? [configDefault] : []), ...codexHardcodedModels()])];
+      const cached = readCodexCachedModels();
+      return [...new Set([...(configDefault ? [configDefault] : []), ...(cached.length ? cached : codexHardcodedModels())])];
     },
     codexBuilder: (model) =>
       new CodexProvider({
@@ -209,19 +224,9 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
     anthropicBuilder: (model) =>
       new AnthropicProvider({
         model,
-        // Hand auth to the isolated `claude` explicitly (settingSources:[] stops
-        // it from reusing the interactive login). Env-first, then KeyVault — the
-        // same precedence as KeyResolver. OAuth/Teams users provide a token via
-        // `claude setup-token` → CLAUDE_CODE_OAUTH_TOKEN.
-        resolveAuthEnv: () => {
-          const env: Record<string, string> = {};
-          const oauth = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-          if (oauth) env.CLAUDE_CODE_OAUTH_TOKEN = oauth;
-          const apiKey = resolver.get('anthropic');
-          if (apiKey) env.ANTHROPIC_API_KEY = apiKey;
-          return env;
-        },
+        resolveAuthEnv: anthropicAuthEnv,
       }),
+    anthropicOAuthModels: () => discoverAnthropicOAuthModels({ resolveAuthEnv: anthropicAuthEnv }),
     openAIBuilder: (model) =>
       new OpenAIProvider({
         apiKey: resolver.get('openai') ?? '',
@@ -238,7 +243,7 @@ export async function bootstrap(options: BootstrapOptions = {}): Promise<AetherR
       }),
     defaultOverride:
       process.env.AETHER_DEFAULT_PROVIDER ||
-      (cfg.fakeProvider ? 'fake:default' : 'anthropic:claude-opus-4-8'),
+      (cfg.fakeProvider ? 'fake:default' : `anthropic:${anthropicHardcodedModels()[0]}`),
   });
 
   await providers.refresh();
