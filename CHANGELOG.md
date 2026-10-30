@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.34](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.33...aether-core-v0.1.34) (2026-10-30)
+
+
+### Features
+
+* **chat:** render Markdown with mdlib-pure, Markdown editor for the system prompt ([#145](https://github.com/MichelePolo/Aether/issues/145)) ([b860686](https://github.com/MichelePolo/Aether/commit/b860686412e80f8813ca3d183d51cfae1ac38155))
+
 ## [0.1.33](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.32...aether-core-v0.1.33) (2026-10-30)
 
 
