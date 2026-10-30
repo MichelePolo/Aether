@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.33](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.32...aether-core-v0.1.33) (2026-10-30)
+
+
+### Bug Fixes
+
+* **providers:** discover Claude subscription and Codex models live ([#144](https://github.com/MichelePolo/Aether/issues/144)) ([2ba89f9](https://github.com/MichelePolo/Aether/commit/2ba89f9491c1f81f06fece6cc1b91f0cc907c275))
+
 ## [0.1.32](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.31...aether-core-v0.1.32) (2026-10-13)
 
 
