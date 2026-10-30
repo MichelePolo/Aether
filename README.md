@@ -78,7 +78,7 @@ The rendered docs are also published as a minisite: <https://michelepolo.github.
 
 | Layer | Tools |
 | --- | --- |
-| Frontend | React 19, Vite 6, Zustand, Tailwind CSS 4, lucide-react, motion, react-markdown, cmdk |
+| Frontend | React 19, Vite 6, Zustand, Tailwind CSS 4, lucide-react, motion, mdlib-pure (Markdown), cmdk |
 | Backend | Node.js, Express 4, better-sqlite3, Zod; `tsx` in dev, `esbuild` bundle for prod |
 | LLM / agents | `@anthropic-ai/claude-agent-sdk`, `@google/genai`, OpenAI & Ollama over HTTP |
 | MCP | `@modelcontextprotocol/server-filesystem` + custom servers |

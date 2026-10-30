@@ -12,6 +12,12 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   };
 }
 
+// jsdom's ElementInternals has no setFormValue; polyfill for form-associated
+// custom elements (<mdlib-editor>)
+if (typeof ElementInternals !== 'undefined' && !('setFormValue' in ElementInternals.prototype)) {
+  Object.defineProperty(ElementInternals.prototype, 'setFormValue', { value() {}, configurable: true });
+}
+
 // jsdom does not implement scrollIntoView; polyfill for cmdk
 if (typeof Element.prototype.scrollIntoView === 'undefined') {
   Element.prototype.scrollIntoView = function () {};
