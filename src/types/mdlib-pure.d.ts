@@ -1,7 +1,8 @@
 import type { DetailedHTMLProps, HTMLAttributes } from 'react';
 
-/** <mdlib-editor> attributes (mdlib-pure/element). `value` is set as a property, see MarkdownEditor. */
+/** <mdlib-editor> attributes and properties (mdlib-pure/element). */
 interface MdlibEditorAttributes extends HTMLAttributes<HTMLElement> {
+  value?: string;
   plugins?: string;
   config?: string;
   view?: 'split' | 'write' | 'preview';

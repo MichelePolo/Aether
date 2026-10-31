@@ -104,18 +104,6 @@ mdlib-editor {
   --md-font-mono: var(--font-mono);
 }
 
-/* Tailwind's preflight sets list-style: none and mdlib-pure 0.1.0 only restores
-   the indent: put the markers back (task-list items still hide theirs). */
-.md ul {
-  list-style: disc;
-}
-.md ul ul {
-  list-style: circle;
-}
-.md ol {
-  list-style: decimal;
-}
-
 /* Chat replies: code in the CLI green and wrapped rather than scrolled in the narrow bubble. */
 .aether-chat-md code {
   color: var(--color-cli);
