@@ -1,10 +1,12 @@
 name: CI
 
+# Gitflow: PRs into develop/main and release/hotfix branches; pushes to the
+# two long-lived branches.
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop, 'release/**', 'hotfix/**']
   push:
-    branches: [main]
+    branches: [main, develop]
 
 # Cancel superseded runs on the same ref (e.g. new push to a PR branch).
 concurrency:

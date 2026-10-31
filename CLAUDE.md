@@ -62,7 +62,7 @@ React 19 + Zustand, one store per domain in `src/stores/*.store.ts`. **Stores ne
 
 ## Working conventions
 
-- Work is organized as numbered **slices** on `feat/slice-N-*` branches (see `docs/superpowers/roadmap.md`); migration comments and tests reference slice numbers. New features are designed via the superpowers brainstorming → writing-plans → subagent-driven-development flow.
+- **Gitflow only** (see `CONTRIBUTING.md`): feature work on `feature/<name>` branched from `develop`, PR into `develop`; releases go `develop` → `main` through `release/x.y.z`; urgent fixes on `hotfix/<name>` from `main`. Never open feature PRs against `main`. Older migration comments and tests reference numbered slices (`feat/slice-N-*`, `docs/superpowers/roadmap.md`) from before gitflow.
 - Current documentation lives in `docs/` (start at `docs/README.md`; EN canonical, IT translations under `docs/it/`); `docs/archive/` and `docs/superpowers/` are historical — don't cite them as current behavior.
 - `DISABLE_HMR=true` disables Vite HMR **and** file watching (used so agent edits don't trigger reload flicker). The conditional in `vite.config.ts` is intentional — don't "fix" it.
 - Some code comments and the audits (now in `docs/archive/`) are written in Italian; this is expected and not a signal to translate.

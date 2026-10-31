@@ -46,7 +46,7 @@ npx vitest run --project frontend                                # only the fron
 
 ## Slice workflow
 
-Work is organized as numbered **slices** on `feat/slice-N-*` branches (see `docs/superpowers/roadmap.md`); migration comments and tests reference slice numbers. New features go through the superpowers brainstorming → writing-plans → subagent-driven-development flow.
+Work follows **gitflow** (see [`../CONTRIBUTING.md`](../CONTRIBUTING.md)): `feature/<name>` branches from `develop`, PRs into `develop`, releases through `release/x.y.z` into `main`. Older migration comments and tests reference numbered slices (`feat/slice-N-*`) from before gitflow.
 
 ## `DISABLE_HMR`
 
