@@ -2,8 +2,10 @@
   "name": "aether-core",
   "private": true,
   "version": "0.1.35",
+  "license": "AGPL-3.0-or-later",
   "files": [
-    "dist"
+    "dist",
+    "LICENSE-EXCEPTION.md"
   ],
   "engines": {
     "node": ">=22"

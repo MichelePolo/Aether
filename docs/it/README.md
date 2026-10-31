@@ -29,6 +29,7 @@ Un percorso di lettura, in ordine. Ogni passo presuppone i precedenti.
 
 ## Altrove
 - [Contribuire](../../CONTRIBUTING.md) (in inglese) — come le modifiche arrivano in produzione (solo PR, squash)
+- [Licenza](../../LICENSE) (in inglese) — AGPL-3.0-or-later, con un [permesso aggiuntivo](../../LICENSE-EXCEPTION.md) per il Claude Agent SDK
 - [Archivio](../archive/README.md) (in inglese) — audit storici (non aggiornati)
 - [Storia del design](../superpowers/README.md) (in inglese) — specifiche e piani per ogni slice
 - 🇬🇧 [English documentation](../README.md)
