@@ -14,6 +14,8 @@ export interface ModalProps {
   children: ReactNode;
   dismissOnBackdrop?: boolean;
   className?: string;
+  /** Classes for the body wrapper (default: padded, scrolls). */
+  bodyClassName?: string;
 }
 
 export function Modal({
@@ -23,6 +25,7 @@ export function Modal({
   children,
   dismissOnBackdrop = true,
   className,
+  bodyClassName,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const previouslyFocusedRef = useRef<Element | null>(null);
@@ -71,10 +74,15 @@ export function Modal({
 
   // Manual Escape fallback: route through .close() so the single `close`
   // listener owns onClose()+focus restore (works for unmount-based dialogs too).
+  // Only the topmost open dialog reacts: a modal opened over another one (an
+  // editor over the sub-agent modal) must not close both.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        const openDialogs = document.querySelectorAll('dialog[open]');
+        const top = openDialogs[openDialogs.length - 1];
+        if (top && top !== dialogRef.current) return;
         e.preventDefault();
         const d = dialogRef.current;
         if (d?.open && typeof d.close === 'function') d.close();
@@ -104,7 +112,8 @@ export function Modal({
       closedby={dismissOnBackdrop ? 'any' : 'closerequest'}
       aria-labelledby={title ? titleId : undefined}
       className={cn(
-        'bg-surface-1 border border-border-subtle rounded-xl shadow-2xl w-full max-w-md p-0 overflow-hidden text-zinc-300 glass flex flex-col max-h-[85vh]',
+        // m-auto: Tailwind's preflight zeroes the UA `margin: auto` that centers a modal <dialog>.
+        'm-auto bg-surface-1 border border-border-subtle rounded-xl shadow-2xl w-full max-w-md p-0 overflow-hidden text-zinc-300 glass flex flex-col max-h-[85vh]',
         className,
       )}
     >
@@ -116,7 +125,7 @@ export function Modal({
           {title}
         </div>
       )}
-      <div className="p-4 overflow-y-auto">{children}</div>
+      <div className={cn('p-4 overflow-y-auto', bodyClassName)}>{children}</div>
     </dialog>
   );
 }

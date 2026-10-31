@@ -86,3 +86,38 @@ describe('skills routes', () => {
     expect(res.status).toBe(204);
   });
 });
+
+describe('SKILL.md content routes', () => {
+  const md = '---\nname: alpha\ndescription: Edited\n---\n# alpha';
+
+  it('GET returns the raw content, PUT replaces it', async () => {
+    makeSkill(path.join(dataDir, 'skills'), 'alpha', 'First');
+    const before = await request(app).get('/api/skills/alpha/content');
+    expect(before.status).toBe(200);
+    expect(before.body.content).toContain('description: First');
+
+    const put = await request(app).put('/api/skills/alpha/content').send({ content: md });
+    expect(put.status).toBe(200);
+    const after = await request(app).get('/api/skills/alpha/content');
+    expect(after.body.content).toBe(md);
+  });
+
+  it('reads and writes drafts with draft=1 / draft: true', async () => {
+    makeSkill(path.join(dataDir, 'skills', '.drafts'), 'beta', 'Draft');
+    expect((await request(app).get('/api/skills/beta/content?draft=1')).body.content).toContain('Draft');
+    const put = await request(app)
+      .put('/api/skills/beta/content')
+      .send({ content: '---\nname: beta\ndescription: Ok\n---', draft: true });
+    expect(put.status).toBe(200);
+  });
+
+  it('rejects invalid content and bodies with 400, unknown skills with 404', async () => {
+    makeSkill(path.join(dataDir, 'skills'), 'alpha', 'First');
+    const bad = await request(app).put('/api/skills/alpha/content').send({ content: '# nope' });
+    expect(bad.status).toBe(400);
+    expect(bad.body.error.message).toMatch(/frontmatter/);
+    expect((await request(app).put('/api/skills/alpha/content').send({})).status).toBe(400);
+    expect((await request(app).get('/api/skills/ghost/content')).status).toBe(404);
+    expect((await request(app).get('/api/skills/..%2F..%2Fetc/content')).status).toBe(400);
+  });
+});

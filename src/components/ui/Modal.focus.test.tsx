@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { beforeEach, afterEach } from 'vitest';
+import { beforeEach, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Modal } from './Modal';
@@ -62,4 +62,24 @@ it('restores focus to the trigger after Escape (unmount-based dialog)', async ()
   await user.click(trigger);
   await user.keyboard('{Escape}');
   expect(trigger).toHaveFocus();
+});
+
+it('Escape closes only the topmost of two stacked modals', async () => {
+  const user = userEvent.setup();
+  const closeOuter = vi.fn();
+  const closeInner = vi.fn();
+  render(
+    <>
+      <Modal open onClose={closeOuter} title="Outer">outer</Modal>
+      <Modal open onClose={closeInner} title="Inner">inner</Modal>
+    </>,
+  );
+  await user.keyboard('{Escape}');
+  expect(closeInner).toHaveBeenCalledTimes(1);
+  expect(closeOuter).not.toHaveBeenCalled();
+});
+
+it('the m-auto class centers the dialog (Tailwind preflight zeroes the UA margin)', () => {
+  render(<Modal open onClose={() => {}} title="Centered">x</Modal>);
+  expect(screen.getByRole('dialog')).toHaveClass('m-auto');
 });

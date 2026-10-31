@@ -35,6 +35,21 @@ export const skillsApi = {
     }).then(jsonRes);
   },
 
+  /** Raw SKILL.md of a skill (or of a draft). */
+  getContent: (slug: string, draft = false): Promise<string> =>
+    fetch(`/api/skills/${encodeURIComponent(slug)}/content${draft ? '?draft=1' : ''}`)
+      .then(jsonRes<{ content: string }>)
+      .then((r) => r.content),
+
+  /** Replace SKILL.md; the server rejects content that would make the skill invalid. */
+  putContent: async (slug: string, content: string, draft = false): Promise<void> => {
+    await fetch(`/api/skills/${encodeURIComponent(slug)}/content`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content, draft }),
+    }).then(jsonRes);
+  },
+
   remove: async (slug: string): Promise<void> => {
     const res = await fetch(`/api/skills/${encodeURIComponent(slug)}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(res.statusText);

@@ -18,6 +18,10 @@ interface SkillsState {
   togglePinned: (slug: string) => Promise<void>;
   promote: (slug: string) => Promise<void>;
   remove: (slug: string) => Promise<void>;
+  /** SKILL.md for the editor; null (and `error` set) if it can't be read. */
+  readContent: (slug: string, draft?: boolean) => Promise<string | null>;
+  /** Saves SKILL.md, then refreshes the list (descriptions may change). Throws on failure. */
+  saveContent: (slug: string, content: string, draft?: boolean) => Promise<void>;
   clearError: () => void;
 }
 
@@ -90,6 +94,20 @@ export const useSkillsStore = create<SkillsState>((set, get) => ({
       set({ skills: prev, error: errMsg(e) });
       throw e;
     }
+  },
+
+  readContent: async (slug, draft = false) => {
+    try {
+      return await skillsApi.getContent(slug, draft);
+    } catch (e) {
+      set({ error: errMsg(e) });
+      return null;
+    }
+  },
+
+  saveContent: async (slug, content, draft = false) => {
+    await skillsApi.putContent(slug, content, draft);
+    await get().refresh();
   },
 
   clearError: () => set({ error: null }),

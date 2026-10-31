@@ -1,3 +1,4 @@
+import { Pencil } from 'lucide-react';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
 import { useDialog } from '@/src/hooks/useDialog';
 import { useUiStore } from '@/src/stores/ui.store';
@@ -18,13 +19,13 @@ export function SubAgentsSection() {
       required: true,
     });
     if (!name) return;
-    const systemInstruction = await dialog.prompt({
-      title: 'New sub-agent',
+    await dialog.editMarkdown({
+      title: `New sub-agent · ${name}`,
       label: 'System instruction',
-      multiline: true,
+      save: async (systemInstruction) => {
+        await create({ name, systemInstruction });
+      },
     });
-    if (systemInstruction === null) return;
-    await create({ name, systemInstruction }).catch(() => {});
   };
 
   const handleDelete = async (id: string, name: string) => {
@@ -70,7 +71,19 @@ export function SubAgentsSection() {
               className="group flex items-center justify-between p-1.5 rounded bg-zinc-900 border border-border-subtle text-[10px] font-mono text-zinc-400 cursor-pointer hover:border-manipulation/40"
             >
               <span className="truncate">{sa.name}</span>
-              <div className="hidden group-hover:flex gap-1">
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openSubAgentEditor(sa.id);
+                  }}
+                  aria-label={`Edit ${sa.name}`}
+                  title={`Edit ${sa.name}`}
+                  className="hover:text-white"
+                >
+                  <Pencil size={11} aria-hidden="true" />
+                </button>
                 <button
                   type="button"
                   onClick={(e) => {

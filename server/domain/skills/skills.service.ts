@@ -1,9 +1,10 @@
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { ValidationError, NotFoundError } from '@/server/lib/errors';
 import { moveDirSync } from '@/server/lib/move-dir';
 import { discoverMaterialDirs, discoverDraftDirs } from './discovery';
 import { skillsDirFor, draftsDirFor } from './skills.paths';
+import { parseFrontmatter } from './frontmatter';
 import type { SkillStateStore } from './skill-state.store';
 import type { MaterialSkill, DraftSkill, SkillsList, PromptMaterialSkill } from './skills.types';
 
@@ -81,6 +82,50 @@ export class SkillsService {
     this.state.remove(slug);
   }
 
+  /**
+   * The raw SKILL.md of a skill (or of a draft), for the in-app editor. A skill
+   * directory without SKILL.md reads as '' so the editor can create it.
+   */
+  readContent(slug: string, opts: { draft?: boolean } = {}): string {
+    const file = path.join(this.existingDir(slug, opts.draft), 'SKILL.md');
+    return existsSync(file) ? readFileSync(file, 'utf8') : '';
+  }
+
+  /**
+   * Replace a skill's SKILL.md. The content must pass the same checks as
+   * discovery (frontmatter `name` and `description`, `name` equal to the
+   * directory), so the editor can never turn a valid skill into an invalid one.
+   * Written to a temp file then renamed: a crash never leaves half a file.
+   */
+  writeContent(slug: string, content: string, opts: { draft?: boolean } = {}): void {
+    const dir = this.existingDir(slug, opts.draft);
+    const fm = parseFrontmatter(content);
+    if (!fm.name || !fm.description) {
+      throw new ValidationError('SKILL.md frontmatter must set name and description');
+    }
+    if (fm.name !== slug) {
+      throw new ValidationError(`Frontmatter name "${fm.name}" must match directory name "${slug}"`);
+    }
+    const file = path.join(dir, 'SKILL.md');
+    const tmp = path.join(dir, `.SKILL.md.${process.pid}.${Date.now()}.tmp`);
+    writeFileSync(tmp, content, 'utf8');
+    try {
+      renameSync(tmp, file);
+    } catch (err) {
+      rmSync(tmp, { force: true });
+      throw err;
+    }
+  }
+
+  /** Directory of an existing skill or draft, with the slug confined to its parent. */
+  private existingDir(slug: string, draft = false): string {
+    const parent = draft ? path.join(this.skillsDir, '.drafts') : this.skillsDir;
+    this.assertContainedSlug(slug, parent);
+    const dir = path.join(parent, slug);
+    if (!existsSync(dir)) throw new NotFoundError(`${draft ? 'draft' : 'skill'} ${slug}`);
+    return dir;
+  }
+
   private requireValid(slug: string): void {
     const found = this.list().skills.find((s) => s.name === slug);
     if (!found) throw new NotFoundError(`skill ${slug}`);
@@ -92,11 +137,12 @@ export class SkillsService {
    * user-controlled and Express decodes `%2F`, so without this a slug like
    * `../../etc/foo` would let `remove`/`promote` touch paths outside the skills
    * dir (CWE-22). A valid skill slug is always a single on-disk directory name,
-   * i.e. a direct child of the skills dir.
+   * i.e. a direct child of the skills dir (or of `parent`). Dot-names are
+   * refused too: `.drafts` is not a skill.
    */
-  private assertContainedSlug(slug: string): void {
-    const resolved = path.resolve(this.skillsDir, slug);
-    if (path.dirname(resolved) !== path.resolve(this.skillsDir)) {
+  private assertContainedSlug(slug: string, parent: string = this.skillsDir): void {
+    const resolved = path.resolve(parent, slug);
+    if (slug.startsWith('.') || path.dirname(resolved) !== path.resolve(parent)) {
       throw new ValidationError(`Invalid skill slug "${slug}"`);
     }
   }

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -7,8 +7,13 @@ import { SubAgentsSection } from './SubAgentsSection';
 import { DialogHost } from '@/src/components/layout/DialogHost';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
 import { useUiStore } from '@/src/stores/ui.store';
+import { _resetDialogStore } from '@/src/hooks/useDialog';
+import { ensureMarkdownElements } from '@/src/lib/markdown/elements';
+
+beforeAll(() => ensureMarkdownElements());
 
 beforeEach(() => {
+  _resetDialogStore();
   useSubAgentsStore.getState()._reset();
   useUiStore.getState()._reset();
 });
@@ -41,7 +46,7 @@ describe('SubAgentsSection', () => {
     expect(screen.getByText('coder')).toBeInTheDocument();
   });
 
-  it('+ New sub-agent opens prompt chain and calls API', async () => {
+  it('+ New sub-agent asks the name, then the instruction in the Markdown editor', async () => {
     let captured: unknown = null;
     server.use(
       http.post('http://localhost/api/subagents', async ({ request }) => {
@@ -57,11 +62,12 @@ describe('SubAgentsSection', () => {
     const nameInput = await screen.findByLabelText(/name/i);
     await userEvent.type(nameInput, 'designer');
     await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
-    const sysInput = await screen.findByLabelText(/system instruction/i);
-    await userEvent.type(sysInput, 'Design things.');
-    await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
+    const editor = await screen.findByRole('dialog', { name: 'New sub-agent · designer' });
+    expect(editor.querySelector('mdlib-editor')).toHaveAttribute('view', 'split');
+    await userEvent.type(screen.getByRole('textbox', { name: 'System instruction' }), 'Design things.');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     await screen.findByText('designer');
-    expect((captured as { name?: string }).name).toBe('designer');
+    expect(captured).toEqual({ name: 'designer', systemInstruction: 'Design things.' });
   });
 
   it('Delete button calls API + removes row', async () => {
@@ -108,5 +114,15 @@ describe('SubAgentsSection', () => {
     // The confirm dialog appears; cancel it to avoid bleeding state
     await user.click(screen.getByRole('button', { name: /cancel/i }));
     expect(useUiStore.getState().editingSubAgentId).toBeNull();
+  });
+
+  it('the pencil on a row opens the sub-agent editor', async () => {
+    useSubAgentsStore.setState({
+      list: [{ id: 's1', name: 'designer', createdAt: 1, updatedAt: 1 }],
+      hydrated: true,
+    });
+    renderSection();
+    await userEvent.click(screen.getByRole('button', { name: 'Edit designer' }));
+    expect(useUiStore.getState().editingSubAgentId).toBe('s1');
   });
 });

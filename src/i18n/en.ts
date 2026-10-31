@@ -195,6 +195,10 @@ export const messages = {
     createStart: 'Start',
     createCancel: 'Cancel',
     dismissError: 'Dismiss error',
+    rename: 'Rename {name}',
+    editContent: 'Edit {name}',
+    editDraft: 'Edit draft {name}',
+    editorTitle: '{name} · SKILL.md',
   },
 } as const;
 

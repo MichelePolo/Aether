@@ -1,15 +1,17 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import type { CSSProperties, RefObject } from 'react';
 import { EDITOR_CONFIG } from '@/src/lib/markdown/elements';
 
-type EditorElement = HTMLElement & { value: string };
+export type EditorElement = HTMLElement & { value: string };
 
 export interface MarkdownEditorProps {
   value: string;
   /** Accessible name of the text area. */
   label: string;
-  /** Called on blur with the edited text (the element's `change` event). */
-  onCommit: (value: string) => void;
   view?: 'split' | 'write' | 'preview';
+  /** mdlib-pure plugin names, space-separated (default `gfm`). */
+  plugins?: string;
+  /** Access to the element, to read `value` on an explicit Save. */
+  editorRef?: RefObject<EditorElement | null>;
   className?: string;
   style?: CSSProperties;
 }
@@ -17,27 +19,23 @@ export interface MarkdownEditorProps {
 /**
  * <mdlib-editor> (toolbar + live preview) for React. Requires the elements to be
  * defined first (useMarkdownElements). React 19 sets `value` as a property; the
- * element ignores a value equal to its own, so echoes of our own commits are no-ops.
+ * element ignores a value equal to its own.
  */
-export function MarkdownEditor({ value, label, onCommit, view = 'split', className, style }: MarkdownEditorProps) {
-  const ref = useRef<EditorElement>(null);
-  const onCommitRef = useRef(onCommit);
-  onCommitRef.current = onCommit;
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const onChange = () => onCommitRef.current(el.value);
-    el.addEventListener('change', onChange);
-    return () => el.removeEventListener('change', onChange);
-  }, []);
-
+export function MarkdownEditor({
+  value,
+  label,
+  view = 'split',
+  plugins = 'gfm',
+  editorRef,
+  className,
+  style,
+}: MarkdownEditorProps) {
   return (
     <mdlib-editor
-      ref={ref}
+      ref={editorRef}
       value={value}
       label={label}
-      plugins="gfm"
+      plugins={plugins}
       config={EDITOR_CONFIG}
       view={view}
       className={className}

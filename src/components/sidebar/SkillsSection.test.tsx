@@ -1,11 +1,16 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
+import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SkillsSection } from './SkillsSection';
 import { useContextStore } from '@/src/stores/context.store';
 import { useSkillsStore } from '@/src/stores/skills.store';
 import { DialogHost } from '@/src/components/layout/DialogHost';
 import { _resetDialogStore } from '@/src/hooks/useDialog';
+import { http, HttpResponse } from 'msw';
+import { server } from '@/src/test/msw-server';
+import { ensureMarkdownElements } from '@/src/lib/markdown/elements';
+
+beforeAll(() => ensureMarkdownElements());
 
 beforeEach(() => {
   _resetDialogStore();
@@ -90,7 +95,7 @@ describe('SkillsSection', () => {
   it('editing a skill prompts with default value and updates', async () => {
     const user = userEvent.setup();
     render(<><DialogHost /><SkillsSection /></>);
-    await user.click(screen.getByRole('button', { name: /edit alpha/i }));
+    await user.click(screen.getByRole('button', { name: /rename alpha/i }));
     const input = screen.getByRole('textbox');
     expect(input).toHaveValue('Alpha');
     await user.clear(input);
@@ -127,3 +132,110 @@ describe('SkillsSection', () => {
     expect(toggle).toHaveBeenCalledWith(0);
   });
 });
+
+describe('SkillsSection material skills (SKILL.md)', () => {
+  const SKILL = '---\nname: alpha\ndescription: Writes **commits**\n---\n# Alpha';
+
+  beforeEach(() => {
+    useContextStore.setState((st) => ({ context: st.context ? { ...st.context, skills: [] } : null }));
+    useSkillsStore.setState({
+      skills: [{ name: 'alpha', enabled: true, pinned: false, description: 'Writes **commits**' }],
+      drafts: [{ name: 'beta', description: 'A `draft`' }],
+      paths: null,
+      error: null,
+    });
+  });
+
+  function renderWithHost() {
+    return render(
+      <>
+        <SkillsSection />
+        <DialogHost />
+      </>,
+    );
+  }
+
+  it('renders descriptions as Markdown', () => {
+    renderWithHost();
+    expect(screen.getByText('commits').tagName).toBe('STRONG');
+    expect(screen.getByText('draft').tagName).toBe('CODE');
+  });
+
+  it('opens SKILL.md in a split-view editor and saves it', async () => {
+    let saved: unknown = null;
+    server.use(
+      http.get('http://localhost/api/skills/alpha/content', () => HttpResponse.json({ content: SKILL })),
+      http.put('http://localhost/api/skills/alpha/content', async ({ request }) => {
+        saved = await request.json();
+        return HttpResponse.json({ status: 'ok' });
+      }),
+      http.get('http://localhost/api/skills', () => HttpResponse.json({ skills: [], drafts: [], paths: null })),
+    );
+    const user = userEvent.setup();
+    renderWithHost();
+
+    await user.click(screen.getByRole('button', { name: 'Edit alpha' }));
+    const dialog = await screen.findByRole('dialog', { name: 'alpha · SKILL.md' });
+    const editor = dialog.querySelector('mdlib-editor');
+    expect(editor).toHaveAttribute('view', 'split');
+    expect(editor).toHaveAttribute('plugins', 'gfm frontmatter');
+    const ta = within(dialog).getByRole('textbox', { name: 'SKILL.md' });
+    expect(ta).toHaveValue(SKILL);
+
+    await user.type(ta, '\n\nMore.');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(saved).toEqual({ content: `${SKILL}\n\nMore.`, draft: false });
+  });
+
+  it('keeps the editor open with the server error when the save is rejected', async () => {
+    server.use(
+      http.get('http://localhost/api/skills/alpha/content', () => HttpResponse.json({ content: SKILL })),
+      http.put('http://localhost/api/skills/alpha/content', () =>
+        HttpResponse.json(
+          { error: { code: 'VALIDATION', message: 'Frontmatter name "x" must match directory name "alpha"' } },
+          { status: 400 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithHost();
+
+    await user.click(screen.getByRole('button', { name: 'Edit alpha' }));
+    const dialog = await screen.findByRole('dialog', { name: 'alpha · SKILL.md' });
+    const ta = within(dialog).getByRole('textbox', { name: 'SKILL.md' });
+    await user.type(ta, ' edited');
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('must match directory name "alpha"');
+    expect(ta).toHaveValue(`${SKILL} edited`);
+  });
+
+  it('opens drafts with draft=1', async () => {
+    let url = '';
+    server.use(
+      http.get('http://localhost/api/skills/beta/content', ({ request }) => {
+        url = request.url;
+        return HttpResponse.json({ content: '---\nname: beta\ndescription: d\n---' });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithHost();
+    await user.click(screen.getByRole('button', { name: 'Edit draft beta' }));
+    await screen.findByRole('dialog', { name: 'beta · SKILL.md' });
+    expect(new URL(url).searchParams.get('draft')).toBe('1');
+  });
+
+  it('shows the error and opens nothing when SKILL.md cannot be read', async () => {
+    server.use(
+      http.get('http://localhost/api/skills/alpha/content', () =>
+        HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'skill alpha not found' } }, { status: 404 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithHost();
+    await user.click(screen.getByRole('button', { name: 'Edit alpha' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('skill alpha not found');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+});
+

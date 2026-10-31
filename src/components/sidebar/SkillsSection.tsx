@@ -1,4 +1,6 @@
+import { Pencil } from 'lucide-react';
 import type { Skill } from '@/server/domain/context/context.types';
+import { MarkdownView } from '@/src/components/markdown/MarkdownView';
 import { addSkillFlow } from '@/src/lib/context/addFlows';
 import { useContextStore } from '@/src/stores/context.store';
 import { useSkillsStore } from '@/src/stores/skills.store';
@@ -23,6 +25,8 @@ export function SkillsSection() {
   const togglePinned = useSkillsStore((s) => s.togglePinned);
   const promote = useSkillsStore((s) => s.promote);
   const removeMaterial = useSkillsStore((s) => s.remove);
+  const readContent = useSkillsStore((s) => s.readContent);
+  const saveContent = useSkillsStore((s) => s.saveContent);
   const error = useSkillsStore((s) => s.error);
   const clearError = useSkillsStore((s) => s.clearError);
   const openCreateWithAi = useUiStore((s) => s.openCreatingSkill);
@@ -43,6 +47,19 @@ export function SkillsSection() {
       required: true,
     });
     if (name) await updateSkillAt(index, name).catch(() => {});
+  };
+
+  /** Opens SKILL.md in the Markdown editor; a rejected save keeps the editor open with the error. */
+  const handleEditContent = async (slug: string, draft = false) => {
+    const content = await readContent(slug, draft);
+    if (content === null) return;
+    await dialog.editMarkdown({
+      title: t('skills.editorTitle', { name: slug }),
+      label: 'SKILL.md',
+      defaultValue: content,
+      plugins: 'gfm frontmatter',
+      save: (next) => (next === content ? undefined : saveContent(slug, next, draft)),
+    });
   };
 
   const handleRemoveLabel = async (index: number, current: string) => {
@@ -125,16 +142,17 @@ export function SkillsSection() {
               <span className="text-fg-faint mr-1">[{t('skills.labelBadge')}]</span>
               {skill.name}
             </span>
-            <div className="hidden group-hover:flex gap-1">
+            <div className="flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleEditLabel(i, skill.name);
                 }}
-                aria-label={`Edit ${skill.name}`}
+                aria-label={t('skills.rename', { name: skill.name })}
+                title={t('skills.rename', { name: skill.name })}
                 className="hover:text-white"
               >
-                ✎
+                <Pencil size={11} aria-hidden="true" />
               </button>
               <button
                 onClick={(e) => {
@@ -154,7 +172,7 @@ export function SkillsSection() {
           <div
             key={`material-${skill.name}`}
             data-skill-row
-            className={`group flex items-center justify-between p-1.5 rounded bg-zinc-900 border border-border-subtle text-[10px] font-mono ${
+            className={`group p-1.5 rounded bg-zinc-900 border border-border-subtle text-[10px] font-mono ${
               skill.invalid
                 ? 'text-status-error'
                 : skill.enabled
@@ -162,41 +180,59 @@ export function SkillsSection() {
                   : 'text-fg-faint'
             }`}
           >
-            <button
-              type="button"
-              disabled={!!skill.invalid}
-              onClick={() => toggleEnabled(skill.name).catch(() => {})}
-              aria-pressed={skill.enabled}
-              aria-label={`${t('skills.enable')} ${skill.name}`}
-              className="flex-1 text-left truncate disabled:cursor-not-allowed"
-              title={skill.invalid ?? skill.description}
-            >
-              <span className="text-fg-faint mr-1">
-                [{skill.invalid ? t('skills.invalidBadge') : t('skills.materialBadge')}]
-              </span>
-              <span className={skill.enabled && !skill.invalid ? '' : 'line-through opacity-60'}>
-                {skill.name}
-              </span>
-            </button>
-            {!skill.invalid && (
+            <div className="flex items-center justify-between gap-1">
+              <button
+                type="button"
+                disabled={!!skill.invalid}
+                onClick={() => toggleEnabled(skill.name).catch(() => {})}
+                aria-pressed={skill.enabled}
+                aria-label={`${t('skills.enable')} ${skill.name}`}
+                className="flex-1 text-left truncate disabled:cursor-not-allowed"
+              >
+                <span className="text-fg-faint mr-1">
+                  [{skill.invalid ? t('skills.invalidBadge') : t('skills.materialBadge')}]
+                </span>
+                <span className={skill.enabled && !skill.invalid ? '' : 'line-through opacity-60'}>
+                  {skill.name}
+                </span>
+              </button>
               <div className="flex items-center gap-1">
                 <button
-                  onClick={() => togglePinned(skill.name).catch(() => {})}
-                  aria-pressed={skill.pinned}
-                  aria-label={`${t('skills.pin')} ${skill.name}`}
-                  className={skill.pinned ? 'text-manipulation' : 'text-fg-faint hover:text-zinc-300'}
-                  title={t('skills.pin')}
+                  onClick={() => void handleEditContent(skill.name)}
+                  aria-label={t('skills.editContent', { name: skill.name })}
+                  title={t('skills.editContent', { name: skill.name })}
+                  className="text-fg-faint hover:text-zinc-200"
                 >
-                  📌
+                  <Pencil size={11} aria-hidden="true" />
                 </button>
-                <button
-                  onClick={() => handleRemoveMaterial(skill.name)}
-                  aria-label={`${t('skills.remove')} ${skill.name}`}
-                  className="hover:text-status-error"
-                >
-                  ×
-                </button>
+                {!skill.invalid && (
+                  <>
+                    <button
+                      onClick={() => togglePinned(skill.name).catch(() => {})}
+                      aria-pressed={skill.pinned}
+                      aria-label={`${t('skills.pin')} ${skill.name}`}
+                      className={skill.pinned ? 'text-manipulation' : 'text-fg-faint hover:text-zinc-300'}
+                      title={t('skills.pin')}
+                    >
+                      📌
+                    </button>
+                    <button
+                      onClick={() => handleRemoveMaterial(skill.name)}
+                      aria-label={`${t('skills.remove')} ${skill.name}`}
+                      className="hover:text-status-error"
+                    >
+                      ×
+                    </button>
+                  </>
+                )}
               </div>
+            </div>
+            {skill.invalid ? (
+              <p className="mt-1 text-[10px] text-status-error/80">{skill.invalid}</p>
+            ) : (
+              skill.description && (
+                <MarkdownView source={skill.description} className="aether-sidebar-md aether-skill-description mt-1" />
+              )
             )}
           </div>
         ))}
@@ -228,18 +264,33 @@ export function SkillsSection() {
             {drafts.map((d) => (
               <div
                 key={`draft-${d.name}`}
-                className="flex items-center justify-between p-1.5 rounded bg-zinc-900 border border-dashed border-border-subtle text-[10px] font-mono text-fg-dim"
+                className="p-1.5 rounded bg-zinc-900 border border-dashed border-border-subtle text-[10px] font-mono text-fg-dim"
               >
-                <span className="truncate" title={d.invalid ?? d.description}>
-                  {d.name}
-                </span>
-                <button
-                  disabled={!!d.invalid}
-                  onClick={() => handlePromote(d.name)}
-                  className="text-manipulation hover:underline disabled:opacity-40 disabled:no-underline"
-                >
-                  {t('skills.promote')}
-                </button>
+                <div className="flex items-center justify-between gap-1">
+                  <span className="truncate flex-1">{d.name}</span>
+                  <button
+                    onClick={() => void handleEditContent(d.name, true)}
+                    aria-label={t('skills.editDraft', { name: d.name })}
+                    title={t('skills.editDraft', { name: d.name })}
+                    className="text-fg-faint hover:text-zinc-200"
+                  >
+                    <Pencil size={11} aria-hidden="true" />
+                  </button>
+                  <button
+                    disabled={!!d.invalid}
+                    onClick={() => handlePromote(d.name)}
+                    className="text-manipulation hover:underline disabled:opacity-40 disabled:no-underline"
+                  >
+                    {t('skills.promote')}
+                  </button>
+                </div>
+                {d.invalid ? (
+                  <p className="mt-1 text-status-error/80">{d.invalid}</p>
+                ) : (
+                  d.description && (
+                    <MarkdownView source={d.description} className="aether-sidebar-md aether-skill-description mt-1" />
+                  )
+                )}
               </div>
             ))}
           </div>

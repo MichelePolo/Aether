@@ -8,6 +8,8 @@ import type { SkillsService } from '@/server/domain/skills/skills.service';
 const EnabledBody = z.object({ enabled: z.boolean() });
 const PinnedBody = z.object({ pinned: z.boolean() });
 const PromoteBody = z.object({ slug: z.string().min(1) });
+const ContentBody = z.object({ content: z.string().max(512 * 1024), draft: z.boolean().optional() });
+const isDraft = (q: unknown) => q === '1' || q === 'true';
 
 export function createSkillsRoutes(service: SkillsService): Router {
   const router = Router();
@@ -45,6 +47,23 @@ export function createSkillsRoutes(service: SkillsService): Router {
       const parsed = PromoteBody.safeParse(req.body);
       if (!parsed.success) throw new ValidationError('Invalid promote body', parsed.error);
       service.promote(parsed.data.slug);
+      res.json({ status: 'ok' });
+    }),
+  );
+
+  router.get(
+    '/:slug/content',
+    asyncHandler(async (req, res) => {
+      res.json({ content: service.readContent(req.params.slug, { draft: isDraft(req.query.draft) }) });
+    }),
+  );
+
+  router.put(
+    '/:slug/content',
+    asyncHandler(async (req, res) => {
+      const parsed = ContentBody.safeParse(req.body);
+      if (!parsed.success) throw new ValidationError('Invalid content body', parsed.error);
+      service.writeContent(req.params.slug, parsed.data.content, { draft: parsed.data.draft });
       res.json({ status: 'ok' });
     }),
   );
