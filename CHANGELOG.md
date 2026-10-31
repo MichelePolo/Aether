@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.35](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.34...aether-core-v0.1.35) (2026-10-31)
+
+
+### Features
+
+* **sidebar:** rendered Markdown in the sidebar, centered split-view editor modal ([#150](https://github.com/MichelePolo/Aether/issues/150)) ([e42789b](https://github.com/MichelePolo/Aether/commit/e42789b64f0554d449b6b8d50dd41d908a2dd2aa))
+
 ## [0.1.34](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.33...aether-core-v0.1.34) (2026-10-30)
 
 
