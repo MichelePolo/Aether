@@ -27,6 +27,7 @@ A reading path, in order. Each step assumes the previous ones.
 
 ## Elsewhere
 - [Contributing](../CONTRIBUTING.md) — how changes land (PR-only, squash)
+- [License](../LICENSE) — AGPL-3.0-or-later, with an [additional permission](../LICENSE-EXCEPTION.md) for the Claude Agent SDK
 - [Archive](archive/README.md) — historical audits (not current)
 - [Design history](superpowers/README.md) — per-slice specs and plans
 - 🇮🇹 [Documentazione in italiano](it/README.md)

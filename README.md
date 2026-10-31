@@ -112,3 +112,10 @@ e2e/           Playwright tests
 docs/          Documentation — start at docs/README.md
 data/          Local SQLite database (gitignored)
 ```
+
+## License
+
+Copyright (C) 2026 Michele Polo.
+
+Aether is free software, licensed under the [GNU Affero General Public License v3.0 or later](LICENSE) (`AGPL-3.0-or-later`), with an [additional permission](LICENSE-EXCEPTION.md) that allows combining it with the proprietary Claude Agent SDK. You can use, study, share and modify it. If you distribute a modified version, or let others use one over a network, you must publish its source code under the same license.
+
