@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
+import { Pencil } from 'lucide-react';
 import { Modal } from '@/src/components/ui/Modal';
+import { IconButton } from '@/src/components/ui/IconButton';
+import { MarkdownView } from '@/src/components/markdown/MarkdownView';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
 import { useProvidersStore } from '@/src/stores/providers.store';
@@ -41,14 +44,16 @@ export function SubAgentEditModal() {
 
   if (!id) return null;
 
-  const persist = async (partial: Partial<SubAgentRecord>) => {
+  /** Optimistic update; rolls back on failure and, with `rethrow`, lets the caller show the error. */
+  const persist = async (partial: Partial<SubAgentRecord>, opts: { rethrow?: boolean } = {}) => {
     if (!record) return;
     const prev = record;
     setRecord({ ...record, ...partial });
     try {
       await update(id, partial);
-    } catch {
+    } catch (err) {
       setRecord(prev);
+      if (opts.rethrow) throw err;
     }
   };
 
@@ -65,13 +70,13 @@ export function SubAgentEditModal() {
 
   const handleEditSystem = async () => {
     if (!record) return;
-    const text = await dialog.prompt({
-      title: 'Update instruction',
+    const current = record.systemInstruction;
+    await dialog.editMarkdown({
+      title: `System instruction · ${record.name}`,
       label: 'System instruction',
-      defaultValue: record.systemInstruction,
-      multiline: true,
+      defaultValue: current,
+      save: (text) => (text === current ? undefined : persist({ systemInstruction: text }, { rethrow: true })),
     });
-    if (text !== null) await persist({ systemInstruction: text });
   };
 
   return (
@@ -101,13 +106,9 @@ export function SubAgentEditModal() {
           <section>
             <div className="flex items-center justify-between mb-1">
               <div className="mono-label">Name</div>
-              <button
-                type="button"
-                onClick={handleRename}
-                className="text-[10px] text-manipulation hover:text-white"
-              >
-                Rename
-              </button>
+              <IconButton label="Rename sub-agent" onClick={() => void handleRename()}>
+                <Pencil size={12} aria-hidden="true" />
+              </IconButton>
             </div>
             <div className="p-1.5 rounded bg-zinc-900 border border-border-subtle text-xs font-mono text-zinc-300">
               {record.name}
@@ -117,17 +118,17 @@ export function SubAgentEditModal() {
           <section>
             <div className="flex items-center justify-between mb-1">
               <div className="mono-label">System Instruction</div>
-              <button
-                type="button"
-                onClick={handleEditSystem}
-                className="text-[10px] text-manipulation hover:text-white"
-              >
-                Edit system instruction
-              </button>
+              <IconButton label="Edit system instruction" onClick={() => void handleEditSystem()}>
+                <Pencil size={12} aria-hidden="true" />
+              </IconButton>
             </div>
-            <pre className="p-1.5 rounded bg-zinc-900 border border-border-subtle text-[10px] font-mono text-zinc-400 whitespace-pre-wrap min-h-[40px] max-h-[40vh] overflow-y-auto">
-              {record.systemInstruction || <span className="italic text-zinc-600">(empty)</span>}
-            </pre>
+            <div className="p-2 rounded bg-zinc-900 border border-border-subtle min-h-[40px] max-h-[40vh] overflow-y-auto">
+              {record.systemInstruction.trim() ? (
+                <MarkdownView source={record.systemInstruction} className="aether-sidebar-md" />
+              ) : (
+                <span className="text-xs italic text-zinc-600">(empty)</span>
+              )}
+            </div>
           </section>
 
           <label className="flex flex-col gap-1 text-xs text-zinc-400">

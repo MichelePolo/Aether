@@ -9,6 +9,20 @@ type PromptOptions = {
   multiline?: boolean;
 };
 
+type MarkdownOptions = {
+  title: string;
+  /** Accessible name of the editor's text area. */
+  label: string;
+  defaultValue?: string;
+  /** mdlib-pure plugin names for the preview (default `gfm`). */
+  plugins?: string;
+  /**
+   * Persists the text. Awaited on Save: if it throws, the editor stays open
+   * with the error and the draft, so a rejected save never loses edits.
+   */
+  save?: (value: string) => Promise<void> | void;
+};
+
 type ConfirmOptions = {
   title: string;
   message: string;
@@ -28,6 +42,12 @@ export type ActiveDialog =
       kind: 'confirm';
       id: string;
       resolve: (v: boolean) => void;
+      cancel: () => void;
+    })
+  | (MarkdownOptions & {
+      kind: 'markdown';
+      id: string;
+      resolve: (v: string) => void;
       cancel: () => void;
     });
 
@@ -122,5 +142,30 @@ export function useDialog() {
     });
   }
 
-  return { current, prompt, confirm };
+  /** Large Markdown editor (split view): the edited text, or null if discarded. */
+  function editMarkdown(opts: MarkdownOptions): Promise<string | null> {
+    return new Promise((resolve) => {
+      const id = nextId();
+      let settled = false;
+      enqueue({
+        kind: 'markdown',
+        id,
+        ...opts,
+        resolve: (v) => {
+          if (settled) return;
+          settled = true;
+          resolve(v);
+          dequeue();
+        },
+        cancel: () => {
+          if (settled) return;
+          settled = true;
+          resolve(null);
+          dequeue();
+        },
+      });
+    });
+  }
+
+  return { current, prompt, confirm, editMarkdown };
 }

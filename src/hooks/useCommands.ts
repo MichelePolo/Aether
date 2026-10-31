@@ -251,14 +251,14 @@ export function useCommands(): Command[] {
       label: 'Edit system protocol',
       icon: FileText,
       run: async () => {
+        // Same editor as the sidebar's pencil: split view, saved on Save.
         const cur = ctx.ctx?.systemInstruction ?? '';
-        const text = await dialog.prompt({
-          title: 'Edit system protocol',
+        await dialog.editMarkdown({
+          title: 'System instruction',
           label: 'System instruction',
           defaultValue: cur,
-          multiline: true,
+          save: (text) => (text === cur ? undefined : ctx.setSystem(text)),
         });
-        if (text !== null) await ctx.setSystem(text);
       },
     });
 

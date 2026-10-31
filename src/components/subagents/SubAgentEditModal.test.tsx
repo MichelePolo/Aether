@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -7,8 +7,13 @@ import { SubAgentEditModal } from './SubAgentEditModal';
 import { DialogHost } from '@/src/components/layout/DialogHost';
 import { useUiStore } from '@/src/stores/ui.store';
 import { useSubAgentsStore } from '@/src/stores/subagents.store';
+import { _resetDialogStore } from '@/src/hooks/useDialog';
+import { ensureMarkdownElements } from '@/src/lib/markdown/elements';
+
+beforeAll(() => ensureMarkdownElements());
 
 beforeEach(() => {
+  _resetDialogStore();
   useUiStore.getState()._reset();
   useSubAgentsStore.getState()._reset();
 });
@@ -86,11 +91,13 @@ describe('SubAgentEditModal', () => {
     const user = userEvent.setup();
     renderModal();
     await waitFor(() => expect(screen.getByText('old')).toBeInTheDocument());
-    await user.click(screen.getByRole('button', { name: /edit system instruction/i }));
-    const ta = await screen.findByLabelText(/system instruction/i);
+    await user.click(screen.getByRole('button', { name: 'Edit system instruction' }));
+    const editor = await screen.findByRole('dialog', { name: 'System instruction · d' });
+    expect(editor.querySelector('mdlib-editor')).toHaveAttribute('view', 'split');
+    const ta = screen.getByRole('textbox', { name: 'System instruction' });
     await user.clear(ta);
     await user.type(ta, 'newsys');
-    await user.click(screen.getByRole('button', { name: /confirm/i }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(updateSpy).toHaveBeenCalledWith('SA1', { systemInstruction: 'newsys' }));
   });
 

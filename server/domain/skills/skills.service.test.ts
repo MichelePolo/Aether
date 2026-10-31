@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { SkillsService } from './skills.service';
@@ -141,5 +141,54 @@ describe('SkillsService toggle guards', () => {
   it('setPinned throws ValidationError for an invalid skill', () => {
     mkdirSync(path.join(skillsDir, 'broken'));
     expect(() => service.setPinned('broken', true)).toThrow(/invalid/i);
+  });
+});
+
+describe('SkillsService SKILL.md content', () => {
+  const md = (name: string, description = 'Does things') => `---\nname: ${name}\ndescription: ${description}\n---\n# ${name}\n\nBody.`;
+
+  it('reads the raw SKILL.md of a skill and of a draft', () => {
+    makeSkill(skillsDir, 'alpha', 'First');
+    makeSkill(path.join(skillsDir, '.drafts'), 'beta', 'Draft');
+    expect(service.readContent('alpha')).toBe('---\nname: alpha\ndescription: First\n---\n# alpha');
+    expect(service.readContent('beta', { draft: true })).toContain('description: Draft');
+  });
+
+  it('reads a skill directory without SKILL.md as empty, so the editor can create it', () => {
+    mkdirSync(path.join(skillsDir, 'bare'));
+    expect(service.readContent('bare')).toBe('');
+  });
+
+  it('writes valid content atomically, leaving no temp file', () => {
+    makeSkill(skillsDir, 'alpha', 'First');
+    service.writeContent('alpha', md('alpha', 'Updated'));
+    expect(service.readContent('alpha')).toBe(md('alpha', 'Updated'));
+    expect(service.list().skills[0].description).toBe('Updated');
+    expect(readdirSync(path.join(skillsDir, 'alpha'))).toEqual(['SKILL.md']);
+  });
+
+  it('writes a draft in .drafts', () => {
+    makeSkill(path.join(skillsDir, '.drafts'), 'beta', 'Draft');
+    service.writeContent('beta', md('beta', 'Better'), { draft: true });
+    expect(service.list().drafts[0].description).toBe('Better');
+  });
+
+  it('refuses content that would make the skill invalid', () => {
+    makeSkill(skillsDir, 'alpha', 'First');
+    expect(() => service.writeContent('alpha', '# no frontmatter')).toThrow(/must set name and description/);
+    expect(() => service.writeContent('alpha', md('other'))).toThrow(/must match directory name "alpha"/);
+    expect(service.readContent('alpha')).toContain('description: First');
+  });
+
+  it('confines slugs to the skills dir', () => {
+    expect(() => service.readContent('../outside')).toThrow(/Invalid skill slug/);
+    expect(() => service.readContent('.drafts')).toThrow(/Invalid skill slug/);
+    expect(() => service.writeContent('../outside', md('../outside'))).toThrow(/Invalid skill slug/);
+    expect(() => service.readContent('../alpha', { draft: true })).toThrow(/Invalid skill slug/);
+  });
+
+  it('reports a missing skill as not found', () => {
+    expect(() => service.readContent('ghost')).toThrow(/skill ghost/);
+    expect(() => service.writeContent('ghost', md('ghost'), { draft: true })).toThrow(/draft ghost/);
   });
 });

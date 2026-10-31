@@ -1,50 +1,37 @@
-import { useState, useEffect } from 'react';
+import { Pencil } from 'lucide-react';
 import { useContextStore } from '@/src/stores/context.store';
-import { useMarkdownElements } from '@/src/lib/markdown/elements';
-import { MarkdownEditor } from '@/src/components/markdown/MarkdownEditor';
+import { useDialog } from '@/src/hooks/useDialog';
+import { IconButton } from '@/src/components/ui/IconButton';
+import { MarkdownView } from '@/src/components/markdown/MarkdownView';
 
 const LABEL = 'System instruction';
 
+/** Rendered system instruction; the pencil opens the Markdown editor in a modal. */
 export function SystemProtocolSection() {
   const systemInstruction = useContextStore((s) => s.context?.systemInstruction ?? '');
   const setSystemInstruction = useContextStore((s) => s.setSystemInstruction);
-  const editorReady = useMarkdownElements();
+  const dialog = useDialog();
 
-  const commit = (value: string) => {
-    if (value !== systemInstruction) setSystemInstruction(value).catch(() => {});
-  };
+  const edit = () =>
+    dialog.editMarkdown({
+      title: LABEL,
+      label: LABEL,
+      defaultValue: systemInstruction,
+      save: (value) => (value === systemInstruction ? undefined : setSystemInstruction(value)),
+    });
 
   return (
-    <section>
-      {editorReady ? (
-        // The sidebar is too narrow for side-by-side panes: start in Write,
-        // the toolbar switches to Preview or Split.
-        <MarkdownEditor
-          value={systemInstruction}
-          label={LABEL}
-          onCommit={commit}
-          view="write"
-          className="aether-md-editor text-xs"
-          style={{ blockSize: '18rem' }}
-        />
+    <section aria-label={LABEL}>
+      <div className="flex justify-end">
+        <IconButton label="Edit system instruction" onClick={() => void edit()}>
+          <Pencil size={12} aria-hidden="true" />
+        </IconButton>
+      </div>
+      {systemInstruction.trim() ? (
+        <MarkdownView source={systemInstruction} className="aether-sidebar-md max-h-72 overflow-y-auto pr-1" />
       ) : (
-        <PlainEditor value={systemInstruction} onCommit={commit} />
+        <p className="text-xs italic text-zinc-500">No system instruction yet.</p>
       )}
     </section>
-  );
-}
-
-/** Shown while the editor element loads, or if it can't be loaded. */
-function PlainEditor({ value, onCommit }: { value: string; onCommit: (value: string) => void }) {
-  const [local, setLocal] = useState(value);
-  useEffect(() => setLocal(value), [value]);
-  return (
-    <textarea
-      aria-label={LABEL}
-      className="w-full bg-zinc-900/50 border border-border-subtle rounded p-2 text-xs font-mono text-zinc-400 focus:border-disclosure outline-none min-h-[120px] resize-none"
-      value={local}
-      onChange={(e) => setLocal(e.target.value)}
-      onBlur={() => onCommit(local)}
-    />
   );
 }

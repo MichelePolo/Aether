@@ -120,10 +120,35 @@ mdlib-editor {
   max-width: 100%;
 }
 
-/* Sidebar editor (System Protocol): denser text, same muted tone as the old textarea. */
+/* Markdown editor surfaces (modal editor). */
 .aether-md-editor {
-  --md-size-code: 1em;
   background: color-mix(in oklab, var(--color-zinc-900), transparent 50%);
+  color: var(--color-zinc-300);
+}
+.aether-md-editor--dialog {
+  font-size: 0.875rem;
+}
+
+/* Skill descriptions under the name: one short paragraph, at most two lines. */
+.aether-skill-description {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+/* Read-only Markdown in the sidebar: compact, muted. */
+.aether-sidebar-md {
+  font-size: 0.75rem;
   color: var(--color-zinc-400);
+  --md-space-block: 0.6em;
+  --md-space-heading: 0.9em;
+  --md-size-h1: 1.25em;
+  --md-size-h2: 1.15em;
+  --md-size-h3: 1.05em;
 }
 

@@ -41,7 +41,7 @@ test('toggle sidebar hides the panel', async ({ page }) => {
 
 test('chat: send message and receive FakeProvider reply', async ({ page }) => {
   await page.goto('/');
-  const input = page.getByPlaceholder(/Scrivi un messaggio/i);
+  const input = page.getByRole('combobox', { name: 'Message' });
   await input.fill('ping');
   await input.press('Enter');
   await expect(page.getByText('pong')).toBeVisible({ timeout: 5000 });
@@ -50,7 +50,7 @@ test('chat: send message and receive FakeProvider reply', async ({ page }) => {
 
 test('chat: creating a second session shows it as active', async ({ page }) => {
   await page.goto('/');
-  const input = page.getByPlaceholder(/Scrivi un messaggio/i);
+  const input = page.getByRole('combobox', { name: 'Message' });
 
   // First session: send "first" and wait for streaming to fully complete.
   // The textarea is disabled while streaming; waiting for it to re-enable is
@@ -85,7 +85,7 @@ test('chat: creating a second session shows it as active', async ({ page }) => {
 
 test('chat: delete a session removes it from the list', async ({ page }) => {
   await page.goto('/');
-  const input = page.getByPlaceholder(/Scrivi un messaggio/i);
+  const input = page.getByRole('combobox', { name: 'Message' });
   await input.fill('to-delete');
   await input.press('Enter');
   await expect(page.getByText('pong').first()).toBeVisible({ timeout: 5000 });
@@ -204,19 +204,18 @@ test('subagent: create + invoke + reasoning badge', async ({ page, request }) =>
   await nameInput.fill('designer');
   await namePrompt.getByRole('button', { name: /confirm/i }).click();
 
-  // Second prompt: system instruction (multiline textarea). Scope to the dialog to avoid
-  // colliding with the edit-modal textarea added in Slice 9.
-  const sysPrompt = page.getByRole('dialog').last();
-  const sysInput = sysPrompt.getByLabel('System instruction', { exact: true });
+  // Second step: the system instruction in the Markdown editor modal (split view).
+  const sysEditor = page.getByRole('dialog', { name: 'New sub-agent · designer' });
+  const sysInput = sysEditor.getByRole('textbox', { name: 'System instruction', exact: true });
   await expect(sysInput).toBeVisible({ timeout: 5000 });
   await sysInput.fill('You are a designer.');
-  await sysPrompt.getByRole('button', { name: /confirm/i }).click();
+  await sysEditor.getByRole('button', { name: 'Save' }).click();
 
   // The sidebar should now show the new sub-agent
   await expect(sidebar.getByText('designer')).toBeVisible({ timeout: 5000 });
 
   // Send a message that mentions the sub-agent
-  const ta = page.getByPlaceholder(/scrivi un messaggio/i);
+  const ta = page.getByRole('combobox', { name: 'Message' });
   await ta.fill('@designer ping');
   await ta.press('Enter');
 
@@ -284,7 +283,7 @@ test('provider: selector lists Fake; switching persists across new session', asy
   await page.getByRole('button', { name: /new session/i }).click();
 
   // Send a message; FakeProvider replies with "pong"
-  const input = page.getByPlaceholder(/Scrivi un messaggio/i);
+  const input = page.getByRole('combobox', { name: 'Message' });
   await input.fill('ping');
   await input.press('Enter');
   await expect(page.getByText('pong')).toBeVisible({ timeout: 5000 });
@@ -304,7 +303,7 @@ test('reasoning: thinking on emits steps + opens drawer', async ({ page, request
   // enable thinking
   await page.getByRole('button', { name: /toggle thinking/i }).click();
 
-  const input = page.getByPlaceholder(/Scrivi un messaggio/i);
+  const input = page.getByRole('combobox', { name: 'Message' });
   await input.fill('think');
   await input.press('Enter');
 
@@ -464,7 +463,7 @@ test('key vault: open modal via palette, save a key, reopen shows masked', async
 
 test('fork: send message, right-click → Branch from here', async ({ page }) => {
   await page.goto('/');
-  const input = page.getByPlaceholder(/Scrivi un messaggio/i);
+  const input = page.getByRole('combobox', { name: 'Message' });
   await input.fill('hello aether');
   await input.press('Enter');
 
@@ -484,7 +483,7 @@ test('fork: send message, right-click → Branch from here', async ({ page }) =>
 
 test('attachments: paperclip → pick file → chip → send', async ({ page }) => {
   await page.goto('/');
-  const input = page.getByPlaceholder(/Scrivi un messaggio/i);
+  const input = page.getByRole('combobox', { name: 'Message' });
 
   // Set the hidden file input directly (paperclip would open the picker)
   const fileInput = page.locator('input[type="file"][accept*="image"]');

@@ -1,6 +1,7 @@
 import { useDialog } from '@/src/hooks/useDialog';
 import { PromptDialog } from '@/src/components/ui/PromptDialog';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
+import { MarkdownEditorDialog } from '@/src/components/markdown/MarkdownEditorDialog';
 
 export function DialogHost() {
   const { current } = useDialog();
@@ -17,6 +18,24 @@ export function DialogHost() {
         required={current.required}
         multiline={current.multiline}
         onConfirm={(v) => current.resolve(v)}
+        onCancel={current.cancel}
+      />
+    );
+  }
+
+  if (current.kind === 'markdown') {
+    return (
+      <MarkdownEditorDialog
+        key={current.id}
+        open
+        title={current.title}
+        label={current.label}
+        defaultValue={current.defaultValue ?? ''}
+        plugins={current.plugins}
+        onSave={async (v) => {
+          await current.save?.(v);
+          current.resolve(v);
+        }}
         onCancel={current.cancel}
       />
     );

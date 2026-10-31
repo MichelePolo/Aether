@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 vi.mock('@/src/components/layout/HiddenImportInput', () => ({
   triggerImportOpen: vi.fn(),
@@ -11,8 +11,10 @@ import { useUiStore } from '@/src/stores/ui.store';
 import { useSessionsStore } from '@/src/stores/sessions.store';
 import { useProfilesStore } from '@/src/stores/profiles.store';
 import { useContextStore } from '@/src/stores/context.store';
+import { useDialog, _resetDialogStore } from './useDialog';
 
 beforeEach(() => {
+  _resetDialogStore();
   useUiStore.getState()._reset();
   useSessionsStore.getState()._reset();
   useProfilesStore.getState()._reset();
@@ -116,4 +118,30 @@ describe('useCommands — keys.configure', () => {
     expect(useUiStore.getState().keyVaultOpen).toBe(true);
     expect(useUiStore.getState().keyVaultFocusTransport).toBeNull();
   });
+
+  it('"Edit system protocol" opens the Markdown editor and saves through the store', async () => {
+    const setSystemInstruction = vi.fn(async () => {});
+    useContextStore.setState({
+      context: { systemInstruction: '# Old', skills: [], tools: [], mcpServers: [] },
+      setSystemInstruction,
+    } as never);
+    const { result } = renderHook(() => ({ cmds: useCommands(), dialog: useDialog() }));
+
+    let done!: Promise<void> | void;
+    act(() => {
+      done = result.current.cmds.find((c) => c.id === 'context.editSystem')!.run();
+    });
+    const current = useDialogSnapshot(result);
+    expect(current).toMatchObject({ kind: 'markdown', title: 'System instruction', defaultValue: '# Old' });
+
+    await (current as { save: (v: string) => Promise<void> }).save('# New');
+    act(() => (current as { resolve: (v: string) => void }).resolve('# New'));
+    await done;
+    expect(setSystemInstruction).toHaveBeenCalledWith('# New');
+  });
 });
+
+function useDialogSnapshot(result: { current: { dialog: ReturnType<typeof useDialog> } }) {
+  return result.current.dialog.current;
+}
+
