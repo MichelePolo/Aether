@@ -39,7 +39,7 @@
     "cmdk": "^1.1.1",
     "croner": "^9.0.0",
     "dotenv": "^17.2.3",
-    "express": "^4.21.2",
+    "express": "^4.22.3",
     "lucide-react": "^0.546.0",
     "mdlib-pure": "https://github.com/MichelePolo/mdlib-pure/releases/download/mdlib-pure-v0.1.1/mdlib-pure-0.1.1.tgz",
     "motion": "^12.23.24",
@@ -76,6 +76,6 @@
     "vitest": "^4.1.6"
   },
   "overrides": {
-    "qs": "^6.16.0"
+    "qs": "^6.17.1"
   }
 }
