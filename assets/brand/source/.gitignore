@@ -1,0 +1,12 @@
+# build.sh outputs and intermediates
+venv/
+out/
+*.npy
+mark.svg
+mark-final.svg
+render*.png
+view*.html
+side*.png
+skel-vis.png
+mask-*.png
+UbuntuSans-500.ttf

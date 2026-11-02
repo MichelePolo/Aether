@@ -34,6 +34,9 @@
   "build": {
     "appId": "com.michelepolo.aether",
     "productName": "Aether",
+    "directories": {
+      "buildResources": "resources"
+    },
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "asar": true,
     "asarUnpack": [
@@ -47,6 +50,7 @@
       "preload.cjs",
       "windows-environment.mjs",
       "package.json",
+      "resources/icons/512x512.png",
       "node_modules/**/*"
     ],
     "linux": {
@@ -57,7 +61,8 @@
         "AppImage",
         "deb"
       ],
-      "category": "Development"
+      "category": "Development",
+      "icon": "resources/icons"
     },
     "mac": {
       "category": "public.app-category.developer-tools",
