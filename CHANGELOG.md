@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.36](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.35...aether-core-v0.1.36) (2026-11-02)
+
+
+### Features
+
+* **brand:** new Aether logo and app icons (C1.1 "Quantum Stream") ([#157](https://github.com/MichelePolo/Aether/issues/157)) ([2a9de53](https://github.com/MichelePolo/Aether/commit/2a9de5376c0f666f0291dd887fbfb06587eb7457))
+
 ## [0.1.35](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.34...aether-core-v0.1.35) (2026-10-31)
 
 
