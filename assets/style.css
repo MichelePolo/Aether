@@ -101,11 +101,9 @@ p { color:var(--text-dim); }
              -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
 .btn-ghost:hover { box-shadow:0 8px 26px -12px var(--disclosure); }
 
-/* ---- hero: glass panel framing the brand image ---- */
+/* ---- hero: glass panel with headline, tagline and calls to action ---- */
 .hero { text-align:center; margin-top:2.4rem; padding:clamp(1.5rem,4vw,2.6rem); border-radius:20px;
         background:rgba(255,255,255,.032); /* a touch more transparent — aurora reads through */ }
-.hero img { width:100%; max-width:720px; border-radius:14px; border:1px solid var(--edge);
-            box-shadow:0 12px 40px -16px rgba(0,0,0,.8); }
 .hero h1 { font-family:var(--font-mono); font-size:clamp(2rem,5vw,3.1rem); letter-spacing:-.01em;
            margin:1.6rem 0 .3rem; }
 .hero .tag { color:var(--text-dim); font-size:1.1rem; margin:.3rem 0 1.6rem; }
