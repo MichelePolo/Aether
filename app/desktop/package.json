@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "description": "Aether packaged as a secure Electron desktop application.",
+  "license": "AGPL-3.0-or-later",
   "author": "Michele Polo <michele.polo@gmail.com>",
   "homepage": "https://github.com/MichelePolo/Aether",
   "desktopName": "aether.desktop",

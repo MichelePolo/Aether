@@ -66,7 +66,13 @@ React 19 + Zustand, one store per domain in `src/stores/*.store.ts`. **Stores ne
 - Current documentation lives in `docs/` (start at `docs/README.md`; EN canonical, IT translations under `docs/it/`); `docs/archive/` and `docs/superpowers/` are historical — don't cite them as current behavior.
 - `DISABLE_HMR=true` disables Vite HMR **and** file watching (used so agent edits don't trigger reload flicker). The conditional in `vite.config.ts` is intentional — don't "fix" it.
 - Some code comments and the audits (now in `docs/archive/`) are written in Italian; this is expected and not a signal to translate.
+- **License: AGPL-3.0-or-later** (`LICENSE`), with an additional permission (`LICENSE-EXCEPTION.md`) only for the proprietary Claude Agent SDK. Check the license of every new runtime dependency: permissive (MIT/Apache/BSD/ISC) is fine. A new proprietary one that gets bundled in the npm tarball or the desktop installers needs the exception extended first. Keep `LICENSE-EXCEPTION.md` in `package.json` `files`.
 
 ## Configuration
 
 All env vars are optional (see `.env.example` and the README table). Key ones: `PORT` (3000), `AETHER_DATA_DIR` (`./data`), `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OLLAMA_HOST` to enable providers, `AETHER_DEFAULT_PROVIDER` to force the default, `AETHER_FAKE_PROVIDER=1` for offline dev, `NODE_ENV=production` to serve from `dist/`.
+
+## TODO
+
+- [ ] **"Source code" link in the UI (AGPL §13).** Add a visible link to the repository (https://github.com/MichelePolo/Aether), e.g. in the sidebar footer or an About entry, plus a command-palette entry. Section 13 requires anyone who lets users interact with a *modified* Aether over a network to offer them its source; a built-in link makes that automatic for forks. Keep the URL in one constant so a fork only has to change it there.
+
