@@ -50,7 +50,7 @@
     "react-dom": "^19.0.1",
     "tailwind-merge": "^3.6.0",
     "vite": "^6.2.3",
-    "zod": "^4.4.3",
+    "zod": "^4.6.7",
     "zustand": "^5.0.13"
   },
   "devDependencies": {
