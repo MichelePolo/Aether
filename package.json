@@ -64,8 +64,8 @@
     "@types/node": "^22.14.0",
     "@types/react-dom": "^19.2.3",
     "@types/supertest": "^7.2.0",
-    "@vitest/coverage-v8": "^4.1.6",
-    "@vitest/ui": "^4.1.6",
+    "@vitest/coverage-v8": "^4.1.12",
+    "@vitest/ui": "^4.1.12",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
     "jsdom": "^29.1.1",
@@ -75,9 +75,13 @@
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
     "vite": "^6.4.5",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.12"
   },
   "overrides": {
-    "qs": "^6.17.1"
+    "qs": "^6.17.1",
+    "@modelcontextprotocol/server-filesystem": {
+      "glob": "^14.0.3",
+      "minimatch": "^11.0.4"
+    }
   }
 }

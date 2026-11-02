@@ -1,0 +1,25 @@
+# Dependabot: security updates only, grouped into one PR per run.
+#
+# Security updates are switched on in the repo settings; this file only shapes
+# them. `open-pull-requests-limit: 0` turns OFF routine version updates (the
+# security-update PRs have their own limit and are not affected).
+#
+# Both npm projects are listed: the root app and the Electron shell in
+# app/desktop, which has its own lockfile (and a full copy of aether-core's
+# dependency tree). Without this file Dependabot only ran on the root.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directories:
+      - "/"
+      - "/app/desktop"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: "fix(deps)"
+    groups:
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
