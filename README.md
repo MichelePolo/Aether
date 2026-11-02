@@ -1,3 +1,11 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/aether-logo@2x.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/brand/aether-logo-on-light@2x.png">
+    <img alt="Aether" src="assets/brand/aether-logo-on-light@2x.png" width="360">
+  </picture>
+</p>
+
 # Aether Core
 
 > 🇬🇧 English · [🇮🇹 Italiano](docs/it/README.md)

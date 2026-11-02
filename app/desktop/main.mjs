@@ -66,6 +66,10 @@ async function createWindow() {
     minWidth: 960,
     minHeight: 640,
     show: false,
+    // Linux takes the window/taskbar icon from here; macOS and Windows use the bundle icon.
+    ...(process.platform === 'linux'
+      ? { icon: path.join(import.meta.dirname, 'resources', 'icons', '512x512.png') }
+      : {}),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
