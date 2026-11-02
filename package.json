@@ -1,7 +1,7 @@
 {
   "name": "aether-core",
   "private": true,
-  "version": "0.1.36",
+  "version": "0.1.37",
   "license": "AGPL-3.0-or-later",
   "files": [
     "dist",

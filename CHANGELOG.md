@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.37](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.36...aether-core-v0.1.37) (2026-11-02)
+
+
+### Bug Fixes
+
+* **deps:** clear the npm audit backlog, group future security updates ([#168](https://github.com/MichelePolo/Aether/issues/168)) ([a64c6f3](https://github.com/MichelePolo/Aether/commit/a64c6f31c2d0d41299f021a012fab7ffd2b55484))
+
 ## [0.1.36](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.35...aether-core-v0.1.36) (2026-11-02)
 
 
