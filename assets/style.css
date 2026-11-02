@@ -82,6 +82,8 @@ p { color:var(--text-dim); }
 }
 .nav .brand { font-family:var(--font-mono); font-weight:700; letter-spacing:.04em; color:#fff; }
 .nav .brand .dot { color:var(--disclosure); }
+.nav .brand { display:flex; align-items:center; line-height:0; text-decoration:none; }
+.nav .brand img { display:block; height:32px; width:auto; }
 .nav .links { margin-left:auto; display:flex; gap:1.25rem; align-items:center;
               font-family:var(--font-mono); font-size:.82rem; }
 .nav .links a { color:var(--text-dim); }
