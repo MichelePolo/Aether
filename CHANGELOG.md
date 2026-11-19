@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.38](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.37...aether-core-v0.1.38) (2026-11-19)
+
+
+### Bug Fixes
+
+* **deps:** bump @hono/node-server from 2.1.5 to 2.1.8 in the security group across 1 directory ([#170](https://github.com/MichelePolo/Aether/issues/170)) ([2d8bc17](https://github.com/MichelePolo/Aether/commit/2d8bc177c9c84e340a3a86e12cd54e2220ba1d5d))
+
 ## [0.1.37](https://github.com/MichelePolo/Aether/compare/aether-core-v0.1.36...aether-core-v0.1.37) (2026-11-02)
 
 
